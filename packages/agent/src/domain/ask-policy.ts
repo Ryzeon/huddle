@@ -10,6 +10,7 @@ export type RejectReason =
 export type AskDecision =
   | { kind: 'reject'; reason: RejectReason; detail: string }
   | { kind: 'serve-cached'; entry: CachedAnswer }
+  | { kind: 'queue'; detail: string }
   | { kind: 'run-agent' };
 
 export interface QuotaVerdict {
@@ -54,10 +55,11 @@ export function decideIncoming(context: AskContext): AskDecision {
           reason: 'quota_exceeded',
           detail: `cuota diaria agotada (${context.dailyQuota ?? '?'}/día)`,
         }
+      // La concurrencia no es un no, es un todavía no: se espera turno. La
+      // cuota diaria sí es un no, porque no se libera esperando.
       : {
-          kind: 'reject',
-          reason: 'rate_limited',
-          detail: `ya hay ${context.inFlight} pregunta/s en curso`,
+          kind: 'queue',
+          detail: `en cola; hay ${context.inFlight} pregunta/s en curso`,
         };
   }
 

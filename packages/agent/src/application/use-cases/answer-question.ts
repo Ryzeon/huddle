@@ -1,5 +1,6 @@
 import { decideIncoming, type RejectReason } from '../../domain/ask-policy.js';
 import type { Quota } from '../../domain/quota.js';
+import type { AskQueue } from '../ask-queue.js';
 import type { QuestionCache } from '../../domain/answer-cache.js';
 import type {
   AnswerEnginePort,
@@ -23,6 +24,7 @@ export interface AnswerQuestionDeps {
   clock: ClockPort;
   logger: LoggerPort;
   announceQuota?: QuotaAnnouncer;
+  queue?: AskQueue;
 }
 
 export type QuotaAnnouncer = (remaining: number | null) => void;
@@ -70,6 +72,11 @@ export class AnswerQuestionUseCase {
       return;
     }
 
+    if (decision.kind === 'queue') {
+      this.enqueue(incoming, decision.detail);
+      return;
+    }
+
     if (decision.kind === 'serve-cached') {
       const entry = decision.entry;
       room.sendAnswer(incoming.id, {
@@ -86,7 +93,18 @@ export class AnswerQuestionUseCase {
       return;
     }
 
-    // A partir de aquí ya reservamos presupuesto: hay que liberarlo siempre.
+    // El hueco ya está reservado por `reserveQuota`.
+    return this.serve(incoming);
+  }
+
+  /**
+   * Responde con el hueco de concurrencia ya cogido. Lo llaman dos caminos: el
+   * normal, y la cola cuando le llega el turno; por eso no reserva nada, solo
+   * libera al final.
+   */
+  private async serve(incoming: IncomingQuestion): Promise<void> {
+    const { room, quota, repo, audit, clock, logger } = this.deps;
+    const sha = repo.currentSha();
     const startedAt = clock.now();
     logger.info(`→ ${incoming.from} pregunta: ${incoming.question.slice(0, 70)}`);
 
@@ -101,7 +119,45 @@ export class AnswerQuestionUseCase {
       const announce = this.deps.announceQuota;
       if (announce) announce(quota.remaining);
       else room.announcePresence(quota.remaining);
+
+      // Al soltar el hueco, que entre quien esperaba.
+      this.deps.queue?.pump(() => quota.tryAcquire().allowed);
     }
+  }
+
+  /**
+   * Sin cola configurada se rechaza como antes: el comportamiento nuevo es
+   * opcional y no cambia el de quien no la inyecta (los tests, por ejemplo).
+   */
+  private enqueue(incoming: IncomingQuestion, detail: string): void {
+    const { room, audit, clock, queue } = this.deps;
+
+    if (!queue) {
+      room.sendFailure(incoming.id, 'rate_limited', detail);
+      audit.record({ event: 'rejected', from: incoming.from, reason: 'rate_limited' });
+      return;
+    }
+
+    const position = queue.enqueue({
+      id: incoming.id,
+      from: incoming.from,
+      deadline: clock.now() + incoming.ttlSeconds * 1000,
+      run: () => this.serve(incoming),
+      drop: (motivo) => {
+        room.sendFailure(incoming.id, 'timeout', motivo);
+        audit.record({ event: 'dropped', from: incoming.from, detail: motivo });
+      },
+    });
+
+    if (position === null) {
+      room.sendFailure(incoming.id, 'rate_limited', 'hay demasiadas preguntas esperando turno');
+      audit.record({ event: 'rejected', from: incoming.from, reason: 'rate_limited' });
+      return;
+    }
+
+    // Que quien pregunta sepa que no se ha perdido, y cuántos van por delante.
+    room.sendTrace(incoming.id, `en cola, ${position} por delante`);
+    audit.record({ event: 'queued', from: incoming.from, position });
   }
 
   private async runAgent(

@@ -39,6 +39,7 @@ import {
   createQuotaStore,
   createVocabularyStore,
 } from '../adapters/outbound/fs-stores.js';
+import { AskQueue } from '../application/ask-queue.js';
 import { ExpandVocabularyUseCase } from '../application/use-cases/expand-vocabulary.js';
 import { VocabularyAwareInspector } from '../application/vocabulary-aware-inspector.js';
 
@@ -49,9 +50,10 @@ export function makeWorkspaceFactory(
   audit: AuditLogPort,
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
+  queue: AskQueue,
 ): (workspace: Workspace) => WorkspaceAgent {
   return (workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota);
+    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue);
 }
 
 export function buildAgent(config: Config): AgentService {
@@ -63,6 +65,10 @@ export function buildAgent(config: Config): AgentService {
     store: createQuotaStore(),
   });
 
+  // Una sola cola para todos los repositorios, por el mismo motivo que la
+  // cuota: el hueco es de tu suscripción, no del repositorio.
+  const queue = new AskQueue({ clock: systemClock, logger }, MAX_WAITING);
+
   // Se lee al anunciar, no al construir: así incluye también los repositorios
   // añadidos en caliente después de arrancar.
   const gateways: RoomGatewayPort[] = [];
@@ -71,7 +77,7 @@ export function buildAgent(config: Config): AgentService {
   };
 
   const workspaces = config.workspaces.map((workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota),
+    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue),
   );
 
   return new AgentService(
@@ -86,6 +92,7 @@ export function buildAgent(config: Config): AgentService {
         audit,
         gateways,
         announceQuota,
+        queue,
       ),
     },
     { room: config.room, alias: config.alias },
@@ -100,6 +107,7 @@ function buildWorkspace(
   audit: AuditLogPort,
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
+  queue: AskQueue,
 ): WorkspaceAgent {
   // El inspector de git dice de qué trata el repositorio con sus propias
   // palabras; el decorador le añade aquellas con las que otros lo buscarían.
@@ -152,7 +160,7 @@ function buildWorkspace(
   gateways.push(room);
 
   const answerQuestion = new AnswerQuestionUseCase(
-    { engine, room, repo, quota, cache, audit, clock: systemClock, logger, announceQuota },
+    { engine, room, repo, quota, cache, audit, clock: systemClock, logger, announceQuota, queue },
     {
       blocked: config.blocked,
       dailyQuota: config.dailyQuota,
@@ -173,6 +181,13 @@ function buildWorkspace(
 }
 
 const VOCABULARY_TIMEOUT_MS = 45_000;
+
+/**
+ * Cuántas preguntas pueden esperar turno. Con el tope por defecto de una
+ * simultánea, esto es una cola de cinco; más allá es más honesto decir que no
+ * que dejar a alguien esperando media hora.
+ */
+const MAX_WAITING = 5;
 
 function cacheFileFor(workspace: Workspace): string | undefined {
   if (!workspace.tag) return undefined; // el principal usa el nombre por defecto

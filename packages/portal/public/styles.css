@@ -25,13 +25,8 @@
 
   --r: 4px;
 
-  /*
-   * El chat es el contenido: la mesa dice quién está y qué pasa, pero lo que
-   * se lee son las preguntas y sus respuestas. Por eso la columna crece con la
-   * pantalla en vez de quedarse fija: a 344px se llevaba el 18% de un monitor
-   * ancho. El tope evita que las líneas se hagan incómodas de leer.
-   */
-  --lateral: clamp(380px, 34vw, 640px);
+  /* Mitad conversación, mitad mesa. */
+  --lateral: 50%;
 }
 
 :root[data-tema="claro"] {
@@ -880,8 +875,8 @@ a {
 
 @media (max-width: 1180px) {
   :root {
-    /* Sigue proporcional, pero cede antes para que la mesa no se ahogue. */
-    --lateral: clamp(320px, 32vw, 420px);
+    /* En pantallas justas la mesa necesita algo más de sitio que la mitad. */
+    --lateral: 44%;
   }
   .cabecera__datos {
     gap: 14px;
