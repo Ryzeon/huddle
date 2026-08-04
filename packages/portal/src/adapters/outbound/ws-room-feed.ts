@@ -50,8 +50,6 @@ export class WsRoomFeed implements RoomFeed {
     this.outbox.push(message);
   }
 
-  // --- interno ------------------------------------------------------------
-
   private open(): void {
     if (this.stopped) return;
     this.emit({ t: 'transport', status: 'connecting' });

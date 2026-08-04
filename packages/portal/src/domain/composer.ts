@@ -65,10 +65,6 @@ export function applyMention(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Qué se manda al pulsar enter
-// ---------------------------------------------------------------------------
-
 export type Draft =
   | { kind: 'empty' }
   | { kind: 'message'; text: string }

@@ -68,8 +68,6 @@ export class ChatView {
     this.input.focus();
   }
 
-  // --- caja de escribir ---------------------------------------------------
-
   private onKeyDown(event: KeyboardEvent): void {
     if (this.mention && this.active >= 0) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -175,10 +173,6 @@ export class ChatView {
     this.hint.textContent = 'enter envía · mayús+enter salta de línea';
   }
 }
-
-// ---------------------------------------------------------------------------
-// Pintado de una entrada
-// ---------------------------------------------------------------------------
 
 function renderEntry(entry: FormattedEntry, you: string | null): HTMLElement {
   const row = el('article', {

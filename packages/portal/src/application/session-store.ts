@@ -54,8 +54,6 @@ export class SessionStore {
     return () => this.listeners.delete(listener);
   }
 
-  // --- acciones -----------------------------------------------------------
-
   sendMessage(text: string): void {
     this.send({ t: 'msg', text });
   }
