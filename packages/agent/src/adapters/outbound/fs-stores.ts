@@ -58,14 +58,6 @@ export function createCacheStore(fileName = 'cache.json'): CacheStorePort {
   };
 }
 
-/**
- * Vocabularios ampliados, todos en un archivo y bajo clave de contenido.
- *
- * Van juntos y no uno por repositorio porque son listas de pocas decenas de
- * palabras: un archivo por repo serían muchos archivos diminutos para nada.
- * La clave cambia sola cuando cambia la descripción del repositorio, así que
- * las entradas viejas quedan huérfanas; se limpian al reescribir.
- */
 export function createVocabularyStore(
   path = join(HUDDLE_DIR, 'vocabulary.json'),
 ): VocabularyStorePort {
@@ -79,7 +71,6 @@ export function createVocabularyStore(
   };
 }
 
-/** Store en memoria, para tests. */
 export function createMemoryQuotaStore(initial: QuotaState | null = null): QuotaStorePort {
   let state = initial;
   return {

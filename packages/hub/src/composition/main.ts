@@ -16,10 +16,8 @@ import { join } from 'node:path';
 
 const PORT = Number(process.env.HUDDLE_PORT ?? 8787);
 const HOST = process.env.HUDDLE_HOST ?? '0.0.0.0';
-/** Dónde vive el historial de sesiones. Sobrevive al reinicio del hub. */
 const HISTORY_DIR = process.env.HUDDLE_HISTORY_DIR ?? join(homedir(), '.huddle-hub', 'historial');
 const SWEEP_INTERVAL_MS = 15_000;
-/** Cada cuánto se aplica la retención. No hace falta más fino que una hora. */
 const PURGE_INTERVAL_MS = 60 * 60 * 1000;
 
 function log(message: string): void {

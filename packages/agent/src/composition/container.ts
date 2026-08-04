@@ -42,10 +42,6 @@ import {
 import { ExpandVocabularyUseCase } from '../application/use-cases/expand-vocabulary.js';
 import { VocabularyAwareInspector } from '../application/vocabulary-aware-inspector.js';
 
-/**
- * Fábrica de un repositorio suelto, para poder añadir uno con el daemon ya
- * corriendo sin reiniciarlo. Cierra sobre la cuota compartida a propósito.
- */
 export function makeWorkspaceFactory(
   config: Config,
   quota: Quota,
@@ -176,14 +172,8 @@ function buildWorkspace(
   });
 }
 
-/**
- * Corte para ampliar el vocabulario. Sobrado para una llamada que en la prueba
- * tardó once segundos, y corto para que un CLI colgado no deje la ampliación
- * pendiente el resto de la vida del daemon.
- */
 const VOCABULARY_TIMEOUT_MS = 45_000;
 
-/** Un archivo de caché por tag, para que no se pisen entre repositorios. */
 function cacheFileFor(workspace: Workspace): string | undefined {
   if (!workspace.tag) return undefined; // el principal usa el nombre por defecto
   const safe = workspace.tag.replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -1,11 +1,3 @@
-/**
- * Caso de uso: responder una pregunta que llegó de la sala.
- *
- * Orquestación pura sobre puertos. Antes esto eran 90 líneas dentro del
- * daemon mezcladas con el socket y el spawn; ahora se puede ejercitar entero
- * con un motor de mentira, sin lanzar un subproceso ni gastar cuota.
- */
-
 import { decideIncoming, type RejectReason } from '../../domain/ask-policy.js';
 import type { Quota } from '../../domain/quota.js';
 import type { QuestionCache } from '../../domain/answer-cache.js';
@@ -30,31 +22,19 @@ export interface AnswerQuestionDeps {
   audit: AuditLogPort;
   clock: ClockPort;
   logger: LoggerPort;
-  /** Si falta, solo se anuncia por la conexión propia. */
   announceQuota?: QuotaAnnouncer;
 }
 
-/**
- * Difunde la cuota por TODAS las conexiones del agente.
- *
- * La cuota es una sola para todos los repositorios, así que anunciarla solo
- * por la conexión que respondió deja a las demás mostrando un número viejo
- * hasta el siguiente latido — hasta 20 segundos diciendo algo que no es.
- */
 export type QuotaAnnouncer = (remaining: number | null) => void;
 
 export interface AnswerQuestionConfig {
   blocked: readonly Alias[];
   dailyQuota: number | null;
-  /** Forkear la sesión viva del dueño para heredar contexto y caché. */
   forkFromSession: boolean;
 }
 
-/** Estado que sobrevive entre preguntas. */
 export interface AgentSessionState {
-  /** Última sesión del dueño; se aprende al responder y se forkea después. */
   ownerSessionId?: string;
-  /** Último aviso del proveedor sobre límites de uso. */
   usageLimit?: UsageLimit;
 }
 

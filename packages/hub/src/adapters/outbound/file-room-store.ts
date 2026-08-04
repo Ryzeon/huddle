@@ -1,12 +1,3 @@
-/**
- * Salas en disco.
- *
- * Sin esto, las salas viven solo en memoria: al reiniciar el hub sus códigos
- * dejan de funcionar y el historial de la sala se vuelve inalcanzable aunque
- * siga guardado. Persistirlas es lo que convierte una sala en algo a lo que
- * puedes volver mañana en vez de una sesión de usar y tirar.
- */
-
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RoomRecord, RoomStorePort } from '../../application/ports/member-channel.js';

@@ -1,15 +1,3 @@
-/**
- * Router del hub.
- *
- * Ya no contiene lógica: mapea cada mensaje entrante al command handler que
- * le toca y expone las queries. Todo el estado compartido vive en `state/`,
- * y cada operación en su propio handler bajo `commands/`.
- *
- * Se mantiene como fachada porque es la superficie que usan los adaptadores
- * (y los tests): partir la implementación por debajo no debería obligar a
- * reescribir ni el servidor WS ni la suite.
- */
-
 import type { ClientMessage } from '@huddle/protocol';
 import type { TranscriptEntry } from '../domain/room.js';
 import type { BucketPolicy } from '../domain/rate-limit.js';
@@ -35,14 +23,8 @@ import { RoomQueries, type HubStats } from './queries/room-queries.js';
 
 export interface HubConfig {
   askPolicy: BucketPolicy;
-  /**
-   * Cuánto vive el historial. Cuando a una sala no le queda ninguna entrada
-   * vigente, se cierra sola: sin comando de limpieza y sin salas zombis.
-   */
   retentionMs: number;
-  /** Techo del TTL que puede pedir un cliente, en segundos. */
   maxTtlSeconds: number;
-  /** Sin latido durante este tiempo, se considera caído. */
   heartbeatTimeoutMs: number;
 }
 
@@ -61,7 +43,6 @@ export interface HubDeps {
   transcripts: TranscriptStorePort;
   rooms?: RoomStorePort;
   log?: (message: string) => void;
-  /** Inyectable para que los tests tengan códigos predecibles. */
   generateCode?: () => string;
 }
 
@@ -132,9 +113,6 @@ export class HubService {
     });
   }
 
-  // -- Queries ---------------------------------------------------------------
-
-  /** Resucita las salas guardadas. Se llama una vez al arrancar. */
   restore(): void {
     const records = this.roomStore?.readAll() ?? [];
     if (records.length === 0) return;
@@ -143,10 +121,6 @@ export class HubService {
     this.purgeExpired();
   }
 
-  /**
-   * Aplica la retención: tira lo viejo y cierra las salas que se quedan sin
-   * memoria. Una sala existe mientras tenga algo que recordar.
-   */
   purgeExpired(): void {
     const cutoff = this.clock.now() - this.retentionMs;
     let closed = 0;
@@ -169,10 +143,6 @@ export class HubService {
     this.roomStore?.writeAll(this.registry.snapshot());
   }
 
-  /**
-   * Historial de la sala. Sirve la copia en memoria si sigue viva, y si no,
-   * la del disco: cerrar una sala no borra lo que el equipo aprendió en ella.
-   */
   transcriptOf(roomCode: string): readonly TranscriptEntry[] {
     const code = normalizeRoomCode(roomCode);
     const live = this.queries.transcript(code);
@@ -182,8 +152,6 @@ export class HubService {
   stats(): HubStats {
     return this.queries.stats();
   }
-
-  // -- Comandos --------------------------------------------------------------
 
   handle(channel: MemberChannelPort, message: ClientMessage): void {
     if (message.t === 'create') {
@@ -259,7 +227,6 @@ export class HubService {
     this.persistRooms();
   }
 
-  /** Lo dispara un scheduler del adaptador. */
   sweep(): void {
     this.sweepStale.handle();
   }

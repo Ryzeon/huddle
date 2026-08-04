@@ -1,10 +1,3 @@
-/**
- * Adaptador de salida: describe el repositorio expuesto leyendo git y el disco.
- *
- * Implementa `RepoInspectorPort`. En los tests se reemplaza por un objeto
- * literal, así que ningún caso de uso necesita un repo de verdad.
- */
-
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -19,18 +12,9 @@ const MAX_DIRS = 40;
 const MAX_SUMMARY_CHARS = 400;
 const MAX_KEYWORDS = 40;
 
-/**
- * Tope de nombres de dependencias en la tarjeta.
- *
- * Un `package.json` de una app con interfaz trae cincuenta. Son términos
- * legítimos —alguien puede preguntar «¿cómo montasteis el gráfico?»— pero son
- * la señal más débil que hay, y sin tope se comen la tarjeta entera y dejan
- * fuera lo que de verdad identifica al repositorio.
- */
 const MAX_DEPENDENCY_TERMS = 12;
 const GIT_TIMEOUT_MS = 3_000;
 
-/** Manifiestos de los que sacar el nombre y la descripción del proyecto. */
 const MANIFESTS = [
   'package.json',
   'pyproject.toml',
@@ -88,13 +72,6 @@ export class GitRepoInspector implements RepoInspectorPort {
     }
   }
 
-  /**
-   * Directorios hasta segundo nivel.
-   *
-   * Saber que un repositorio tiene `src` no distingue nada; saber que tiene
-   * `src/billing` o `src/auth` es justo lo que necesita el ruteo para no
-   * mandarle una pregunta de cobros a quien trabaja en infraestructura.
-   */
   private topLevelDirs(): string[] {
     const usable = (name: string): boolean =>
       !name.startsWith('.') && !IGNORED_DIRS.has(name);
@@ -121,11 +98,6 @@ export class GitRepoInspector implements RepoInspectorPort {
     }
   }
 
-  /**
-   * Encabezado del CLAUDE.md o, si no hay, del README.
-   * Muchos repositorios no tienen CLAUDE.md, y quedarse sin resumen dejaba al
-   * ruteo sin nada donde enganchar.
-   */
   private readSummary(): string | undefined {
     for (const name of ['CLAUDE.md', 'README.md', 'readme.md']) {
       const path = join(this.cwd, name);
@@ -144,7 +116,6 @@ export class GitRepoInspector implements RepoInspectorPort {
     return undefined;
   }
 
-  /** Términos sacados de los manifiestos que haya en la raíz. */
   private manifestKeywords(): string[] {
     const terms = new Set<string>();
 
@@ -166,10 +137,6 @@ export class GitRepoInspector implements RepoInspectorPort {
   }
 }
 
-/**
- * Palabras que aparecen en cualquier manifiesto y no dicen nada del proyecto.
- * Sin esta lista, media tarjeta serían nombres de campos.
- */
 const MANIFEST_NOISE = new Set([
   'true', 'false', 'null', 'none', 'name', 'version', 'license', 'main', 'type',
   'module', 'index', 'dist', 'build', 'test', 'tests', 'src', 'lib', 'bin',
@@ -182,18 +149,6 @@ const MANIFEST_NOISE = new Set([
   'skeleton', 'application', 'package', 'library',
 ]);
 
-/**
- * Términos con los que un manifiesto describe su proyecto.
- *
- * Se leen los campos que significan algo (nombre, descripción, etiquetas y
- * nombres de dependencias) en vez de partir el archivo en palabras. La versión
- * anterior hacía justo eso, y una tarjeta de `package.json` acababa siendo
- * `scripts`, `--watch`, `node_modules` y `babel`: cuarenta términos que no
- * distinguen un repositorio de ningún otro, ocupando el sitio de los que sí.
- *
- * Las dependencias de desarrollo quedan fuera a propósito. Que un proyecto use
- * eslint no ayuda a decidir a quién se le pregunta.
- */
 export function manifestTerms(fileName: string, content: string): string[] {
   if (fileName.endsWith('.json')) return jsonManifestTerms(content);
 
@@ -209,7 +164,6 @@ export function manifestTerms(fileName: string, content: string): string[] {
   return cleanTerms(raw);
 }
 
-/** `package.json` y `composer.json`: los campos que describen, no el resto. */
 function jsonManifestTerms(content: string): string[] {
   let parsed: Record<string, unknown>;
   try {
@@ -237,7 +191,6 @@ function jsonManifestTerms(content: string): string[] {
   return [...cleanTerms(identity), ...dependencies];
 }
 
-/** `Cargo.toml` y `pyproject.toml`: `name`, `description` y `keywords`. */
 function tomlManifestTerms(content: string): string[] {
   return [
     ...matchAll(content, /^\s*(?:name|description)\s*=\s*["']([^"']+)["']/gm),
@@ -249,11 +202,6 @@ function matchAll(content: string, pattern: RegExp): string[] {
   return [...content.matchAll(pattern)].map((match) => match[1] ?? '');
 }
 
-/**
- * Parte las frases en palabras, quita rutas y ámbitos, y descarta el ruido.
- * `@scope/paquete` y `github.com/org/repo` se quedan en su último tramo, que
- * es el que alguien escribiría al preguntar.
- */
 function cleanTerms(raw: readonly string[]): string[] {
   const out: string[] = [];
 

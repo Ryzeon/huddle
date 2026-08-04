@@ -1,20 +1,7 @@
-/**
- * Contrato de cables de Huddle.
- *
- * Un solo sobre JSON por frame de WebSocket, discriminado por `t`.
- * El hub solo rutea: nunca lee ni reescribe el contenido de una respuesta.
- */
-
 export const PROTOCOL_VERSION = 1;
 
-// ---------------------------------------------------------------------------
-// Identidad
-// ---------------------------------------------------------------------------
-
-/** Alias de un miembro, siempre con `@` (ej. `@ryzeon`). */
 export type Alias = string;
 
-/** Destino de una pregunta. */
 export type Target =
   | Alias // un miembro concreto
   | '@all' // fan-out a toda la sala
@@ -34,55 +21,26 @@ export function isBroadcastTarget(target: Target): boolean {
   return target === '@all' || target === '@auto';
 }
 
-// ---------------------------------------------------------------------------
-// Tarjeta de capacidades — qué sabe este agente
-// ---------------------------------------------------------------------------
-
 export interface CapabilityCard {
-  /** Nombre del repo (basename del cwd o del remote de git). */
   repo: string;
-  /** Remote de git, si existe. */
   remote?: string;
-  /** Rama actual. */
   branch?: string;
-  /** SHA corto del HEAD — acompaña cada respuesta para detectar deriva. */
   sha?: string;
-  /**
-   * Directorios hasta segundo nivel (`src/auth`, `src/payments`).
-   *
-   * El segundo nivel es lo que de verdad describe un repositorio: saber que
-   * tiene `src` no distingue nada, saber que tiene `src/billing` sí.
-   */
   dirs: string[];
-  /** Primeras líneas del CLAUDE.md o, si no hay, del README. */
   summary?: string;
-  /**
-   * Términos sueltos sacados de los manifiestos (package.json, go.mod,
-   * pom.xml…): nombre del paquete, descripción, dependencias señaladas.
-   * Existen solo para dar al ruteo más superficie donde enganchar.
-   */
   keywords?: string[];
 }
 
 export interface Member {
   alias: Alias;
-  /** true si solo observa (el portal web); no recibe preguntas. */
   viewer?: boolean;
-  /** Epoch ms de entrada: decide quién hereda el mando. */
   joinedAt?: number;
-  /** Un humano puede tener varios tags: `@ryzeon:api`, `@ryzeon:web`. */
   tag?: string;
   status: 'online' | 'busy' | 'offline';
   card?: CapabilityCard;
-  /** Epoch ms de la última señal de vida. */
   lastSeen: number;
-  /** Preguntas que aún acepta hoy; `null` si el dueño no puso tope. */
   quotaRemaining: number | null;
 }
-
-// ---------------------------------------------------------------------------
-// Respuestas — el contrato que `--json-schema` le impone a Claude
-// ---------------------------------------------------------------------------
 
 export interface SourceRef {
   file: string;
@@ -92,16 +50,10 @@ export interface SourceRef {
 export interface Answer {
   answer: string;
   sources: SourceRef[];
-  /** El modelo se autoevalúa; el hub lo usa para decidir si escala de tier. */
   confidence: 'low' | 'medium' | 'high';
-  /** Presente cuando el agente no pudo contestar con lo que tenía a mano. */
   needsEscalation?: boolean;
 }
 
-/**
- * Se pasa literal a `claude --json-schema`. Mantenerlo plano y sin `$ref`:
- * los structured outputs no soportan esquemas recursivos.
- */
 export const ANSWER_JSON_SCHEMA = {
   type: 'object',
   properties: {
@@ -133,15 +85,6 @@ export const ANSWER_JSON_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-// ---------------------------------------------------------------------------
-// Cliente → hub
-// ---------------------------------------------------------------------------
-
-/**
- * Crear una sala. El hub devuelve un código único que **sustituye al token**:
- * es la única llave, así que quien lo tiene entra, y quien no, no.
- * Quien crea la sala queda como anfitrión.
- */
 export interface CreateRoomMessage {
   t: 'create';
   v: number;
@@ -152,7 +95,6 @@ export interface CreateRoomMessage {
   quotaRemaining: number | null;
 }
 
-/** Expulsar a alguien. Solo el anfitrión. */
 export interface KickMessage {
   t: 'kick';
   alias: Alias;
@@ -167,12 +109,6 @@ export interface JoinMessage {
   tag?: string;
   card?: CapabilityCard;
   quotaRemaining: number | null;
-  /**
-   * Solo observa: no responde preguntas ni cuenta como agente disponible.
-   *
-   * Lo usa el portal web. Sin esto tendría que fingir ser un agente, y el
-   * ruteo acabaría mandándole preguntas que nadie va a contestar.
-   */
   viewer?: boolean;
 }
 
@@ -181,23 +117,15 @@ export interface AskMessage {
   id: string;
   to: Target;
   q: string;
-  /** Segundos antes de que el hub abandone la pregunta. */
   ttl: number;
 }
 
-/** Chat humano normal en la sala. */
 export interface ChatMessage {
   t: 'msg';
   from?: Alias;
   text: string;
 }
 
-/**
- * Fragmento de respuesta en streaming, del que responde hacia el hub.
- *
- * `from` lo rellena el hub al reenviar: quien responde no lo manda, porque en
- * un `@all` el que pregunta necesita saber cuál de los agentes está hablando.
- */
 export interface ChunkMessage {
   t: 'chunk';
   id: string;
@@ -205,7 +133,6 @@ export interface ChunkMessage {
   from?: Alias;
 }
 
-/** Línea de estado ("leyendo src/auth.ts") — para que la UI no parezca colgada. */
 export interface TraceMessage {
   t: 'trace';
   id: string;
@@ -220,12 +147,10 @@ export interface ResultMessage {
   answer: string;
   sources: SourceRef[];
   confidence: Answer['confidence'];
-  /** Rama y SHA en los que se produjo la respuesta. */
   branch?: string;
   sha?: string;
   /** Milisegundos de reloj de pared. */
   elapsedMs: number;
-  /** true si vino de la caché local, sin gastar cuota. */
   cached: boolean;
   model?: string;
 }
@@ -262,33 +187,18 @@ export type ClientMessage =
   | ErrorMessage
   | HeartbeatMessage;
 
-// ---------------------------------------------------------------------------
-// Hub → cliente
-// ---------------------------------------------------------------------------
-
 export interface WelcomeMessage {
   t: 'welcome';
   v: number;
-  /** Código de la sala: lo que hay que compartir para que entren otros. */
   room: string;
-  /** Nombre legible que le puso quien la creó. */
   roomName: string;
   you: Alias;
-  /** Quién manda ahora mismo. */
   host: Alias;
   members: Member[];
 }
 
-/**
- * Qué está pasando en la sala, para que una interfaz pueda dibujarlo.
- *
- * Se difunde a todos los miembros. **No lleva el contenido de la pregunta ni
- * de la respuesta a propósito**: eso es privado de quien preguntó. Aquí solo
- * viaja quién habla con quién y en qué punto está.
- */
 export interface ActivityMessage {
   t: 'activity';
-  /** Id de la pregunta, para casar el `asking` con su desenlace. */
   id: string;
   from: Alias;
   to: Alias;
@@ -297,14 +207,12 @@ export interface ActivityMessage {
   cached?: boolean;
 }
 
-/** El anfitrión cambió: se fue el anterior y heredó el más antiguo. */
 export interface HostChangedMessage {
   t: 'host_changed';
   host: Alias;
   reason: 'left' | 'created';
 }
 
-/** Te echaron, o la sala se cerró. En ambos casos no hay que reconectar. */
 export interface RoomClosedMessage {
   t: 'room_closed';
   reason: 'kicked' | 'empty';
@@ -316,7 +224,6 @@ export interface RoomStateMessage {
   members: Member[];
 }
 
-/** Pregunta entrante que este agente debe responder. */
 export interface RequestMessage {
   t: 'request';
   id: string;
@@ -341,10 +248,6 @@ export type ServerMessage =
 
 export type AnyMessage = ClientMessage | ServerMessage;
 
-// ---------------------------------------------------------------------------
-// Ids ordenables por tiempo (ULID-lite: 48 bits de ms + 40 de azar)
-// ---------------------------------------------------------------------------
-
 const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 function encodeBase32(value: number, length: number): string {
@@ -365,10 +268,6 @@ export function newId(): string {
   }
   return time + rand;
 }
-
-// ---------------------------------------------------------------------------
-// Parseo defensivo — nunca confiar en el otro extremo del socket
-// ---------------------------------------------------------------------------
 
 export function parseMessage(raw: string): AnyMessage | null {
   let parsed: unknown;

@@ -24,23 +24,13 @@ export interface RelayAnswerDeps {
   transcripts: TranscriptStorePort;
 }
 
-/**
- * Devuelve al que preguntó lo que produce el que responde.
- *
- * Tres casos con reglas distintas:
- *  - `chunk`/`trace`: puro reenvío, la pregunta sigue viva.
- *  - `result`: reenvía, archiva en el transcript y cierra.
- *  - `error`: reenvía y cierra, sin archivar.
- */
 export class RelayAnswerHandler {
   constructor(private readonly deps: RelayAnswerDeps) {}
 
-  /** `chunk` y `trace`: la pregunta sigue abierta. */
   relayProgress({ room, responder, message }: RelayCommand): void {
     this.deps.notifier.toAsker(room, message, responder);
   }
 
-  /** `result`: última entrega de este agente para esta pregunta. */
   finish({ room, responder, message }: FinishAnswerCommand): void {
     const { notifier, clock } = this.deps;
     const pending = room.pending(message.id);
@@ -81,7 +71,6 @@ export class RelayAnswerHandler {
     this.settle(room, message.id, responder);
   }
 
-  /** `error`: se reenvía y se cierra, pero no se archiva un fallo. */
   fail({ room, responder, message }: RelayCommand): void {
     const pending = room.pending(message.id);
     this.deps.notifier.toAsker(room, message, responder);
@@ -99,10 +88,6 @@ export class RelayAnswerHandler {
     this.settle(room, message.id, responder);
   }
 
-  /**
-   * Marca que este agente terminó. Solo cuando ya no falta nadie se cancela
-   * el timeout: en un `@all` la pregunta sigue viva hasta el último.
-   */
   private settle(room: Room, askId: string, responder: Alias): void {
     const { settled } = room.closeFor(askId, responder);
     if (settled) this.deps.timeouts.cancel(askId);

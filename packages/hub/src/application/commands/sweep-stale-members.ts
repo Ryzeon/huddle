@@ -6,7 +6,6 @@ export interface SweepStaleDeps {
   registry: RoomRegistry;
   leaveRoom: LeaveRoomHandler;
   clock: ClockPort;
-  /** Sin latido durante este tiempo, se considera caído. */
   heartbeatTimeoutMs: number;
   log: (message: string) => void;
 }

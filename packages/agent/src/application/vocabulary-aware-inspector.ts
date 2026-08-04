@@ -1,19 +1,3 @@
-/**
- * Un inspector de repositorio que además amplía su vocabulario.
- *
- * Envuelve a otro `RepoInspectorPort` y le suma a la tarjeta los términos que
- * produce `ExpandVocabularyUseCase`. Va como decorador y no dentro del
- * inspector de git porque son dos cosas distintas: leer el repositorio es
- * síncrono y local, ampliar el vocabulario es una llamada a un motor que puede
- * tardar o fallar.
- *
- * `snapshot()` sigue siendo síncrono, que es lo que el puerto promete, y
- * devuelve lo que haya en ese momento: la primera llamada sale con la tarjeta
- * de siempre y dispara la ampliación en segundo plano; a partir de que
- * termine, sale ampliada. Como la tarjeta se reenvía en cada anuncio de
- * presencia, la sala se entera sola sin tener que esperar a nadie.
- */
-
 import type { RepoInspectorPort, RepoSnapshot } from './ports/index.js';
 import type { ExpandVocabularyUseCase } from './use-cases/expand-vocabulary.js';
 

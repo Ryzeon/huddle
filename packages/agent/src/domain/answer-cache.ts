@@ -17,7 +17,6 @@ export interface CachedAnswer {
   answer: string;
   sources: SourceRef[];
   confidence: 'low' | 'medium' | 'high';
-  /** SHA del repo cuando se produjo. Si el repo derivó, la entrada caduca. */
   sha?: string;
   branch?: string;
   at: number;
@@ -32,7 +31,6 @@ export interface CacheDeps {
   now?: () => number;
 }
 
-/** Por debajo de esto, dos preguntas no son la misma pregunta. */
 const SIMILARITY_THRESHOLD = 0.72;
 const MAX_ENTRIES = 500;
 
@@ -49,13 +47,6 @@ export class QuestionCache {
     this.entries = this.store.read();
   }
 
-  /**
-   * Busca una respuesta reutilizable.
-   *
-   * `currentSha` es deliberadamente estricto: si el repo se movió desde que se
-   * cacheó, preferimos volver a preguntar antes que servir algo desactualizado
-   * con cara de fresco. Es el mismo motivo por el que cada respuesta lleva SHA.
-   */
   lookup(question: string, currentSha?: string): CachedAnswer | null {
     const cutoff = this.now() - this.ttlMs;
     const wanted = tokenSet(question);

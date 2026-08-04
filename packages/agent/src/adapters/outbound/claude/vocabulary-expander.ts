@@ -1,15 +1,3 @@
-/**
- * Adaptador de salida: amplía el vocabulario con el CLI de Claude Code.
- *
- * Es la llamada más barata del agente y la única que no toca el repositorio:
- * va con `--tools ''`, así que el modelo no puede leer un archivo aunque
- * quiera. Solo ve la tarjeta, que es justo lo que la sala ya conoce.
- *
- * Se lanza desde `tmpdir` y no desde el repositorio por la misma razón: si
- * algún día cambiara el valor por defecto de las herramientas, no habría nada
- * alrededor que leer.
- */
-
 import { spawn as nodeSpawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import type {
@@ -18,10 +6,6 @@ import type {
 } from '../../../application/ports/index.js';
 import type { SpawnFn } from './engine.js';
 
-/**
- * El modelo devuelve una lista de términos y nada más. Sin el esquema
- * contestaría en prosa y habría que adivinar dónde acaba cada término.
- */
 const VOCABULARY_JSON_SCHEMA = {
   type: 'object',
   properties: {
@@ -37,7 +21,6 @@ const VOCABULARY_JSON_SCHEMA = {
 } as const;
 
 export interface VocabularyExpanderConfig {
-  /** Barato a propósito: esto no razona, enumera. */
   model: string;
   timeoutMs: number;
 }
@@ -76,13 +59,6 @@ export class ClaudeVocabularyExpander implements VocabularyExpanderPort {
   }
 }
 
-/**
- * Saca los términos de la respuesta del CLI.
- *
- * Con `--json-schema` el resultado viene ya validado en `structured_output`;
- * `result` es el mismo objeto en texto y sirve de reserva por si cambia la
- * forma del sobre.
- */
 function readTerms(stdout: string): string[] {
   const envelope = JSON.parse(stdout) as {
     structured_output?: { terms?: unknown };
@@ -126,12 +102,6 @@ export function buildVocabularyArgs(
   ];
 }
 
-/**
- * Lo que se le enseña del repositorio es exactamente la tarjeta, ni más ni
- * menos. La instrucción de no inventar importa: un término que nadie va a
- * escribir no ayuda, y uno que pertenece a otro repositorio hace que `@auto`
- * mande la pregunta a quien no toca.
- */
 function buildPrompt(snapshot: RepoSnapshot): string {
   const card = [
     `repositorio: ${snapshot.repo}`,

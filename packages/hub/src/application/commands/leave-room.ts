@@ -13,13 +13,6 @@ export interface LeaveRoomDeps {
   log: (message: string) => void;
 }
 
-/**
- * Saca a un agente de la sala.
- *
- * Lo importante no es borrarlo del roster: es **avisar a quien le estaba
- * esperando**. Sin esto, quien preguntó se queda mirando un spinner hasta que
- * venza el TTL, cuando ya sabemos que no va a llegar respuesta.
- */
 export class LeaveRoomHandler {
   constructor(private readonly deps: LeaveRoomDeps) {}
 

@@ -1,11 +1,3 @@
-/**
- * Servidor MCP (stdio) — la cara *saliente* del agente.
- *
- * Es lo que tu Claude Code ve: las tools con las que preguntas a la sala.
- * Deliberadamente delgado: no habla con el hub, solo con el daemon local. Así
- * el proceso puede morir con tu sesión de Claude Code sin sacarte de la sala.
- */
-
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -15,13 +7,6 @@ import {
 import { callControl, DaemonNotRunningError } from './control-server.js';
 import { ensureDaemonRunning } from './daemon-launcher.js';
 
-/**
- * Ejecuta una operación contra el daemon, arrancándolo si hace falta.
- *
- * El primer intento va directo: si el daemon ya está —el caso normal— no
- * pagamos ninguna comprobación extra. Solo al fallar por ausencia se lanza y
- * se reintenta una vez.
- */
 async function withDaemon<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();

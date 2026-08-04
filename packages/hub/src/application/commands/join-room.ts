@@ -16,7 +16,6 @@ export interface JoinRoomDeps {
   log: (message: string) => void;
 }
 
-/** Admite a un agente en una sala y publica el roster actualizado. */
 export class JoinRoomHandler {
   constructor(private readonly deps: JoinRoomDeps) {}
 

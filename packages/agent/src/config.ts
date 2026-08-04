@@ -14,7 +14,6 @@ export const AUDIT_PATH = join(HUDDLE_DIR, 'audit.jsonl');
  */
 const MAX_UNIX_SOCKET_PATH = 96;
 
-/** Identificador corto y estable derivado del directorio de configuración. */
 function digestOf(dir: string): string {
   return createHash('sha256').update(dir).digest('hex').slice(0, 12);
 }
@@ -46,12 +45,7 @@ export function resolveSocketPath(dir: string, platform: NodeJS.Platform = proce
 export const SOCKET_PATH = resolveSocketPath(HUDDLE_DIR);
 
 export interface Workspace {
-  /** Directorio del repositorio expuesto. */
   cwd: string;
-  /**
-   * Etiqueta que lo distingue en la sala: `@ryzeon:api`.
-   * El primero puede ir sin etiqueta y queda como `@ryzeon` a secas.
-   */
   tag?: string;
 }
 
@@ -71,35 +65,24 @@ export interface Config {
    */
   workspaces: Workspace[];
 
-  /** Modelo del primer intento. Se escala solo si la respuesta viene floja. */
   model: string;
-  /** Modelo al que escalar cuando la primera pasada no alcanza. */
   escalateModel: string;
-  /** `low` es el punto correcto para preguntas de sala. */
   effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-  /** Tope de preguntas entrantes por día. `null` = sin tope (no recomendado). */
   dailyQuota: number | null;
   /** Preguntas simultáneas que aceptas. Una suscripción no quiere más de 2. */
   maxConcurrent: number;
   /** Corte de reloj de pared por pregunta, en segundos. */
   timeoutSeconds: number;
 
-  /** Aliases que pueden preguntar sin que te salga confirmación. */
   autoAllow: Alias[];
-  /** Aliases bloqueados. Gana sobre `autoAllow`. */
   blocked: Alias[];
-  /** `auto` responde solo; `ask` te pregunta en el terminal del daemon. */
   approvalMode: 'auto' | 'ask';
 
-  /** Rutas que nunca se leen, pase lo que pase. */
   denyPaths: string[];
-  /** Herramientas que se le pasan a `claude --tools`. Solo lectura por diseño. */
   tools: string[];
 
-  /** Reusar la sesión viva del dueño (fork) para heredar su contexto y caché. */
   forkFromSession: boolean;
-  /** Entradas de caché de preguntas antes de expirar, en horas. */
   cacheTtlHours: number;
 }
 
@@ -155,13 +138,11 @@ export function loadConfig(): Config {
   return merged;
 }
 
-/** Formato anterior: un solo repositorio en `cwd` + `tag`. */
 interface LegacyConfig extends Config {
   cwd?: string;
   tag?: string;
 }
 
-/** Lee `workspaces`, migrando desde el formato de un solo repositorio. */
 function readWorkspaces(raw: Partial<LegacyConfig>): Workspace[] {
   if (Array.isArray(raw.workspaces) && raw.workspaces.length > 0) return raw.workspaces;
   if (typeof raw.cwd === 'string') {
@@ -191,16 +172,8 @@ export function assertUniqueTags(workspaces: Workspace[]): void {
   }
 }
 
-/** Longitud máxima de un tag autogenerado: tiene que caber en el roster. */
 const MAX_TAG_LENGTH = 24;
 
-/**
- * Deriva un tag legible del directorio del repositorio.
- *
- * Nadie debería tener que inventarse una etiqueta para empezar: el nombre de
- * la carpeta ya dice de qué repo se trata. Solo se pide a mano cuando dos
- * repos se llaman igual.
- */
 export function tagFromPath(cwd: string): string {
   const base = cwd.replace(/[/\\]+$/, '').split(/[/\\]/).pop() ?? 'repo';
   const clean = base

@@ -1,11 +1,3 @@
-/**
- * Adaptador de salida: implementa `RoomGatewayPort` sobre WebSocket.
- *
- * Encapsula todo lo que el resto del agente no debería saber: reconexión con
- * backoff, latido, correlación de preguntas salientes con sus respuestas y
- * serialización del protocolo.
- */
-
 import { WebSocket } from 'ws';
 import {
   type Alias,
@@ -32,7 +24,6 @@ import type {
 const HEARTBEAT_MS = 20_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
-/** Margen sobre el TTL antes de rendirse del lado del cliente. */
 const OUTBOUND_GRACE_MS = 5_000;
 
 /**
@@ -51,7 +42,6 @@ export const TERMINAL_CLOSE_CODES: Record<number, string> = {
 
 export interface RoomGatewayConfig {
   hubUrl: string;
-  /** Código de la sala. Vacío cuando se va a crear una nueva. */
   room: string;
   alias: Alias;
   tag?: string;
@@ -72,13 +62,10 @@ export class WsRoomGateway implements RoomGatewayPort {
 
   private readonly outbound = new Map<string, PendingOutbound>();
 
-  /** Se fija en `connect`; hasta entonces no hay a quién entregar nada. */
   private handlers?: RoomEventHandlers;
 
-  /** Aviso de que este agente se rindió y no volverá a intentarlo. */
   onTerminal?: (code: number, reason: string) => void;
 
-  /** Nombre de la sala a crear en vez de entrar en una existente. */
   private createName?: string;
   private createResolve?: (code: string) => void;
 
@@ -89,8 +76,6 @@ export class WsRoomGateway implements RoomGatewayPort {
     private readonly presence: PresenceProvider,
     private readonly logger: LoggerPort,
   ) {}
-
-  // -- Ciclo de vida ---------------------------------------------------------
 
   connect(handlers: RoomEventHandlers): void {
     this.handlers = handlers;
@@ -170,7 +155,6 @@ export class WsRoomGateway implements RoomGatewayPort {
     return this.info;
   }
 
-  /** Crea la sala y resuelve con el código que generó el hub. */
   create(name: string, handlers: RoomEventHandlers): Promise<string> {
     this.createName = name;
     return new Promise<string>((resolve, reject) => {
@@ -189,8 +173,6 @@ export class WsRoomGateway implements RoomGatewayPort {
   kick(alias: Alias, reason?: string): void {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
   }
-
-  // -- Salida ----------------------------------------------------------------
 
   announcePresence(quotaRemaining: number | null): void {
     this.send({ t: 'ping', quotaRemaining });
@@ -233,8 +215,6 @@ export class WsRoomGateway implements RoomGatewayPort {
       this.send({ t: 'ask', id, to, q: question, ttl: ttlSeconds });
     });
   }
-
-  // -- Entrada ---------------------------------------------------------------
 
   private receive(message: ServerMessage): void {
     switch (message.t) {

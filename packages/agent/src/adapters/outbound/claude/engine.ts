@@ -1,10 +1,3 @@
-/**
- * Adaptador de salida: implementa `AnswerEnginePort` sobre el CLI de Claude Code.
- *
- * Aquí vive todo lo sucio — spawn, streams, señales, timeouts. La construcción
- * de argumentos y la interpretación del stream están en módulos puros al lado.
- */
-
 import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type {
@@ -32,7 +25,6 @@ export type SpawnFn = (
   options: { cwd: string; env: NodeJS.ProcessEnv },
 ) => ChildProcessWithoutNullStreams;
 
-/** Cuánto se espera tras el SIGTERM antes de matar de verdad. */
 const SIGKILL_GRACE_MS = 5_000;
 const MAX_STDERR_BYTES = 4_000;
 

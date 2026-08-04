@@ -1,15 +1,3 @@
-/**
- * Extractor incremental del campo `answer` de un JSON que aún se está generando.
- *
- * Con `--json-schema`, lo que Claude emite token a token son los caracteres del
- * JSON, no prosa. Mandarle eso crudo al que preguntó se ve horrible. Esta clase
- * va decodificando solo el valor de `answer` y emite el texto legible conforme
- * llega, de modo que el streaming siga siendo útil.
- *
- * Es pura y sin dependencias a propósito: es la pieza con más casos borde
- * (escapes partidos entre dos chunks) y por eso es la que más se testea.
- */
-
 const KEY_PATTERN = /"answer"\s*:\s*"/;
 
 export class AnswerStreamExtractor {
@@ -18,10 +6,6 @@ export class AnswerStreamExtractor {
   private emitted = 0;
   private finished = false;
 
-  /**
-   * Consume un fragmento crudo y devuelve el texto nuevo ya decodificado.
-   * Devuelve `''` cuando el fragmento no aportó caracteres legibles todavía.
-   */
   push(rawChunk: string): string {
     if (this.finished) return '';
     this.buffer += rawChunk;
@@ -41,12 +25,10 @@ export class AnswerStreamExtractor {
     return delta;
   }
 
-  /** true cuando ya se vio la comilla de cierre de `answer`. */
   get isComplete(): boolean {
     return this.finished;
   }
 
-  /** Todo el texto emitido hasta ahora. */
   get text(): string {
     if (this.valueStart < 0) return '';
     return decodeJsonStringPrefix(this.buffer, this.valueStart).text.slice(0, this.emitted);
@@ -64,11 +46,6 @@ const SIMPLE_ESCAPES: Record<string, string> = {
   t: '\t',
 };
 
-/**
- * Decodifica un string JSON desde `start` hasta la comilla de cierre o hasta
- * donde alcance el buffer. Se detiene *antes* de un escape incompleto para no
- * emitir basura cuando `\u00` llegó partido entre dos chunks.
- */
 export function decodeJsonStringPrefix(
   buffer: string,
   start: number,

@@ -11,19 +11,9 @@ import {
 import type { HubService } from '../../application/hub-service.js';
 import { WsMemberChannel } from '../outbound/ws-member-channel.js';
 
-/**
- * Adaptador de entrada: traduce frames de WebSocket a llamadas al servicio.
- *
- * Su única responsabilidad es el mapeo de protocolo — validar la forma, acotar
- * el tamaño y convertir a mensajes de dominio. Ninguna regla de negocio vive
- * aquí; si aparece una, va al servicio.
- */
-
-/** Un frame más grande que esto no es uso legítimo. */
 const MAX_FRAME_BYTES = 1_000_000;
 
 export interface WsAdapterOptions {
-  /** Si está puesto, todo `join` debe traerlo como `?token=`. */
   token?: string;
 }
 
@@ -59,7 +49,6 @@ export function attachWsAdapter(
   return wss;
 }
 
-/** Devuelve el mensaje validado, o `null` tras haber respondido el error. */
 function decodeFrame(
   raw: RawData,
   channel: WsMemberChannel,

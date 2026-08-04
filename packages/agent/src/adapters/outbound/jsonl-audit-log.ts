@@ -2,12 +2,6 @@ import { appendFileSync } from 'node:fs';
 import type { AuditLogPort, LoggerPort } from '../../application/ports/index.js';
 import { AUDIT_PATH, ensureHuddleDir } from '../../config.js';
 
-/**
- * Auditoría append-only en JSONL: qué te preguntaron y qué contestaste.
- *
- * Nunca lanza. Un fallo escribiendo el log no debe tumbar al agente ni
- * impedir que se responda una pregunta legítima.
- */
 export class JsonlAuditLog implements AuditLogPort {
   constructor(private readonly path: string = AUDIT_PATH) {}
 
@@ -23,7 +17,6 @@ export class JsonlAuditLog implements AuditLogPort {
   }
 }
 
-/** Logger a consola con marca de tiempo corta. */
 export class ConsoleLogger implements LoggerPort {
   info(message: string): void {
     console.log(`${stamp()} ${message}`);

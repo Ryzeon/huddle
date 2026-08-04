@@ -20,7 +20,6 @@ import { connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { SOCKET_PATH } from '../../config.js';
 
-/** Cuánto se espera a que el daemon abra el socket tras lanzarlo. */
 const STARTUP_TIMEOUT_MS = 20_000;
 const POLL_INTERVAL_MS = 250;
 

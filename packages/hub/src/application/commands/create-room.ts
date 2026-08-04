@@ -18,12 +18,6 @@ export interface CreateRoomDeps {
 
 const MAX_NAME_LENGTH = 64;
 
-/**
- * Crea una sala y mete dentro a quien la creó, que queda como anfitrión.
- *
- * El código generado **sustituye al token compartido**: es la única llave, así
- * que compartirlo es exactamente compartir el acceso.
- */
 export class CreateRoomHandler {
   constructor(private readonly deps: CreateRoomDeps) {}
 

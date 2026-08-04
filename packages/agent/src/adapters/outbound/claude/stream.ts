@@ -1,10 +1,3 @@
-/**
- * Interpretación del stream NDJSON de `claude --output-format stream-json`.
- *
- * Puro: entra un evento ya parseado, sale una decisión. El proceso y su
- * ciclo de vida viven en `engine.ts`.
- */
-
 import type { SourceRef } from '@huddle/protocol';
 import type { AnswerOutcome, UsageLimit } from '../../../application/ports/index.js';
 
@@ -59,7 +52,6 @@ export function interpretEvent(event: Record<string, unknown>): StreamSignal[] {
   return signals.length > 0 ? signals : [{ kind: 'ignore' }];
 }
 
-/** Texto de la respuesta. Los `thinking_delta` se ignoran: no son respuesta. */
 function textDelta(event: Record<string, unknown>): string | null {
   const inner = event.event as Record<string, unknown> | undefined;
   if (!inner || inner.type !== 'content_block_delta') return null;
@@ -84,10 +76,6 @@ function toolUses(event: Record<string, unknown>): string[] {
   return out;
 }
 
-/**
- * Traduce un `tool_use` a una línea legible.
- * Nunca expone el input completo: puede traer rutas o contenido sensible.
- */
 export function describeToolUse(name: string, input: unknown): string {
   const args = (input ?? {}) as Record<string, unknown>;
   const target =
@@ -119,10 +107,6 @@ export interface ParsedAnswer {
   needsEscalation: boolean;
 }
 
-/**
- * `--json-schema` normalmente garantiza la forma, pero si algo sale raro
- * preferimos degradar a texto plano antes que perder la respuesta entera.
- */
 export function parseAnswerPayload(raw: string): ParsedAnswer {
   const fallback: ParsedAnswer = {
     answer: raw.trim(),
@@ -165,7 +149,6 @@ function parseSources(value: unknown): SourceRef[] {
   return out;
 }
 
-/** Convierte el evento `result` del CLI en el resultado del puerto. */
 export function toOutcome(
   result: Record<string, unknown>,
   durationMs: number,

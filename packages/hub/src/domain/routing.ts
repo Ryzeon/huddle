@@ -51,13 +51,11 @@ export function stem(word: string): string {
   return word;
 }
 
-/** Entre varios tags de la misma persona, el que menos ocupado esté. */
 export function leastBusy(candidates: RoomMember[]): RoomMember | undefined {
   if (candidates.length === 0) return undefined;
   return candidates.reduce((best, c) => (c.inFlight < best.inFlight ? c : best));
 }
 
-/** Un tag elegible por persona, excluyendo a quien pregunta. */
 export function candidatesByPerson(members: RoomMember[], asker: Alias): RoomMember[] {
   const byAlias = new Map<Alias, RoomMember[]>();
   for (const member of members) {
@@ -75,7 +73,6 @@ export function candidatesByPerson(members: RoomMember[], asker: Alias): RoomMem
   return out;
 }
 
-/** Solapamiento léxico entre la pregunta y la tarjeta de capacidades. */
 export function scoreMember(member: RoomMember, questionTerms: string[]): number {
   const haystack = new Set(
     tokenize(
@@ -93,17 +90,11 @@ export function scoreMember(member: RoomMember, questionTerms: string[]): number
   return score;
 }
 
-/**
- * Si dos miembros exponen el mismo repositorio, da igual a cuál se le pregunte.
- * Se compara por nombre de repo y no por tarjeta entera: dos copias del mismo
- * proyecto difieren en el SHA y en la rama sin dejar de ser el mismo código.
- */
 function sameRepo(a: RoomMember, b: RoomMember): boolean {
   const left = a.card?.repo;
   return Boolean(left) && left === b.card?.repo;
 }
 
-/** Miembros ordenados por encaje con la pregunta; el mejor primero. */
 export function rankByFit(
   members: RoomMember[],
   asker: Alias,
@@ -120,14 +111,6 @@ export type AutoOutcome =
   | { targets: RoomMember[]; reason?: undefined }
   | { targets: []; reason: 'no_members' | 'ambiguous' };
 
-/**
- * Elige destinatario para `@auto`.
- *
- * La regla que importa es la última: con varios candidatos y ninguno que
- * encaje, **no se elige**. Antes se desempataba por quién estaba menos
- * ocupado, o sea al azar — y una respuesta segura de sí misma desde el
- * repositorio equivocado es peor que admitir que no se sabe.
- */
 export function resolveAuto(
   members: RoomMember[],
   asker: Alias,
@@ -172,10 +155,6 @@ export function resolveAuto(
   return { targets: [best.member] };
 }
 
-/**
- * Resuelve un destino a los miembros que deben recibir la pregunta.
- * Vacío significa "nadie disponible"; quien llama lo traduce a `target_offline`.
- */
 export function resolveTargets(
   members: RoomMember[],
   target: Target,

@@ -16,18 +16,10 @@ export interface AskQuestionDeps {
   notifier: RoomNotifier;
   timeouts: AskTimeouts;
   clock: ClockPort;
-  /** Techo del TTL que puede pedir un cliente, en segundos. */
   maxTtlSeconds: number;
   log: (message: string) => void;
 }
 
-/**
- * Entrega una pregunta a quien corresponda y arma su red de seguridad.
- *
- * El dominio decide *a quién* (ruteo, cubeta de tokens); este handler solo
- * ejecuta esa decisión y programa el timeout, porque quien preguntó no puede
- * quedarse esperando para siempre si nadie contesta.
- */
 export class AskQuestionHandler {
   constructor(private readonly deps: AskQuestionDeps) {}
 

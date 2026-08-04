@@ -1,15 +1,3 @@
-/**
- * Socket de control local (unix domain socket).
- *
- * Une los dos procesos del lado del usuario:
- *  - el daemon, que vive largo y sostiene la conexión al hub;
- *  - el servidor MCP, que vive y muere con cada sesión de Claude Code.
- *
- * Así sigues en la sala aunque cierres Claude Code, y `room_ask` funciona sin
- * reiniciar la sesión. El socket es de archivo con permisos 0600: solo el
- * usuario local puede hablarle. Nunca escuchamos en TCP a propósito.
- */
-
 import { createServer, connect, type Server, type Socket } from 'node:net';
 import { chmodSync, existsSync, unlinkSync } from 'node:fs';
 import { SOCKET_PATH } from '../../config.js';
@@ -149,7 +137,6 @@ export class DaemonNotRunningError extends Error {
   }
 }
 
-/** Cliente del socket de control. Lo usa el servidor MCP y el CLI. */
 export function callControl(
   req: ControlRequest,
   socketPath = SOCKET_PATH,

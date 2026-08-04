@@ -19,7 +19,6 @@ import type {
   RosterEntry,
 } from './ports/index.js';
 
-/** Un repositorio expuesto: su conexión a la sala y todo lo que le es propio. */
 export interface WorkspaceAgentDeps {
   tag?: string;
   room: RoomGatewayPort;
@@ -53,7 +52,6 @@ export class WorkspaceAgent {
     this.deps.room.connect({ onQuestion: (question) => this.handle(question) });
   }
 
-  /** Solo lo usa el primer workspace: la sala se crea una vez. */
   createRoom(name: string): Promise<string> {
     return this.deps.room.create(name, { onQuestion: (question) => this.handle(question) });
   }
@@ -90,7 +88,6 @@ export interface AgentStatus {
   room: string;
   alias: string;
   connected: boolean;
-  /** Compartidos entre todos los repositorios. */
   quotaRemaining: number | null;
   quotaLimit: number | null;
   inFlight: number;
@@ -102,7 +99,6 @@ export interface AgentServiceDeps {
   workspaces: WorkspaceAgent[];
   quota: Quota;
   logger: LoggerPort;
-  /** Construye un repositorio nuevo compartiendo la cuota ya existente. */
   makeWorkspace?: (workspace: { cwd: string; tag?: string }) => WorkspaceAgent;
 }
 
@@ -125,11 +121,6 @@ export class AgentService {
     for (const workspace of this.deps.workspaces) workspace.stop();
   }
 
-  /**
-   * Las preguntas *salientes* salen por una sola conexión: da igual cuál,
-   * porque el hub las atribuye al alias, no al tag. Se usa la primera
-   * conectada para no fallar si un repositorio concreto está caído.
-   */
   ask(to: Target, question: string, ttlSeconds: number): Promise<OutboundResult> {
     const gateway = this.activeGateway();
     if (!gateway) {
@@ -148,10 +139,6 @@ export class AgentService {
     primary.kick(alias, reason);
   }
 
-  /**
-   * Crea la sala con el primer workspace y conecta el resto con el código
-   * resultante. Crear una sala por repositorio daría N salas distintas.
-   */
   async createRoom(name: string): Promise<string> {
     const [primary, ...rest] = this.deps.workspaces;
     if (!primary) throw new Error('no hay ningún repositorio configurado');
@@ -161,12 +148,6 @@ export class AgentService {
     return code;
   }
 
-  /**
-   * Expone un repositorio más sin reiniciar el daemon.
-   *
-   * Se conecta en el acto: obligar a reiniciar rompería la idea de que Claude
-   * pueda hacerlo por ti a mitad de una conversación.
-   */
   addWorkspace(workspace: { cwd: string; tag?: string }): WorkspaceStatus {
     if (!this.deps.makeWorkspace) {
       throw new Error('este agente no admite añadir repositorios en caliente');
@@ -178,7 +159,6 @@ export class AgentService {
     return agent.status();
   }
 
-  /** Deja de exponer un repositorio y cierra su conexión. */
   removeWorkspace(tag: string): boolean {
     const index = this.deps.workspaces.findIndex((w) => w.tag === tag);
     if (index < 0) return false;

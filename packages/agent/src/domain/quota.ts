@@ -7,7 +7,6 @@
  */
 
 export interface QuotaState {
-  /** Día local en formato YYYY-MM-DD. */
   day: string;
   used: number;
 }
@@ -18,7 +17,6 @@ export type QuotaStore = QuotaStorePort;
 
 export interface QuotaDeps {
   store: QuotaStore;
-  /** Inyectable para poder testear el cruce de medianoche. */
   now?: () => Date;
 }
 
@@ -39,7 +37,6 @@ export class Quota {
   private readonly now: () => Date;
   private state: QuotaState;
 
-  /** `null` = sin tope diario. */
   readonly dailyLimit: number | null;
   readonly maxConcurrent: number;
 
@@ -54,7 +51,6 @@ export class Quota {
     this.rollOver();
   }
 
-  /** Reinicia el contador si cambió el día. */
   private rollOver(): void {
     const today = dayKey(this.now());
     if (this.state.day !== today) {
@@ -73,10 +69,6 @@ export class Quota {
     return this.inFlight;
   }
 
-  /**
-   * Intenta reservar un hueco. Si concede, hay que llamar a `release()`
-   * pase lo que pase — usar try/finally en quien llama.
-   */
   tryAcquire(): QuotaDecision {
     this.rollOver();
 
@@ -97,10 +89,6 @@ export class Quota {
     this.inFlight = Math.max(0, this.inFlight - 1);
   }
 
-  /**
-   * Devuelve un consumo al presupuesto. Se usa cuando la respuesta salió de la
-   * caché y no llegó a gastar cuota real.
-   */
   refund(): void {
     this.rollOver();
     if (this.state.used > 0) {

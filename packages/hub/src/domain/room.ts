@@ -1,12 +1,3 @@
-/**
- * Agregado Sala.
- *
- * Guarda quién está, qué preguntas hay en vuelo y el transcript. No manda
- * mensajes: devuelve *decisiones* (a quién hay que entregar qué) y deja el
- * envío a la capa de aplicación. Esa separación es lo que permite probar el
- * ruteo, los timeouts y las desconexiones sin abrir un socket.
- */
-
 import type { Alias, Member, SourceRef, Target } from '@huddle/protocol';
 import { memberKey, toWireMember, type RoomMember } from './member.js';
 import { consume, newBucket, type BucketPolicy } from './rate-limit.js';
@@ -16,7 +7,6 @@ export interface PendingAsk {
   readonly id: string;
   readonly from: Alias;
   readonly question: string;
-  /** Agentes de los que todavía se espera respuesta. */
   readonly awaiting: Set<Alias>;
   readonly startedAt: number;
 }
@@ -43,13 +33,9 @@ export type AskOutcome =
 const TRANSCRIPT_LIMIT = 500;
 
 export class Room {
-  /** Código único: la llave para entrar. */
   readonly code: string;
-  /** Nombre legible que le puso quien la creó. */
   readonly name: string;
-  /** Epoch ms de creación. Se conserva al resucitarla desde disco. */
   readonly createdAt: number;
-  /** Quién manda. Puede expulsar; al irse, hereda el más antiguo. */
   private host?: Alias;
   private readonly membersByKey = new Map<string, RoomMember>();
   private readonly pendingById = new Map<string, PendingAsk>();
@@ -68,7 +54,6 @@ export class Room {
     this.createdAt = createdAt;
   }
 
-  /** Reemplaza el historial en memoria; lo usa la purga por antigüedad. */
   replaceTranscript(entries: TranscriptEntry[]): void {
     this.entries.length = 0;
     this.entries.push(...entries);
@@ -82,11 +67,6 @@ export class Room {
     return this.host === alias;
   }
 
-  /**
-   * El más antiguo de los presentes, excluyendo a quien acaba de salir.
-   * Se mide por `joinedAt`, no por orden del Map: una reconexión no debe
-   * colar a alguien por delante en la línea de sucesión.
-   */
   private oldestMember(excluding?: Alias): Alias | undefined {
     let oldest: RoomMember | undefined;
     for (const member of this.members) {
@@ -97,16 +77,10 @@ export class Room {
     return oldest?.alias;
   }
 
-  /**
-   * Traspasa el mando al más antiguo. Devuelve el nuevo anfitrión, o
-   * `undefined` si no queda nadie — ahí la sala se cierra.
-   */
   promoteOldest(excluding?: Alias): Alias | undefined {
     this.host = this.oldestMember(excluding);
     return this.host;
   }
-
-  // -- Membresía ------------------------------------------------------------
 
   get members(): RoomMember[] {
     return [...this.membersByKey.values()];
@@ -120,11 +94,6 @@ export class Room {
     return this.entries;
   }
 
-  /**
-   * Admite un miembro. Si ya había uno con el mismo alias+tag devuelve el
-   * anterior para que la aplicación cierre su canal: así una reconexión no
-   * deja un fantasma en el roster.
-   */
   join(
     member: Omit<RoomMember, 'inFlight' | 'askTokens' | 'askTokensAt' | 'joinedAt'>,
     now: number,
@@ -155,14 +124,9 @@ export class Room {
     return this.members.find((m) => m.channelId === channelId);
   }
 
-  /**
-   * Saca a un miembro y devuelve las preguntas que dejó colgadas, para que la
-   * aplicación avise a quien preguntaba en vez de dejarlo esperando al TTL.
-   */
   leave(channelId: string): {
     member?: RoomMember;
     abandoned: PendingAsk[];
-    /** Nuevo anfitrión, si el que salió lo era y queda gente. */
     newHost?: Alias;
   } {
     const member = this.find(channelId);
@@ -186,7 +150,6 @@ export class Room {
     return newHost ? { member, abandoned, newHost } : { member, abandoned };
   }
 
-  /** Todas las conexiones de un alias: expulsar echa todos sus tags. */
   channelsOf(alias: Alias): string[] {
     return this.members.filter((m) => m.alias === alias).map((m) => m.channelId);
   }
@@ -195,13 +158,6 @@ export class Room {
     return this.members.map(toWireMember);
   }
 
-  /**
-   * Refresca el latido y, si viene, la cuota.
-   *
-   * Devuelve si la cuota cambió: difundir el roster en *cada* latido serían
-   * N² mensajes cada 20s, pero no difundirlo nunca deja la cuota obsoleta en
-   * la UI de todos. Difundimos solo cuando el valor cambió de verdad.
-   */
   touch(channelId: string, now: number, quotaRemaining?: number | null): { quotaChanged: boolean } {
     const member = this.find(channelId);
     if (!member) return { quotaChanged: false };
@@ -214,17 +170,10 @@ export class Room {
     return { quotaChanged };
   }
 
-  /** Miembros sin latido desde `cutoff`. */
   staleMembers(cutoff: number): RoomMember[] {
     return this.members.filter((m) => m.lastSeen < cutoff);
   }
 
-  // -- Preguntas ------------------------------------------------------------
-
-  /**
-   * Decide qué hacer con una pregunta: a quién entregarla, o por qué no.
-   * Registra la pregunta como pendiente solo si hay a quién mandarla.
-   */
   openAsk(asker: RoomMember, id: string, target: Target, question: string, now: number): AskOutcome {
     const { bucket, allowed } = consume(
       { tokens: asker.askTokens, updatedAt: asker.askTokensAt },
@@ -276,17 +225,12 @@ export class Room {
     return this.pendingById.get(id);
   }
 
-  /** A quién hay que reenviarle lo que llega para la pregunta `id`. */
   askerOf(id: string): RoomMember | undefined {
     const ask = this.pendingById.get(id);
     if (!ask) return undefined;
     return this.members.find((m) => m.alias === ask.from);
   }
 
-  /**
-   * Marca que un agente terminó con una pregunta. Cierra la pregunta cuando ya
-   * no falta nadie, para que el timeout de la aplicación pueda descartarse.
-   */
   closeFor(id: string, responder: Alias): { settled: boolean } {
     const member = this.members.find((m) => m.alias === responder);
     if (member) member.inFlight = Math.max(0, member.inFlight - 1);
@@ -301,7 +245,6 @@ export class Room {
     return { settled: true };
   }
 
-  /** Abandona la pregunta y devuelve de quién se estaba esperando respuesta. */
   expire(id: string): Alias[] {
     const ask = this.pendingById.get(id);
     if (!ask) return [];

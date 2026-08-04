@@ -26,7 +26,6 @@ export interface CommandOptions {
   resumeSessionId?: string;
 }
 
-/** Reglas de permiso que aplica el harness, no el modelo. */
 export function buildSettings(denyPaths: readonly string[]): string {
   const deny: string[] = [];
   for (const path of denyPaths) {

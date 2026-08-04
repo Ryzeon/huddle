@@ -33,7 +33,6 @@ export class ValidationError extends Error {
   }
 }
 
-/** Techos duros. Un frame que los supera es abuso, no uso. */
 export const LIMITS = {
   question: 8_000,
   answer: 200_000,
@@ -140,10 +139,6 @@ function validateSources(value: unknown): SourceRef[] {
   return out;
 }
 
-/**
- * Valida un frame de cliente. Lanza `ValidationError` si la forma no cuadra;
- * quien llama lo traduce a un `error` de protocolo y sigue vivo.
- */
 export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
   switch (msg.t) {
     case 'create': {
