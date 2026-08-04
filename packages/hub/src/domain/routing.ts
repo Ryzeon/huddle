@@ -169,6 +169,17 @@ export function resolveTargets(
 
   if (target === '@auto') return resolveAuto(members, asker, question).targets;
 
-  const picked = leastBusy(members.filter((m) => m.alias === target && !m.viewer));
+  // `@ana` vale para cualquiera de sus repositorios y gana el menos ocupado;
+  // `@ana:api` apunta a uno concreto.
+  const corte = target.indexOf(':');
+  const alias = corte < 0 ? target : target.slice(0, corte);
+  const tag = corte < 0 ? undefined : target.slice(corte + 1);
+
+  const picked = leastBusy(
+    members.filter(
+      (member) =>
+        member.alias === alias && !member.viewer && (tag === undefined || member.tag === tag),
+    ),
+  );
   return picked ? [picked] : [];
 }

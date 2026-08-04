@@ -281,7 +281,22 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
   }
 }
 
+// Una persona puede exponer varios repositorios, y cada uno es un destino
+// distinto: `@ana` es "cualquiera de los suyos" y `@ana:api` es ese en
+// concreto. Sin esto el propio autocompletado del portal ofrecia destinos que
+// el hub rechazaba.
+const TAG = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
 function validateTarget(raw: string): AskMessage['to'] {
   if (raw === '@all' || raw === '@auto') return raw;
-  return normalizeAlias(raw);
+
+  const corte = raw.indexOf(':');
+  if (corte < 0) return normalizeAlias(raw);
+
+  const alias = normalizeAlias(raw.slice(0, corte));
+  const tag = raw.slice(corte + 1).toLowerCase();
+  if (!TAG.test(tag)) {
+    throw new ValidationError('to', `etiqueta inválida en "${raw}"`);
+  }
+  return `${alias}:${tag}`;
 }

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveAuto, scoreMember, tokenize } from './routing.js';
+import { resolveTargets, resolveAuto, scoreMember, tokenize } from './routing.js';
 import type { RoomMember } from './member.js';
 
 function member(alias: string, card: RoomMember['card'], inFlight = 0): RoomMember {
@@ -102,6 +102,25 @@ describe('varios repositorios de una misma persona', () => {
    */
   const devFacturacion: RoomMember = { ...facturacion, alias: '@dev', channelId: 'ch-dev-fact', tag: 'facturacion' };
   const devSalas: RoomMember = { ...salas, alias: '@dev', channelId: 'ch-dev-salas', tag: 'salas' };
+
+  // El bug: el autocompletado del portal ofrecia `@dev:facturacion`, el
+  // protocolo lo pasaba por normalizeAlias, los dos puntos no eran validos y
+  // el hub devolvia `bad_request` con "frame invalido".
+  test('un destino con etiqueta apunta al repositorio exacto', () => {
+    const out = resolveTargets([devFacturacion, devSalas], '@dev:salas', '@zoe', 'lo que sea');
+    assert.equal(out.length, 1);
+    assert.equal(out[0]?.tag, 'salas');
+  });
+
+  test('sin etiqueta sigue valiendo cualquiera de los suyos', () => {
+    const out = resolveTargets([devFacturacion, devSalas], '@dev', '@zoe', 'lo que sea');
+    assert.equal(out.length, 1, 'uno solo, para no gastarle la cuota dos veces');
+  });
+
+  test('una etiqueta que no existe no cae en otro repositorio', () => {
+    const out = resolveTargets([devFacturacion, devSalas], '@dev:inventado', '@zoe', 'x');
+    assert.deepEqual(out, [], 'mejor nadie que el repositorio equivocado');
+  });
 
   test('elige el repositorio correcto de la misma persona', () => {
     const out = resolveAuto([devFacturacion, devSalas], '@zoe', 'como se cobran los clientes');

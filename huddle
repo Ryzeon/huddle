@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
-# Envoltorio para no escribir `npx tsx packages/agent/src/...` cada vez.
 #
-#   ./huddle join <sala> <@alias> --hub ws://IP:8787 --token <t>
-#   ./huddle daemon
-#   ./huddle ask @alguien "pregunta"
-#   ./huddle who | ./huddle status
+#   huddle join <sala> <@alias> --hub wss://…
+#   huddle daemon
+#   huddle ask @alguien "pregunta"
+#   huddle who | huddle status
 #
-# Para registrarlo en Claude Code hace falta la ruta absoluta:
-#   claude mcp add huddle -- /ruta/a/huddle/huddle mcp
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
+
+# Se resuelven los enlaces simbólicos: instalado, lo que está en el PATH es un
+# enlace a este archivo, y sin esto el `cd` acabaría en el directorio del
+# enlace en vez de en el del repositorio.
+origen="${BASH_SOURCE[0]}"
+while [ -L "$origen" ]; do
+  destino="$(readlink "$origen")"
+  case "$destino" in
+    /*) origen="$destino" ;;
+    *)  origen="$(cd -P "$(dirname "$origen")" && pwd)/$destino" ;;
+  esac
+done
+
+cd "$(cd -P "$(dirname "$origen")" && pwd)"
 exec npx --yes tsx packages/agent/src/adapters/inbound/cli.ts "$@"
