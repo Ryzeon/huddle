@@ -29,10 +29,10 @@ gris()  { printf '\033[90m%s\033[0m\n' "$*"; }
 
 uso() {
   cat >&2 <<'FIN'
-Uso: install.sh --room <CODIGO> --alias <@tualias> [opciones]
+Uso: install.sh --alias <@tualias> [opciones]
 
-  --room <CODIGO>    Código de la sala. Te lo pasa quien la creó.
-  --alias <@nombre>  Con qué nombre apareces en la sala.
+  --alias <@nombre>  Con qué nombre apareces en las salas. Obligatorio.
+  --room <CODIGO>    Opcional: entrar ya a una sala. Si no, instala y espera.
   --hub <url>        Hub al que conectarse. Por defecto wss://hub.ryzeon.dev
   --expose <dir>     Repositorio que expones. Por defecto, el directorio actual.
   --update           Solo actualizar el código; no toca sala ni MCP.
@@ -59,8 +59,9 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$SOLO_ACTUALIZAR" -eq 0 ]; then
-  [ -n "$ROOM" ]  || { rojo "falta --room"; uso; }
-  [ -n "$ALIAS" ] || { rojo "falta --alias"; uso; }
+  # Instalar no es entrar a una sala. El alias y el hub se guardan como valores
+  # por defecto; el código de sala llega después, cuando alguien te lo pase.
+  [ -n "$ALIAS" ] || { rojo "falta --alias: con qué nombre apareces en las salas"; uso; }
   EXPOSE="$(cd "$EXPOSE" && pwd)"
 fi
 
@@ -156,21 +157,37 @@ fi
 
 # --- Entrar a la sala -------------------------------------------------------
 
-gris "entrando a la sala…"
-"$destino/huddle" join "$ROOM" "$ALIAS" --hub "$HUB" --cwd "$EXPOSE" --force
+if [ -n "$ROOM" ]; then
+  gris "entrando a la sala…"
+  "$destino/huddle" join "$ROOM" "$ALIAS" --hub "$HUB" --cwd "$EXPOSE" --force
+fi
 
 # --- Registrar el MCP -------------------------------------------------------
 
 if [ "$SIN_MCP" -eq 0 ]; then
   # Idempotente: si ya estaba, se reemplaza en vez de duplicarse.
   claude mcp remove huddle >/dev/null 2>&1 || true
-  claude mcp add huddle -- "$destino/huddle" mcp
+  # El alias y el hub viajan como entorno del MCP: son los valores por defecto
+  # que usará `room_join` cuando le pases solo el código de la sala.
+  claude mcp add huddle \
+    --env "HUDDLE_ALIAS=$ALIAS" \
+    --env "HUDDLE_HUB=$HUB" \
+    -- "$destino/huddle" mcp
   verde "servidor MCP registrado: tu agente ya puede preguntar por ti"
 fi
 
 echo
 verde "Listo. Para actualizar más adelante:  huddle-update"
 echo
+if [ -z "$ROOM" ]; then
+  echo "Ya puedes entrar a una sala. Dile a Claude:"
+  echo "  «éntrame a la sala ABCDE-12345»"
+  echo
+  echo "O desde el terminal:"
+  echo "  huddle join ABCDE-12345 $ALIAS"
+  exit 0
+fi
+
 if [ "$SIN_DAEMON" -eq 0 ]; then
   echo "Arrancando el daemon. Déjalo abierto; Ctrl+C para salir de la sala."
   echo

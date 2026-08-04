@@ -48,11 +48,18 @@ Un solo comando. Necesitas [Claude Code](https://claude.com/claude-code) y Node 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh \
-  | bash -s -- --room TU-CODIGO --alias @tualias
+  | bash -s -- --alias @tualias
 ```
 
-Eso compila, te mete en la sala, **registra el servidor MCP en Claude Code** y
-deja el daemon corriendo. A partir de ahí le hablas a Claude normal:
+Eso instala Huddle, lo deja en tu PATH y **registra el servidor MCP en Claude
+Code** con tu alias y tu hub como valores por defecto. No entra a ninguna sala:
+para eso hace falta un código, y ese te lo pasa quien la creó.
+
+Cuando lo tengas, díselo a Claude y ya está:
+
+> *«éntrame a la sala MPP8V-7HZS5»*
+
+A partir de ahí le hablas normal:
 
 > *«pregúntale a @ana cómo se autentican los webhooks»*
 > *«¿quién está en la sala?»*
