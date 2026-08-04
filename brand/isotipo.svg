@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="huddle">
+  <title>huddle — isotipo</title>
+  <rect width="128" height="128" rx="26" ry="26" fill="#FAF6F0"/>
+  <g transform="translate(16.43 16.43) scale(0.7928)">
+    <g fill="#14110F">
+      <path d="M10 4.48 L42 52.48 L42 67.52 L10 115.52 L10 88.48 L28.99 60 L10 31.52 Z"/>
+      <path d="M110 4.48 L78 52.48 L78 67.52 L110 115.52 L110 88.48 L91.01 60 L110 31.52 Z"/>
+    </g>
+    <rect x="49" y="49" width="22" height="22" fill="#C2610A"/>
+  </g>
+</svg>

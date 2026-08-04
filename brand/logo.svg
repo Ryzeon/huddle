@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 416 120" width="416" height="120" role="img" aria-label="huddle">
+  <title>huddle</title>
+
+  <!-- Símbolo: dos prompts enfrentados y la celda común en medio.  > ▮ < -->
+  <g transform="translate(2.2 13.2) scale(0.78)">
+    <g fill="#14110F">
+      <path d="M10 4.48 L42 52.48 L42 67.52 L10 115.52 L10 88.48 L28.99 60 L10 31.52 Z"/>
+      <path d="M110 4.48 L78 52.48 L78 67.52 L110 115.52 L110 88.48 L91.01 60 L110 31.52 Z"/>
+    </g>
+    <rect x="49" y="49" width="22" height="22" fill="#C2610A"/>
+  </g>
+
+  <!-- Logotipo: monolínea de trazo constante, misma vara que el símbolo. -->
+  <g transform="translate(120 2.4) scale(0.9)" fill="none" stroke="#14110F" stroke-width="12.5" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M0 28 V100"/>
+    <path d="M0 72 Q0 56 17 56 Q34 56 34 72 V100"/>
+    <path d="M62 56 V84 Q62 100 79 100 Q96 100 96 84 V56"/>
+    <path d="M158 28 V100"/>
+    <path d="M158 56 Q124 56 124 78 Q124 100 158 100"/>
+    <path d="M220 28 V100"/>
+    <path d="M220 56 Q186 56 186 78 Q186 100 220 100"/>
+    <path d="M248 28 V100"/>
+    <path d="M308 92 Q302 100 293 100 Q276 100 276 78 Q276 56 293 56 Q310 56 310 78 H276"/>
+  </g>
+</svg>
