@@ -18,14 +18,14 @@
 
 ---
 
-Preguntas por el código de otro equipo y la respuesta tarda medio día: la
+Cuando preguntas por el código de otro equipo, la respuesta suele tardar: la
 persona está ocupada, o dormida, o el contexto solo existe en su máquina.
 
-Huddle abre una sala donde el agente de IA de cada persona contesta sobre
-**su** repositorio, con **su** contexto, citando archivos concretos.
+Huddle abre una sala donde el agente de IA de cada persona contesta sobre su
+propio repositorio, con su contexto, citando archivos concretos.
 
-Hoy el motor es Claude Code. No es una atadura: el agente habla con su IA a
-través de un puerto, así que soportar otra es escribir un adaptador. Ver
+Hoy el motor es Claude Code, pero no está atado a él: el agente habla con su IA
+a través de un puerto, así que soportar otra es escribir un adaptador. Ver
 [Hoja de ruta](#hoja-de-ruta).
 
 ```console
@@ -40,7 +40,7 @@ Fuentes:
 ```
 
 Cada respuesta llega firmada: quién la dio, en qué commit, con qué confianza y
-cuánto tardó. Una respuesta sin fuentes no se considera una respuesta.
+cuánto tardó. Si no trae fuentes, el agente la da por fallida.
 
 ## Empezar
 
@@ -154,15 +154,15 @@ El hub sigue la misma forma, con el lado de escritura separado del de lectura:
 `domain/` (sala, ruteo, cubeta de tokens), `application/` con `commands/`,
 `queries/` y el estado compartido, y adaptadores de WebSocket y HTTP.
 
-La regla que lo sostiene: **`domain/` y `application/` no importan `ws`,
-`node:net`, `node:fs` ni `node:child_process`.** Si algún día lo hacen, una
-capa se filtró.
+La regla que lo sostiene: `domain/` y `application/` no importan `ws`,
+`node:net`, `node:fs` ni `node:child_process`. Si eso deja de cumplirse es que
+se ha filtrado una capa.
 
 ## Dónde vive el hub
 
-Los agentes y tu código se quedan siempre en tu máquina. Lo único que cambia
-entre las dos versiones es **quién aloja el hub**, que solo rutea mensajes y
-guarda el historial de la sala.
+Los agentes y tu código se quedan siempre en tu máquina. Entre las dos
+versiones solo cambia quién aloja el hub, que se limita a rutear mensajes y
+guardar el historial de la sala.
 
 ### Autoalojado, hoy
 
@@ -183,40 +183,38 @@ ngrok http 8787                   # → https://algo.ngrok.app
 # los demás entran con  --hub wss://algo.ngrok.app
 ```
 
-Sirve igual Cloudflare Tunnel, Tailscale o un VPS con TLS. El código de sala
-es la llave, así que exponerlo a internet no abre la puerta: sin código no se
-entra.
+Sirve igual Cloudflare Tunnel, Tailscale o un VPS con TLS. Exponerlo a
+internet no lo deja abierto, porque para entrar hace falta el código de sala.
 
-**Cuándo elegirlo:** cuando quieres que ni los metadatos salgan de tu
-infraestructura, o cuando ya tienes dónde alojarlo.
+Elígelo si no quieres que ni los metadatos salgan de tu infraestructura, o si
+ya tienes dónde alojarlo.
 
 ### Cloud, planeado
 
 Un hub gestionado: no levantas nada, entras con el código y ya.
 
-**Lo que no cambia:** el agente sigue siendo tuyo, corriendo en tu máquina,
-con tu suscripción y tu repositorio. El hub gestionado ve lo mismo que el
-autoalojado: quién pregunta a quién y el historial de la sala. Nunca tu
-código.
+El agente sigue siendo tuyo y corriendo en tu máquina, con tu suscripción y tu
+repositorio. Un hub gestionado ve lo mismo que uno autoalojado: quién pregunta
+a quién y el historial de la sala, nunca tu código.
 
-**Lo que hace falta antes:** cuentas y autenticación de verdad (hoy el código
-de sala es toda la seguridad, que basta para un equipo y no para un servicio
-abierto), aislamiento entre organizaciones y cifrado del historial en reposo.
+Falta bastante antes: cuentas y autenticación de verdad (hoy el código de sala
+es toda la seguridad, suficiente para un equipo y no para un servicio abierto),
+aislamiento entre organizaciones y cifrado del historial en reposo.
 
 ## Usa tu suscripción, no una API key
 
 Cada persona corre su propio agente bajo su propia cuenta y responde en su
 nombre. No hay claves compartidas ni una cuenta central.
 
-Eso tiene una consecuencia que conviene entender: **cada pregunta entrante
-consume el plan de quien responde.** Si un compañero hace cuarenta preguntas
-mientras comes, vuelves y no puedes trabajar.
+Eso tiene una consecuencia importante: cada pregunta entrante consume el plan
+de quien responde. Si un compañero hace cuarenta preguntas mientras comes,
+vuelves y no puedes trabajar.
 
 Por eso, por defecto:
 
-- **20 preguntas entrantes al día** (`--quota N`, o `none` para quitarlo)
-- **Una pregunta simultánea**: una suscripción no quiere cinco sesiones a la vez
-- **La caché se consulta antes que la cuota**: repetir una pregunta no cuesta presupuesto
+- 20 preguntas entrantes al día (`--quota N`, o `none` para quitarlo)
+- Una pregunta simultánea, porque una suscripción no aguanta cinco sesiones a la vez
+- La caché se consulta antes que la cuota, así que repetir una pregunta no cuesta presupuesto
 - El daemon lee el límite real que reporta el CLI y deja de aceptar preguntas
   antes de agotarte el plan, en vez de fallar a mitad de una respuesta
 
@@ -226,7 +224,7 @@ reformulada **1 s** y cero cuota.
 ## Seguridad
 
 Estás dejando que alguien dispare ejecución en tu directorio de trabajo. La
-defensa es en capas, y solo una es el prompt:
+defensa va en capas, y solo una de ellas es el prompt:
 
 | Capa | Mecanismo | ¿Se salta con un prompt? |
 |---|---|---|
@@ -275,17 +273,17 @@ cada respuesta.
   </picture>
 </p>
 
-A la izquierda la conversación, que es lo que importa. A la derecha la mesa: al
-entrar alguien traza su radio, al preguntar viaja un arco, y el nodo de quien
-responde late mientras piensa.
+A la izquierda la conversación. A la derecha la mesa: al entrar alguien traza
+su radio, al preguntar viaja un arco, y el nodo de quien responde late mientras
+piensa.
 
 ```bash
 npm run portal      # http://127.0.0.1:5173
 ```
 
-Añade `?demo=1` para verlo funcionando sin hub ni agentes. Es TypeScript
-plano servido como archivos estáticos, sin framework ni bundler, así que el
-hub puede servirlo tal cual.
+Añade `?demo=1` para verlo funcionando sin hub ni agentes. Son archivos
+estáticos y TypeScript compilado, sin framework ni bundler, así que cualquier
+servidor web lo sirve tal cual.
 
 ## Desarrollo
 
