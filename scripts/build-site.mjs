@@ -9,8 +9,9 @@
  */
 import { cp, rm, mkdir } from 'node:fs/promises';
 
-const PORTAL = new URL('../packages/portal/', import.meta.url);
-const SITE = new URL('../site/', import.meta.url);
+const ROOT = new URL('../', import.meta.url);
+const PORTAL = new URL('packages/portal/', ROOT);
+const SITE = new URL('site/', ROOT);
 
 await rm(SITE, { recursive: true, force: true });
 await mkdir(SITE, { recursive: true });
@@ -20,5 +21,9 @@ await cp(new URL('dist/', PORTAL), new URL('dist/', SITE), {
   recursive: true,
   filter: (source) => !source.endsWith('.tsbuildinfo'),
 });
+
+// El HTML pide el favicon en `/brand/`, que en desarrollo sirve `dev.ts`
+// desde la raíz del repositorio. Sin esto, en producción da 404.
+await cp(new URL('brand/', ROOT), new URL('brand/', SITE), { recursive: true });
 
 console.log('sitio listo en site/');
