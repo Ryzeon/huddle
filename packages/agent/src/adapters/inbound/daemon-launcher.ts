@@ -20,7 +20,9 @@ import { connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { SOCKET_PATH } from '../../config.js';
 
-const STARTUP_TIMEOUT_MS = 20_000;
+// Arrancar en frío pasa por `npx tsx`, que compila al vuelo: veinte segundos
+// se quedaban cortos en la primera vez.
+const STARTUP_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 250;
 
 export function isDaemonListening(socketPath = SOCKET_PATH): Promise<boolean> {

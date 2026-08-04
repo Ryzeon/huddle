@@ -4,8 +4,40 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { normalizeAlias } from '@huddle/protocol';
 import { callControl, DaemonNotRunningError } from './control-server.js';
+import { CONFIG_PATH, DEFAULT_CONFIG, loadConfig, saveConfig, type Config } from '../../config.js';
+import { existsSync } from 'node:fs';
 import { ensureDaemonRunning } from './daemon-launcher.js';
+
+function pick(...valores: unknown[]): string | undefined {
+  for (const valor of valores) {
+    if (typeof valor === 'string' && valor.trim()) return valor.trim();
+  }
+  return undefined;
+}
+
+function readConfigOrNull(): Config | null {
+  if (!existsSync(CONFIG_PATH)) return null;
+  try {
+    return loadConfig();
+  } catch {
+    // Una configuración a medias no debe impedir entrar a una sala nueva.
+    return null;
+  }
+}
+
+/** El socket tarda un instante en soltarse tras el `shutdown`. */
+async function waitForDaemonToStop(): Promise<void> {
+  for (let intento = 0; intento < 20; intento++) {
+    await new Promise((listo) => setTimeout(listo, 100));
+    try {
+      await callControl({ op: 'status' });
+    } catch {
+      return;
+    }
+  }
+}
 
 async function withDaemon<T>(operation: () => Promise<T>): Promise<T> {
   try {
@@ -54,6 +86,32 @@ const TOOLS = [
       },
       required: ['to', 'question'],
       additionalProperties: false,
+    },
+  },
+  {
+    name: 'room_join',
+    description:
+      'Entra a una sala de Huddle con el código que te pasaron. El alias y el ' +
+      'hub son opcionales: si no se dan, se usan los de la configuración del ' +
+      'MCP (HUDDLE_ALIAS y HUDDLE_HUB) y, en su defecto, los de la sala ' +
+      'anterior. Entrar a otra sala te saca de la actual.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        room: {
+          type: 'string',
+          description: 'El código completo de la sala, tal cual te lo pasaron.',
+        },
+        alias: {
+          type: 'string',
+          description: 'Con qué nombre apareces. Por defecto, HUDDLE_ALIAS.',
+        },
+        hub: {
+          type: 'string',
+          description: 'A qué hub conectarse. Por defecto, HUDDLE_HUB.',
+        },
+      },
+      required: ['room'],
     },
   },
   {
@@ -176,6 +234,48 @@ export async function runMcpServer(): Promise<void> {
           const res = await withDaemon(() => callControl({ op: 'ask', to, question, ttl }));
           if (!res.ok) return textResult(res.error, true);
           return textResult(res.data);
+        }
+
+        case 'room_join': {
+          const entrada = (args ?? {}) as { room?: unknown; alias?: unknown; hub?: unknown };
+          const room = typeof entrada.room === 'string' ? entrada.room.trim() : '';
+          if (!room) return textResult('falta el código de la sala', true);
+
+          // Precedencia: lo que pide quien llama, luego el entorno del MCP
+          // (`claude mcp add --env HUDDLE_ALIAS=…`), y por último la sala en
+          // la que ya estabas. Sin ninguno de los tres, no hay nada que hacer.
+          const previa = readConfigOrNull();
+          const alias = pick(entrada.alias, process.env['HUDDLE_ALIAS'], previa?.alias);
+          const hub = pick(entrada.hub, process.env['HUDDLE_HUB'], previa?.hub);
+          if (!alias) return textResult('no sé con qué alias entrar. Ponlo, o define HUDDLE_ALIAS', true);
+          if (!hub) return textResult('no sé a qué hub. Ponlo, o define HUDDLE_HUB', true);
+
+          const salidaDe = previa?.room;
+          saveConfig({
+            ...DEFAULT_CONFIG,
+            ...(previa ?? {}),
+            room,
+            alias: normalizeAlias(alias),
+            hub,
+            workspaces: previa?.workspaces ?? [{ cwd: process.cwd() }],
+          });
+
+          // El daemon vivo sigue con la sala vieja en memoria, así que se
+          // apaga y se levanta de nuevo leyendo lo recién escrito.
+          try {
+            await callControl({ op: 'shutdown' });
+            await waitForDaemonToStop();
+          } catch {
+            // No estaba corriendo: mejor todavía.
+          }
+          await ensureDaemonRunning();
+
+          return textResult({
+            room,
+            alias: normalizeAlias(alias),
+            hub,
+            ...(salidaDe && salidaDe !== room ? { saliste_de: salidaDe } : {}),
+          });
         }
 
         case 'room_who': {

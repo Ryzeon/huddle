@@ -10,7 +10,7 @@ export function runDaemon(): void {
 }
 
 export function serveControl(agent: Agent, alreadyStarted = false): void {
-  const control = startControlServer({
+  const control: { close: () => void } = startControlServer({
     ask: (to, question, ttl) => agent.ask(to as never, question, ttl),
     status: () => agent.status(),
     members: () => agent.members(),
@@ -31,6 +31,16 @@ export function serveControl(agent: Agent, alreadyStarted = false): void {
       return result;
     },
     repos: () => loadConfig().workspaces,
+    // Se contesta primero y se sale después: si saliéramos aquí, quien lo
+    // pidió no llegaría a saber que funcionó.
+    shutdown: () => {
+      setTimeout(() => {
+        agent.stop();
+        control.close();
+        process.exit(0);
+      }, 100).unref();
+      return { stopping: true };
+    },
   });
 
   if (!alreadyStarted) agent.start();
