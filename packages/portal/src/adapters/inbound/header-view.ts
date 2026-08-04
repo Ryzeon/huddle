@@ -1,10 +1,3 @@
-/**
- * La cabecera: nombre de la sala, código, anfitrión y estado de conexión.
- *
- * El código va en mono, en mayúsculas, sin partir de línea y con botón de
- * copiar: es la única llave de la sala y se comparte a mano.
- */
-
 import type { SessionState } from '../../domain/session-state.js';
 import { logoElement } from './brand.js';
 import { need } from './dom.js';
@@ -64,7 +57,6 @@ export class HeaderView {
     this.count.textContent = String(state.members.length);
   }
 
-  /** Confirmación efímera del botón de copiar. */
   flashCopied(): void {
     const previous = this.copy.textContent;
     this.copy.textContent = 'copiado';

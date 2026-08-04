@@ -1,19 +1,8 @@
-/**
- * Guion del modo demo: entran tres, se cruzan preguntas, una sale de caché,
- * otra falla, alguien se va y el mando cambia de manos. Permite ajustar las
- * animaciones sin depender del hub.
- *
- * Son datos puros, una lista de `{ at, event }` en milisegundos desde el
- * arranque. Reproducirlo es cosa de `DemoRoomFeed`; separarlos deja el guion
- * comprobable y hace trivial escribir otro.
- */
-
 import type { Member } from '@huddle/protocol';
 import type { PortalEvent } from '../../domain/session-state.js';
 import type { RememberedRoom } from '../../application/ports/room-feed.js';
 
 export interface ScriptedEvent {
-  /** Milisegundos desde que arranca la reproducción. */
   at: number;
   event: PortalEvent;
 }
@@ -49,7 +38,6 @@ const carla = member('@carla', 2000, 'facturacion', ['src/tax', 'src/invoices'],
   tag: 'facturacion',
   quotaRemaining: 4,
 });
-/** El portal entra como espectador: mira y puede preguntar, pero no responde. */
 const you: Member = {
   alias: DEMO_YOU,
   joinedAt: T0 - 200,
@@ -59,7 +47,6 @@ const you: Member = {
   viewer: true,
 };
 
-/** Una sesión de principio a fin, en poco más de veinte segundos. */
 export const DEMO_SCRIPT: ScriptedEvent[] = [
   { at: 0, event: { t: 'transport', status: 'connecting' } },
   {
@@ -124,18 +111,12 @@ export const DEMO_SCRIPT: ScriptedEvent[] = [
   },
 ];
 
-/** Cuánto dura el guion entero. */
 export function scriptDuration(script: readonly ScriptedEvent[] = DEMO_SCRIPT): number {
   return script.reduce((max, item) => Math.max(max, item.at), 0);
 }
 
-/** Los miembros que el guion llega a mostrar, para el autocompletado inicial. */
 export const DEMO_MEMBERS: Member[] = [you, ana, bruno, carla];
 
-/**
- * Salas de mentira para el lateral. En demo no se toca `localStorage`: mirar
- * la demostración no debe dejar rastro en el navegador.
- */
 export const DEMO_ROOMS: RememberedRoom[] = [
   { code: DEMO_ROOM, name: DEMO_ROOM_NAME, alias: DEMO_YOU, hub: 'ws://localhost:8787', lastSeen: T0 },
   { code: 'JX4T2-9QW1M', name: 'infra', alias: DEMO_YOU, hub: 'ws://localhost:8787', lastSeen: T0 - 86_400_000 },

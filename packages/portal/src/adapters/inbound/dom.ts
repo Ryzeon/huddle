@@ -50,14 +50,12 @@ export function clear(node: Element): void {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-/** Busca un elemento obligatorio; si no está, es un fallo de programación. */
 export function need<T extends Element>(selector: string, root: ParentNode = document): T {
   const found = root.querySelector<T>(selector);
   if (!found) throw new Error(`falta el elemento «${selector}» en el documento`);
   return found;
 }
 
-/** true si el usuario pidió que no le animen la pantalla. */
 export function prefersReducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

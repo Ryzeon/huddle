@@ -1,20 +1,9 @@
-/**
- * Logo e isotipo en SVG, con la misma geometría que `brand/logo.svg` y
- * `brand/isotipo.svg` pero pintados con `currentColor` para que hereden el
- * tema.
- *
- * Están copiados aquí, y no cargados por red, para que la cabecera se pinte
- * sin ninguna petición.
- */
-
 import { svg } from './dom.js';
 
-/** Caja nativa del símbolo, tal cual está en los archivos de marca. */
 const SYMBOL_BOX = 120;
 const CHEVRON_LEFT = 'M10 4.48 L42 52.48 L42 67.52 L10 115.52 L10 88.48 L28.99 60 L10 31.52 Z';
 const CHEVRON_RIGHT = 'M110 4.48 L78 52.48 L78 67.52 L110 115.52 L110 88.48 L91.01 60 L110 31.52 Z';
 
-/** Trazos del logotipo monolínea, en su caja original. */
 const WORDMARK_PATHS = [
   'M0 28 V100',
   'M0 72 Q0 56 17 56 Q34 56 34 72 V100',
@@ -27,10 +16,6 @@ const WORDMARK_PATHS = [
   'M308 92 Q302 100 293 100 Q276 100 276 78 Q276 56 293 56 Q310 56 310 78 H276',
 ];
 
-/**
- * Logo horizontal. Por debajo de 120 px de ancho devuelve el isotipo, que es
- * lo que la marca pide a ese tamaño. No hay versión intermedia.
- */
 export function logoElement(width = 168): SVGSVGElement {
   if (width < 120) return isotypeElement(Math.max(16, Math.round(width / 3)));
 
@@ -73,7 +58,6 @@ export function logoElement(width = 168): SVGSVGElement {
   return root;
 }
 
-/** Isotipo cuadrado, sin fondo propio: va sobre el color del tema. */
 export function isotypeElement(size = 24): SVGSVGElement {
   const root = svg('svg', {
     class: 'marca marca--iso',
@@ -96,13 +80,6 @@ export function isotypeElement(size = 24): SVGSVGElement {
   return root;
 }
 
-/**
- * Símbolo monocromo para el interior de un nodo de la mesa. Devuelve un `<g>`
- * centrado en el origen, listo para colocar con `transform`.
- *
- * Monocromo a propósito: la marca admite un solo ámbar por composición, y en
- * la mesa se lo queda la celda del centro.
- */
 export function agentGlyph(size: number): SVGGElement {
   const scale = size / SYMBOL_BOX;
   const group = svg('g', {
@@ -118,7 +95,6 @@ export function agentGlyph(size: number): SVGGElement {
   return group;
 }
 
-/** La celda sola: el cursor, la pregunta compartida, el centro de la mesa. */
 export function cellGlyph(size: number): SVGRectElement {
   return svg('rect', {
     class: 'mesa__celda',

@@ -1,25 +1,12 @@
-/**
- * Reproduce `demo-script` implementando el mismo puerto que `WsRoomFeed`, así
- * que las vistas no notan la diferencia.
- *
- * Lo que se manda por `send` se refleja de vuelta como si lo hubiera reenviado
- * el hub, para poder probar la caja de escribir.
- */
-
 import type { PortalClientMessage, RoomFeed } from '../../application/ports/room-feed.js';
 import type { PortalEvent } from '../../domain/session-state.js';
 import { DEMO_SCRIPT, DEMO_YOU, type ScriptedEvent } from './demo-script.js';
 
 export interface DemoRoomFeedOptions {
   script?: readonly ScriptedEvent[];
-  /** 1 = tiempo real; 2 = el doble de rápido. Útil para las capturas. */
   speed?: number;
-  /**
-   * Reproduce el guion entero sin esperas. Lo usan las capturas: deja la sala
-   * en su estado final sin dormir veinte segundos.
-   */
+    // Lo usan las capturas: deja la sala en su estado final sin dormir 20 s.
   instant?: boolean;
-  /** Hasta qué instante del guion reproducir en modo instantáneo. */
   untilMs?: number;
 }
 
@@ -56,7 +43,6 @@ export class DemoRoomFeed implements RoomFeed {
     this.timers = [];
   }
 
-  /** Vuelve a empezar desde cero. Lo llama el botón «repetir». */
   restart(): void {
     this.stop();
     this.start();
@@ -67,11 +53,6 @@ export class DemoRoomFeed implements RoomFeed {
     return () => this.listeners.delete(listener);
   }
 
-  /**
-   * En demo no hay a quién mandar, así que se hace eco. Un `msg` vuelve como
-   * mensaje de la sala; un `ask` genera las dos fases de `activity` y el
-   * `result`, igual que haría el hub.
-   */
   send(message: PortalClientMessage): void {
     if (message.t === 'msg') {
       this.emit({ t: 'msg', from: DEMO_YOU, text: message.text });

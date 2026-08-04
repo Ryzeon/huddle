@@ -1,20 +1,11 @@
-/**
- * El tablero: el hexágono del centro y la celda de la pregunta compartida.
- *
- * No guarda estado. Se redibuja entero en cada render porque son tres
- * elementos, y compararlos costaría más que rehacerlos.
- */
-
 import { polygonPoints, type TableGeometry } from '../../../domain/table-layout.js';
 import { cellGlyph } from '../brand.js';
 import { clear, svg } from '../dom.js';
 
 const SIDES = 6;
 
-/** Separación entre el hexágono de fuera y el de dentro. */
 const INNER_INSET = 10;
 
-/** Tamaño de la celda del centro. */
 const CELL_SIZE = 18;
 
 export function drawBoard(layer: SVGGElement, geometry: TableGeometry, busy: boolean): void {

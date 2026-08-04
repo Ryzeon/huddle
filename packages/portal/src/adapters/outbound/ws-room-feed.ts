@@ -1,21 +1,10 @@
-/**
- * El hub por WebSocket. Traduce frames a `PortalEvent` y reconecta con espera
- * creciente.
- *
- * Lo que no reconoce lo descarta: el portal no debe caerse porque el hub añada
- * un mensaje nuevo.
- */
-
 import type { FeedIdentity, PortalClientMessage, RoomFeed } from '../../application/ports/room-feed.js';
 import type { PortalEvent } from '../../domain/session-state.js';
 
 export interface WsRoomFeedOptions {
-  /** `ws://host:8787`. */
   url: string;
   identity: FeedIdentity;
-  /** El hub puede exigirlo por query string. */
   token?: string;
-  /** Cada cuánto mandar `ping`. El hub barre a los que callan. */
   heartbeatMs?: number;
 }
 
@@ -28,9 +17,7 @@ export class WsRoomFeed implements RoomFeed {
   private stopped = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  /** Lo que se intentó mandar antes de que abriera el socket. */
   private readonly outbox: PortalClientMessage[] = [];
-  /** Código que devolvió el hub al crear; a partir de ahí se entra con `join`. */
   private createdRoom: string | null = null;
 
   constructor(private readonly options: WsRoomFeedOptions) {}
@@ -165,10 +152,6 @@ export class WsRoomFeed implements RoomFeed {
   }
 }
 
-/**
- * Frame a evento del portal. Lo que no sirve para pintar (chunks, traces,
- * pongs, requests) se ignora sin ruido.
- */
 export function toPortalEvent(raw: string): PortalEvent | null {
   let parsed: unknown;
   try {

@@ -1,16 +1,3 @@
-/**
- * La mesa: un hexágono con la celda de la pregunta compartida en el centro y
- * los miembros repartidos alrededor.
- *
- * Esta clase solo coordina. Mide el lienzo, calcula la geometría y reparte el
- * trabajo entre las tres capas SVG, que son quienes saben dibujar: el tablero,
- * los nodos con sus radios, y los arcos de pregunta y respuesta.
- *
- * La geometría viene entera de `domain/table-layout`. Con
- * `prefers-reduced-motion` los estados cambian de golpe, y siguen
- * distinguiéndose porque cada uno tiene trazo propio y no solo color.
- */
-
 import type { Activity, SessionState } from '../../domain/session-state.js';
 import { formatSeconds } from '../../domain/session-state.js';
 import {
@@ -23,23 +10,17 @@ import { prefersReducedMotion, svg } from './dom.js';
 import { ArcLayer, type ArcTone } from './table/arc-layer.js';
 import { drawBoard } from './table/board.js';
 import { NodeLayer } from './table/node-layer.js';
+import { RosterSummary } from './table/roster-summary.js';
 import { TIMING } from './table/timing.js';
 
 const NODE_RADIUS = 26;
 
-/** Margen que se reserva para las etiquetas, que viven fuera del nodo. */
 const LABEL_MARGIN = 56;
 
 const MIN_AVAILABLE = 120;
 const MIN_RADIUS = 90;
 
 export interface TableViewOptions {
-  /**
-   * Fuerza el modo sin animación aunque el sistema no lo pida. Lo usa
-   * `?estatico=1` para que las capturas sean deterministas: bajo el tiempo
-   * virtual de Chrome el reloj de animación no acompaña y el trazo saldría a
-   * medias.
-   */
   sinAnimacion?: boolean;
 }
 
@@ -48,6 +29,7 @@ export class TableView {
   private readonly boardLayer: SVGGElement;
   private readonly nodes: NodeLayer;
   private readonly arcs: ArcLayer;
+  private readonly roster: RosterSummary;
 
   private geometry: TableGeometry = emptyGeometry();
   private state: SessionState | null = null;
@@ -58,9 +40,11 @@ export class TableView {
     private readonly host: HTMLElement,
     private readonly options: TableViewOptions = {},
   ) {
+    // El dibujo es decorativo: la misma informacion la da `RosterSummary` en
+    // una lista que un lector de pantalla si puede recorrer.
     this.root = svg('svg', {
       class: 'mesa',
-      attrs: { role: 'img', 'aria-label': 'mesa de la sala', focusable: 'false' },
+      attrs: { 'aria-hidden': 'true', focusable: 'false' },
     });
 
     this.boardLayer = svg('g', { class: 'capa capa--mesa' });
@@ -73,6 +57,7 @@ export class TableView {
     const animate = (): boolean => this.shouldAnimate();
     this.nodes = new NodeLayer(nodeLayer, spokeLayer, NODE_RADIUS, animate);
     this.arcs = new ArcLayer(arcLayer, NODE_RADIUS, animate);
+    this.roster = new RosterSummary(this.host);
 
     new ResizeObserver(() => this.measure()).observe(this.host);
     this.measure();
@@ -90,12 +75,14 @@ export class TableView {
     }
 
     this.geometry = this.computeGeometry(state.members.length);
+    const seats = placeSeats(state.members, this.geometry);
+
     drawBoard(this.boardLayer, this.geometry, state.busy.length > 0);
-    this.nodes.sync(placeSeats(state.members, this.geometry), state);
+    this.nodes.sync(seats, state);
     this.arcs.reposition(this.geometry, (label) => this.nodes.seatOf(label));
+    this.roster.update(seats, state);
   }
 
-  /** Dispara la animación de una pregunta o de su respuesta. */
   playActivity(activity: Activity): void {
     const from = this.nodes.find(activity.from);
     const to = this.nodes.find(activity.to);
@@ -124,6 +111,7 @@ export class TableView {
     this.boardLayer.replaceChildren();
     this.nodes.clear();
     this.arcs.clear();
+    this.roster.clear();
   }
 
   private measure(): void {
@@ -167,10 +155,6 @@ function arcId(activityId: string, direction: 'ida' | 'vuelta'): string {
   return `${activityId}:${direction}`;
 }
 
-/**
- * Lo que el arco de vuelta puede mostrar, sin el contenido de la respuesta:
- * `activity` no lo trae.
- */
 function labelFor(activity: Activity): string | undefined {
   if (activity.phase === 'failed') return 'sin respuesta';
   if (activity.cached) return 'caché';

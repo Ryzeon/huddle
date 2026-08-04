@@ -1,10 +1,3 @@
-/**
- * Tema claro y oscuro.
- *
- * Por defecto el oscuro, aunque el sistema pida claro. La elección manual gana
- * sobre ambos y se recuerda.
- */
-
 export type Theme = 'oscuro' | 'claro';
 
 const KEY = 'huddle.portal.tema';

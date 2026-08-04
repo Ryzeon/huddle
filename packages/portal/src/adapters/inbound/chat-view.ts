@@ -1,11 +1,3 @@
-/**
- * El chat de sesión: entradas, salidas, expulsiones, cambios de anfitrión,
- * mensajes y el rastro de cada pregunta, más la caja de escribir.
- *
- * De las respuestas ajenas solo consta que las hubo, no su contenido:
- * `activity` no lo trae. El texto llega únicamente a quien preguntó.
- */
-
 import type { SessionState } from '../../domain/session-state.js';
 import { mentionables } from '../../domain/session-state.js';
 import { formatEntry, splitMentions, type FormattedEntry } from '../../domain/chat-log.js';

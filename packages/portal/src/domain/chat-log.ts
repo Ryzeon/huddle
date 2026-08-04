@@ -1,28 +1,14 @@
-/**
- * Formato del chat de sesión: convierte una entrada del estado en las tres
- * cosas que la interfaz pinta, un glifo, una línea de texto y un tono.
- *
- * Es puro, así que la redacción se comprueba sin levantar un navegador. Los
- * glifos son caracteres de terminal a propósito: el producto vive en consola.
- */
-
 import type { LogEntry } from './session-state.js';
 
-/** El tono se traduce en la hoja de estilos a un color de la paleta. */
 export type Tone = 'muted' | 'normal' | 'accent' | 'ok' | 'bad';
 
 export interface FormattedEntry {
   id: string;
-  /** Glifo de una celda que abre la línea. */
   glyph: string;
-  /** Texto principal, ya redactado. */
   text: string;
-  /** Alias que se resalta al principio de la línea, si lo hay. */
   alias?: string;
-  /** Línea secundaria: duración, repo, motivo. */
   meta?: string;
   tone: Tone;
-  /** true si el cuerpo es texto de una persona (o de una respuesta). */
   quoted: boolean;
   time: string;
   sources?: string[];
@@ -133,7 +119,6 @@ export function formatSource(source: { file: string; line?: number }): string {
   return source.line !== undefined ? `${source.file}:${source.line}` : source.file;
 }
 
-/** `HH:MM` en hora local. En el chat no hace falta más resolución. */
 export function formatTime(at: number): string {
   const date = new Date(at);
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -143,10 +128,6 @@ function pad(value: number): string {
   return value < 10 ? `0${value}` : String(value);
 }
 
-/**
- * Parte un texto en fragmentos de texto plano y menciones `@alias` o
- * `@alias:tag`, para poder resaltarlas sin inyectar HTML.
- */
 export interface TextChunk {
   kind: 'text' | 'mention';
   value: string;

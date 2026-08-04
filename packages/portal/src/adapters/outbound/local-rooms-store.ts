@@ -1,12 +1,3 @@
-/**
- * Las salas que el portal recuerda, en `localStorage`.
- *
- * El hub no tiene el concepto de «mis salas»: el código es la llave y no hay
- * cuenta de usuario, así que la lista es memoria del navegador y solo de él.
- * Si se borra, se pierden los códigos, y por eso la cabecera insiste con el
- * botón de copiar.
- */
-
 import type { RememberedRoom, RoomsStore } from '../../application/ports/room-feed.js';
 
 const KEY = 'huddle.portal.salas.v1';
@@ -65,10 +56,6 @@ function isRoom(value: unknown): value is RememberedRoom {
   );
 }
 
-/**
- * La misma lista, en memoria. La usa el modo demo para enseñar el lateral sin
- * escribir nada en el navegador de quien lo mira.
- */
 export class MemoryRoomsStore implements RoomsStore {
   private rooms: RememberedRoom[];
 

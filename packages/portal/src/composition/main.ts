@@ -1,18 +1,3 @@
-/**
- * Composition root del portal.
- *
- * Único sitio donde se elige el transporte y se instancian las vistas. Ni el
- * reductor ni las vistas saben si detrás hay un hub o un guion: se resuelve
- * aquí, leyendo la URL.
- *
- *   ?demo=1                          reproduce el guion de demostración
- *   ?demo=1&velocidad=3              lo mismo, tres veces más rápido
- *   ?demo=1&instante=8000            salta al estado del guion en ese instante
- *   ?hub=ws://localhost:8787&sala=MPP8V-7HZS5&alias=@ana
- *   ?hub=…&crear=plataforma&alias=@ana
- *   &tema=claro                      fuerza el tema (lo usan las capturas)
- */
-
 import { SessionStore } from '../application/session-store.js';
 import type { FeedIdentity, RoomFeed } from '../application/ports/room-feed.js';
 import { DemoRoomFeed } from '../adapters/outbound/demo-room-feed.js';
@@ -28,7 +13,6 @@ import { need } from '../adapters/inbound/dom.js';
 
 const DEFAULT_HUB = 'ws://localhost:8787';
 
-/** Transporte inerte: no hay sala a la que conectarse todavía. */
 class IdleFeed implements RoomFeed {
   start(): void {}
   stop(): void {}

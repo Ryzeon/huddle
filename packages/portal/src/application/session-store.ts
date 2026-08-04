@@ -1,12 +1,3 @@
-/**
- * Mantiene el estado de la sesión y expone las acciones que la interfaz puede
- * disparar.
- *
- * Es lo único que junta el puerto de transporte con el reductor. Las vistas se
- * suscriben y reciben estados; no llaman al feed ni construyen mensajes del
- * protocolo a mano.
- */
-
 import type { PortalClientMessage, RoomFeed } from './ports/room-feed.js';
 import type { Activity, PortalEvent, SessionState } from '../domain/session-state.js';
 import {
@@ -21,7 +12,6 @@ export type Clock = () => number;
 export interface SessionStoreDeps {
   feed: RoomFeed;
   clock?: Clock;
-  /** Se llama con cada actividad nueva o cambiada, para animar la mesa. */
   onActivity?: (activity: Activity) => void;
 }
 
@@ -66,26 +56,18 @@ export class SessionStore {
 
   // --- acciones -----------------------------------------------------------
 
-  /** Chat humano normal. */
   sendMessage(text: string): void {
     this.send({ t: 'msg', text });
   }
 
-  /** Pregunta de verdad. La respuesta vuelve solo a quien pregunta. */
   ask(to: string, question: string, ttlSeconds = 90): void {
     this.send({ t: 'ask', id: newLocalId(), to, q: question, ttl: ttlSeconds });
   }
 
-  /** Solo el anfitrión; el hub rechaza al resto. */
   kick(alias: string, reason?: string): void {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
   }
 
-  /**
-   * Deja constancia local de algo (un comando mal escrito, una copia al
-   * portapapeles) en el mismo hilo del chat, sin abrir una segunda vía de
-   * escritura al estado.
-   */
   note(text: string, tone: 'system' | 'failed' = 'system'): void {
     this.ingest({ t: 'note', text, tone });
   }

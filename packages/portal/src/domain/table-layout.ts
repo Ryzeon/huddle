@@ -1,66 +1,36 @@
-/**
- * Colocación de los miembros alrededor de la mesa. Entra una lista de miembros
- * y salen coordenadas; no sabe nada de SVG, de animaciones ni del DOM.
- *
- * Dos propiedades importan más que la fórmula:
- *
- * - Estabilidad: el mismo conjunto de miembros da siempre los mismos asientos,
- *   en el mismo orden. Si el orden bailara, cada `room_state` movería a todo
- *   el mundo de sitio y la mesa sería ilegible.
- * - Reparto: los asientos ocupan el círculo completo, empezando arriba y
- *   girando en el sentido del reloj.
- */
-
-/** Lo mínimo que hace falta saber de alguien para sentarlo. */
 export interface Seatable {
   alias: string;
   tag?: string;
-  /** Epoch ms de entrada. Decide el orden; sin él, va al final. */
   joinedAt?: number;
 }
 
 export interface TableGeometry {
-  /** Centro de la mesa. */
   cx: number;
   cy: number;
-  /** Distancia del centro al centro de cada nodo. */
   radius: number;
-  /** Radio del nodo, para recortar la línea y que no le entre por debajo. */
   nodeRadius: number;
-  /** Radio de la mesa, para que la línea arranque en su borde y no en el centro. */
   tableRadius: number;
 }
 
-/** De qué lado de la mesa cae un asiento. Decide dónde va su etiqueta. */
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
 export interface Seat {
   alias: string;
   tag?: string;
-  /** Identidad completa en la sala: `@ana` o `@ana:facturacion`. */
   label: string;
   index: number;
-  /** Grados, 0 = derecha, creciendo en el sentido del reloj (coords de pantalla). */
   angleDeg: number;
   x: number;
   y: number;
   side: Side;
-  /** Anclaje del texto para que las etiquetas no se metan en la mesa. */
   textAnchor: 'start' | 'middle' | 'end';
-  /** Segmento entre el borde de la mesa y el borde del nodo. */
   spoke: { x1: number; y1: number; x2: number; y2: number };
 }
 
-/** Etiqueta canónica de un miembro: `@ana` o `@ana:api`. */
 export function memberLabel(member: Seatable): string {
   return member.tag ? `${member.alias}:${member.tag}` : member.alias;
 }
 
-/**
- * Orden estable: primero quien lleva más tiempo, y a igualdad de instante
- * (o sin instante), por etiqueta. Nunca depende del orden de llegada del
- * array, que el hub no garantiza.
- */
 export function orderSeats<T extends Seatable>(members: readonly T[]): T[] {
   return [...members].sort((a, b) => {
     const at = a.joinedAt ?? Number.MAX_SAFE_INTEGER;
@@ -70,17 +40,12 @@ export function orderSeats<T extends Seatable>(members: readonly T[]): T[] {
   });
 }
 
-/**
- * Ángulos repartidos por igual, empezando arriba (-90°) y girando en el
- * sentido del reloj. Con un solo miembro, queda arriba del todo.
- */
 export function seatAngles(count: number): number[] {
   if (count <= 0) return [];
   const step = 360 / count;
   return Array.from({ length: count }, (_, i) => -90 + i * step);
 }
 
-/** El lado al que mira un ángulo, con las diagonales resueltas hacia el eje X. */
 export function sideOf(angleDeg: number): Side {
   const a = ((angleDeg % 360) + 360) % 360;
   if (a >= 315 || a < 45) return 'right';
@@ -95,13 +60,6 @@ function anchorFor(side: Side): 'start' | 'middle' | 'end' {
   return 'middle';
 }
 
-/**
- * Sienta a todos alrededor de la mesa.
- *
- * El `spoke` es la línea que en la interfaz se dibuja al entrar: va del borde
- * de la mesa al borde del nodo, nunca de centro a centro, para que ni la mesa
- * ni el icono se la coman.
- */
 export function placeSeats(
   members: readonly Seatable[],
   geometry: TableGeometry,
@@ -139,12 +97,6 @@ export function placeSeats(
   });
 }
 
-/**
- * Segmento entre dos asientos, recortado en ambos extremos por el radio del
- * nodo. Es el trazo que viaja cuando alguien pregunta.
- *
- * Devuelve `null` si los asientos coinciden: no hay flecha que dibujar.
- */
 export function seatToSeatPath(
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -166,17 +118,11 @@ export function seatToSeatPath(
   };
 }
 
-/**
- * Curva que evita el centro de la mesa: una cuadrática cuyo control se
- * desplaza perpendicular al segmento. Sin esto, cualquier pregunta entre dos
- * asientos opuestos pasa por encima de la mesa y se pierde.
- */
 export function arcBetween(
   from: { x: number; y: number },
   to: { x: number; y: number },
   nodeRadius: number,
   bend: number,
-  /** Zona por la que el arco no debe pasar: la mesa. */
   avoid?: { x: number; y: number; radius: number },
 ): { d: string; midX: number; midY: number } | null {
   const segment = seatToSeatPath(from, to, nodeRadius);
@@ -207,14 +153,6 @@ export function arcBetween(
   };
 }
 
-/**
- * Cuánto hay que curvar para que la cima del arco quede fuera de la mesa. Sin
- * esto, una pregunta entre dos asientos enfrentados cruza el tablero por
- * encima de la celda y se pierde entre las líneas.
- *
- * La cima de una cuadrática está en `medio + perpendicular · (curvatura / 2)`,
- * así que basta resolver dónde sale del círculo de la mesa.
- */
 export function bendToClear(
   mid: { x: number; y: number },
   perpendicular: { x: number; y: number },
@@ -233,10 +171,6 @@ export function bendToClear(
   return apex > 0 ? apex * 2 : 0;
 }
 
-/**
- * Vértices de un polígono regular centrado, con un vértice arriba.
- * La mesa es un hexágono; esto es lo único que necesita para dibujarse.
- */
 export function polygonPoints(cx: number, cy: number, radius: number, sides: number): string {
   const points: string[] = [];
   for (let i = 0; i < sides; i++) {
@@ -246,17 +180,12 @@ export function polygonPoints(cx: number, cy: number, radius: number, sides: num
   return points.join(' ');
 }
 
-/**
- * Radio de la mesa en función del espacio disponible y de cuánta gente hay.
- * Con mucha gente los nodos necesitan más perímetro o se solapan.
- */
 export function radiusFor(available: number, memberCount: number): number {
   const base = Math.min(available * 0.42, 264);
   const crowding = memberCount > 6 ? (memberCount - 6) * 7 : 0;
   return Math.max(96, base + Math.min(crowding, 56));
 }
 
-/** Radio de la mesa: proporcional al corro, pero acotado por los dos lados. */
 export function tableRadiusFor(seatRadius: number): number {
   return Math.min(126, Math.max(56, seatRadius * 0.46));
 }

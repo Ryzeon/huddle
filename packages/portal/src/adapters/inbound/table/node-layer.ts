@@ -1,11 +1,3 @@
-/**
- * Los nodos de la mesa: un miembro sentado, con su radio hacia el tablero.
- *
- * Lleva la cuenta de quién está colocado y dónde, para que un render nuevo
- * mueva a los que siguen, dé entrada a los que llegan y saque a los que se van,
- * en vez de rehacerlo todo y perder las animaciones a medias.
- */
-
 import type { Member } from '@huddle/protocol';
 import type { SessionState } from '../../../domain/session-state.js';
 import { memberLabel, type Seat } from '../../../domain/table-layout.js';
@@ -13,7 +5,6 @@ import { agentGlyph } from '../brand.js';
 import { clear, svg } from '../dom.js';
 import { TIMING, type ShouldAnimate } from './timing.js';
 
-/** Cuando la etiqueta de cuota empieza a avisar. */
 const LOW_QUOTA = 5;
 
 export interface PlacedNode {
@@ -32,7 +23,6 @@ export class NodeLayer {
     private readonly shouldAnimate: ShouldAnimate,
   ) {}
 
-  /** Coloca los asientos de este render: entra quien falta, sale quien sobra. */
   sync(seats: readonly Seat[], state: SessionState): void {
     const seen = new Set<string>();
 
@@ -53,7 +43,6 @@ export class NodeLayer {
     }
   }
 
-  /** El nodo de un alias. `@ana` encuentra a `@ana:facturacion` si es el único. */
   find(alias: string): PlacedNode | undefined {
     const exact = this.placed.get(alias);
     if (exact) return exact;
@@ -147,7 +136,6 @@ export class NodeLayer {
     setTimeout(done, TIMING.salida);
   }
 
-  /** Clases de estado y etiquetas. Se rehacen enteras: son cuatro textos. */
   private decorate(
     group: SVGGElement,
     seat: Seat,

@@ -1,20 +1,10 @@
-/**
- * Lista de salas recordadas, y el formulario para entrar o crear.
- *
- * La lista sale de `LocalRoomsStore`. Cambiar de sala es cambiar de conexión,
- * así que se hace navegando: hub, código y alias van en la URL, que queda
- * pegable en un chat.
- */
-
 import type { RememberedRoom, RoomsStore } from '../../application/ports/room-feed.js';
 import type { SessionState } from '../../domain/session-state.js';
 import { clear, el, need } from './dom.js';
 import { isotypeElement } from './brand.js';
 
 export interface RoomsHandlers {
-  /** Entrar a una sala existente. */
   onOpen(room: { code: string; alias: string; hub: string }): void;
-  /** Crear una sala nueva en un hub. */
   onCreate(room: { name: string; alias: string; hub: string }): void;
   onForget(code: string): void;
 }

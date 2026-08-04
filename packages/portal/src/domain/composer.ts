@@ -1,28 +1,11 @@
-/**
- * La caja de escribir: menciones con autocompletado y el comando `/ask`.
- *
- * Decide qué se sugiere y qué se manda sin tocar el `<textarea>`. La vista lee
- * el cursor, llama a estas funciones y aplica el resultado.
- */
-
-/** Una mención a medio escribir, localizada en el texto. */
 export interface MentionQuery {
-  /** Índice del `@`. */
   start: number;
-  /** Índice justo después de lo tecleado. */
   end: number;
-  /** Lo escrito tras el `@`, en minúsculas y sin el `@`. */
   query: string;
 }
 
 const MENTION_CHARS = /^[a-z0-9_:-]*$/i;
 
-/**
- * Busca la mención que se está escribiendo en la posición del cursor.
- *
- * Solo cuenta si el `@` va precedido de espacio o de principio de línea: en
- * medio de una palabra (`correo@dominio`) no es una mención.
- */
 export function findMentionQuery(text: string, caret: number): MentionQuery | null {
   const position = Math.max(0, Math.min(caret, text.length));
   let start = -1;
@@ -46,11 +29,6 @@ export function findMentionQuery(text: string, caret: number): MentionQuery | nu
   };
 }
 
-/**
- * Ordena los candidatos para una consulta: primero los que empiezan por lo
- * tecleado, después los que lo contienen, y a igualdad, alfabético. Con la
- * consulta vacía devuelve todo en orden.
- */
 export function rankMentions(query: string, candidates: readonly string[]): string[] {
   const needle = query.toLowerCase();
   const scored: Array<{ label: string; score: number }> = [];
@@ -75,7 +53,6 @@ export interface AppliedMention {
   caret: number;
 }
 
-/** Sustituye la mención a medio escribir por el candidato, y deja un espacio. */
 export function applyMention(
   text: string,
   mention: MentionQuery,
@@ -100,11 +77,6 @@ export type Draft =
 
 const ASK_RE = /^\/(?:ask|preguntar)\s+(@[a-z0-9][a-z0-9_-]{0,31}(?::[a-z0-9][a-z0-9_-]{0,31})?)\s+([\s\S]+)$/i;
 
-/**
- * Interpreta lo escrito. Por defecto es chat humano; `/ask @alias pregunta`
- * (o `/preguntar`) dispara una pregunta real al agente de esa persona, cuya
- * respuesta llega solo a quien preguntó.
- */
 export function parseDraft(raw: string): Draft {
   const text = raw.trim();
   if (text === '') return { kind: 'empty' };

@@ -1,11 +1,4 @@
-/**
- * Los arcos: el trazo que viaja de un nodo a otro cuando alguien pregunta, y
- * el que vuelve con la respuesta.
- *
- * Los extremos se guardan por alias y no por coordenada. Con coordenadas, al
- * cambiar de tamaño la ventana los nodos se recolocan y el arco se queda
- * flotando donde estaban antes.
- */
+// Los arcos de pregunta y respuesta entre dos nodos de la mesa.
 
 import { arcBetween, type Seat, type TableGeometry } from '../../../domain/table-layout.js';
 import { svg } from '../dom.js';
@@ -13,17 +6,13 @@ import { TIMING, type ShouldAnimate } from './timing.js';
 
 export type ArcTone = 'pregunta' | 'respuesta' | 'fallo';
 
-/** Cuánto se queda el arco quieto antes de desvanecerse, y de borrarse. */
 const LINGER_MS = 1_400;
 const REMOVE_MS = 2_100;
 
-/** Largo del destello que recorre el arco marcando el sentido. */
 const GLINT_LENGTH = 22;
 
-/** Separación entre el arco y el borde del tablero, para que no lo roce. */
 const BOARD_CLEARANCE = 16;
 
-/** Separación entre el arco y el borde del nodo. */
 const NODE_CLEARANCE = 4;
 
 interface DrawnArc {
@@ -74,16 +63,11 @@ export class ArcLayer {
     if (this.shouldAnimate()) this.playTravel(group, line, arc.d, duration);
   }
 
-  /** Quita un arco al instante. Lo usa la vuelta para tapar la ida. */
   fade(id: string): void {
     this.arcs.get(id)?.group.remove();
     this.arcs.delete(id);
   }
 
-  /**
-   * Recalcula los arcos vivos contra los asientos de ahora. Se llama en cada
-   * render, que es también lo que ocurre al cambiar de tamaño la ventana.
-   */
   reposition(geometry: TableGeometry, seatOf: (label: string) => Seat | undefined): void {
     for (const [id, drawn] of [...this.arcs]) {
       const from = seatOf(drawn.from);
@@ -150,10 +134,6 @@ export class ArcLayer {
   }
 }
 
-/**
- * La curva entre dos asientos, esquivando el tablero. Se abre siempre al mismo
- * lado respecto al sentido del trazo, así que ida y vuelta no se pisan.
- */
 function curve(
   from: Seat,
   to: Seat,
