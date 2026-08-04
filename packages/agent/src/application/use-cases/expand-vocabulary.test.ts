@@ -94,11 +94,16 @@ describe('ampliación del vocabulario', () => {
   });
 
   test('si el motor tarda demasiado, tampoco bloquea', async () => {
-    const expander = expanderThat(
-      () => new Promise<string[]>(() => undefined), // no resuelve jamás
-    );
+    // La promesa se deja colgada a propósito para provocar el corte, pero se
+    // suelta al final: una promesa viva tras el test se lleva por delante al
+    // resto del bloque cuando el runner cierra (pasó en CI, no en local).
+    let soltar: (terminos: string[]) => void = () => undefined;
+    const expander = expanderThat(() => new Promise<string[]>((resolve) => {
+      soltar = resolve;
+    }));
 
     const terms = await build(expander, 20).run(SNAPSHOT);
+    soltar([]);
 
     assert.deepEqual(terms, ['spring-boot', 'kafka']);
   });
