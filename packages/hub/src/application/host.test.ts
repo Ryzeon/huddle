@@ -251,3 +251,76 @@ describe('generateRoomCode', () => {
     assert.equal(normalizeRoomCode(' bcdfg-hjkmn '), 'BCDFG-HJKMN');
   });
 });
+
+describe('la sala es de quien la creó', () => {
+  let now: number;
+  let hub: HubService;
+  let code: string;
+
+  const create = (channel: FakeChannel, alias: string) => {
+    hub.handle(channel, {
+      t: 'create',
+      v: PROTOCOL_VERSION,
+      name: 'Equipo',
+      alias,
+      card: { repo: 'repo', dirs: [] },
+      quotaRemaining: 10,
+    });
+    return channel.last('welcome')!.room;
+  };
+
+  const join = (channel: FakeChannel, alias: string) => {
+    hub.handle(channel, {
+      t: 'join',
+      v: PROTOCOL_VERSION,
+      room: code,
+      alias,
+      card: { repo: 'repo', dirs: [] },
+      quotaRemaining: 10,
+    });
+  };
+
+  beforeEach(() => {
+    now = 1_000_000;
+    hub = new HubService({
+      clock: { now: () => now },
+      timers: noTimers,
+      transcripts: noTranscripts,
+    });
+    code = create(new FakeChannel('ana-1'), '@ana');
+  });
+
+  test('el dueño recupera el mando al volver', () => {
+    const beto = new FakeChannel('beto');
+    now += 1_000;
+    join(beto, '@beto');
+
+    // Se va la dueña: el mando lo hereda quien queda.
+    hub.disconnect('ana-1');
+    assert.equal(beto.last('host_changed')?.host, '@beto', 'lo hereda @beto');
+
+    now += 1_000;
+    const ana = new FakeChannel('ana-2');
+    join(ana, '@ana');
+
+    const cambio = beto.last('host_changed');
+    assert.equal(cambio?.host, '@ana', 'al volver, la sala vuelve a ser suya');
+    assert.equal(cambio?.reason, 'returned');
+  });
+
+  test('quien no es el dueño no le quita el mando a nadie', () => {
+    const beto = new FakeChannel('beto');
+    now += 1_000;
+    join(beto, '@beto');
+
+    assert.equal(beto.last('host_changed')?.reason, undefined, 'nadie cambió de mando');
+  });
+
+  test('una reconexión del anfitrión no anuncia nada', () => {
+    const ana2 = new FakeChannel('ana-otra');
+    now += 1_000;
+    join(ana2, '@ana');
+
+    assert.equal(ana2.last('host_changed'), undefined, 'ya lo tenía; no ha vuelto de nada');
+  });
+});

@@ -31,7 +31,7 @@ export interface RoomStateEvent {
 export interface HostChangedEvent {
   t: 'host_changed';
   host: Alias;
-  reason: 'left' | 'created';
+  reason: 'left' | 'created' | 'returned';
 }
 
 export interface RoomClosedEvent {

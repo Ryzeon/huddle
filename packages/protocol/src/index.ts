@@ -210,7 +210,7 @@ export interface ActivityMessage {
 export interface HostChangedMessage {
   t: 'host_changed';
   host: Alias;
-  reason: 'left' | 'created';
+  reason: 'left' | 'created' | 'returned';
 }
 
 export interface RoomClosedMessage {

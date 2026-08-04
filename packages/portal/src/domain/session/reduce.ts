@@ -132,7 +132,7 @@ function onHostChanged(state: SessionState, event: HostChangedEvent, now: number
   return appendEntry(next, now, {
     kind: 'host',
     alias: event.host,
-    meta: event.reason === 'left' ? 'heredó el mando' : 'creó la sala',
+    meta: HOST_REASON[event.reason],
   });
 }
 
@@ -211,6 +211,12 @@ function endActivity(state: SessionState, event: ActivityMessage, now: number): 
 function withoutActivity(state: SessionState, id: string): Activity[] {
   return state.activities.filter((activity) => activity.id !== id);
 }
+
+const HOST_REASON: Record<HostChangedEvent['reason'], string> = {
+  left: 'heredó el mando',
+  created: 'creó la sala',
+  returned: 'volvió y recuperó el mando',
+};
 
 function repoOf(member: Member): string | undefined {
   return member.card?.repo;

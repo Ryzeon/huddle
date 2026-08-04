@@ -1,3 +1,4 @@
+import type { RoomRecord } from '../ports/member-channel.js';
 import { Room } from '../../domain/room.js';
 import type { BucketPolicy } from '../../domain/rate-limit.js';
 import type { MemberChannelPort } from '../ports/member-channel.js';
@@ -9,22 +10,25 @@ export class RoomRegistry {
 
   constructor(private readonly askPolicy: BucketPolicy) {}
 
-  restore(records: { code: string; name: string; createdAt: number }[]): void {
+  restore(records: RoomRecord[]): void {
     for (const record of records) {
       if (this.rooms.has(record.code)) continue;
-      this.rooms.set(
-        record.code,
-        new Room(record.code, record.name, this.askPolicy, record.createdAt),
-      );
+      const room = new Room(record.code, record.name, this.askPolicy, record.createdAt);
+      if (record.owner) room.restoreOwner(record.owner);
+      this.rooms.set(record.code, room);
     }
   }
 
-  snapshot(): { code: string; name: string; createdAt: number }[] {
-    return [...this.rooms.values()].map((room) => ({
-      code: room.code,
-      name: room.name,
-      createdAt: room.createdAt,
-    }));
+  snapshot(): RoomRecord[] {
+    return [...this.rooms.values()].map((room) => {
+      const record: RoomRecord = {
+        code: room.code,
+        name: room.name,
+        createdAt: room.createdAt,
+      };
+      if (room.ownerAlias) record.owner = room.ownerAlias;
+      return record;
+    });
   }
 
   forget(code: string): void {

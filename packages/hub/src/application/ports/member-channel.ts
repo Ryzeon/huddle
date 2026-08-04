@@ -11,6 +11,8 @@ export interface RoomRecord {
   code: string;
   name: string;
   createdAt: number;
+  /** Quien la creó. Sin esto, reiniciar el hub le quitaría la sala a su dueño. */
+  owner?: string;
 }
 
 export interface RoomStorePort {

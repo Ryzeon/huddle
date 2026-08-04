@@ -48,7 +48,7 @@ export class JoinRoomHandler {
       return;
     }
 
-    const { replaced, becameHost } = room.join(
+    const { replaced, becameHost, reclaimedHost } = room.join(
       {
         channelId: channel.id,
         alias,
@@ -79,6 +79,10 @@ export class JoinRoomHandler {
       host: room.hostAlias ?? alias,
       members: room.roster(),
     });
+
+    if (reclaimedHost) {
+      notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'returned' });
+    }
 
     if (becameHost) {
       notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });

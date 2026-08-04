@@ -37,6 +37,12 @@ export class Room {
   readonly name: string;
   readonly createdAt: number;
   private host?: Alias;
+
+  /**
+   * Quien creó la sala. El anfitrión puede cambiar de manos mientras no está,
+   * pero al volver lo recupera: la sala es suya, no de quien pasaba por ahí.
+   */
+  private owner?: Alias;
   private readonly membersByKey = new Map<string, RoomMember>();
   private readonly pendingById = new Map<string, PendingAsk>();
   private readonly entries: TranscriptEntry[] = [];
@@ -61,6 +67,15 @@ export class Room {
 
   get hostAlias(): Alias | undefined {
     return this.host;
+  }
+
+  get ownerAlias(): Alias | undefined {
+    return this.owner;
+  }
+
+  /** Se usa al restaurar del disco, donde el dueño ya estaba decidido. */
+  restoreOwner(alias: Alias): void {
+    this.owner = alias;
   }
 
   isHost(alias: Alias): boolean {
@@ -97,7 +112,7 @@ export class Room {
   join(
     member: Omit<RoomMember, 'inFlight' | 'askTokens' | 'askTokensAt' | 'joinedAt'>,
     now: number,
-  ): { replaced?: RoomMember; becameHost: boolean } {
+  ): { replaced?: RoomMember; becameHost: boolean; reclaimedHost: boolean } {
     const key = memberKey(member.alias, member.tag);
     const previous = this.membersByKey.get(key);
 
@@ -116,8 +131,16 @@ export class Room {
     // salvo que solo esté mirando.
     const becameHost = this.host === undefined && !member.viewer;
     if (becameHost) this.host = member.alias;
+    if (this.owner === undefined && becameHost) this.owner = member.alias;
 
-    return previous ? { replaced: previous, becameHost } : { becameHost };
+    // El dueño vuelve: recupera el mando de quien se lo estaba guardando. No
+    // cuenta una reconexión de quien ya lo tenía, que no es volver de nada.
+    const reclaimedHost =
+      !becameHost && !member.viewer && this.owner === member.alias && this.host !== member.alias;
+    if (reclaimedHost) this.host = member.alias;
+
+    const outcome = { becameHost, reclaimedHost };
+    return previous ? { replaced: previous, ...outcome } : outcome;
   }
 
   find(channelId: string): RoomMember | undefined {
