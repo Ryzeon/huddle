@@ -56,6 +56,9 @@ function fill<T extends HTMLElement>(host: T, content: Inline[]): T {
       case 'italic':
         host.appendChild(el('em', { text: part.value }));
         break;
+      case 'break':
+        host.appendChild(el('br'));
+        break;
       case 'mention':
         host.appendChild(el('span', { class: 'mencion', text: part.value }));
         break;

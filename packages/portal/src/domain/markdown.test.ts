@@ -101,3 +101,22 @@ describe('texto plano para copiar', () => {
     assert.equal(blockToText(bloque!), 'es muy importante');
   });
 });
+
+describe('saltos de línea', () => {
+  test('un salto suelto se conserva, no se junta en un renglón', () => {
+    const [bloque] = parseMarkdown('primera linea\nsegunda linea');
+    const saltos = bloque?.kind === 'paragraph'
+      ? bloque.content.filter((p) => p.kind === 'break').length
+      : 0;
+    assert.equal(saltos, 1);
+  });
+
+  test('y al copiar sale como salto de verdad', () => {
+    const [bloque] = parseMarkdown('uno\ndos');
+    assert.equal(blockToText(bloque!), 'uno\ndos');
+  });
+
+  test('dos líneas en blanco siguen siendo dos párrafos', () => {
+    assert.equal(parseMarkdown('uno\n\ndos').length, 2);
+  });
+});

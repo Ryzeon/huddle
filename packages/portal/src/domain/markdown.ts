@@ -9,7 +9,8 @@ export type Inline =
   | { kind: 'code'; value: string }
   | { kind: 'bold'; value: string }
   | { kind: 'italic'; value: string }
-  | { kind: 'mention'; value: string };
+  | { kind: 'mention'; value: string }
+  | { kind: 'break'; value: string };
 
 export type Block =
   | { kind: 'paragraph'; content: Inline[] }
@@ -98,7 +99,14 @@ export function parseMarkdown(source: string): Block[] {
       parrafo.push(actual.trim());
       i++;
     }
-    blocks.push({ kind: 'paragraph', content: parseInline(parrafo.join(' ')) });
+    // Los saltos sueltos se conservan: una respuesta que enumera cosas en
+    // líneas distintas se vuelve ilegible si se juntan todas en un renglón.
+    const content: Inline[] = [];
+    parrafo.forEach((linea, indice) => {
+      if (indice > 0) content.push({ kind: 'break', value: '\n' });
+      content.push(...parseInline(linea));
+    });
+    blocks.push({ kind: 'paragraph', content });
   }
 
   return blocks;
