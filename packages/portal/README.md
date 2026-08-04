@@ -59,41 +59,41 @@ composition/    main.ts, único sitio que decide cuál de las dos se usa.
 
 Las vistas no saben si detrás hay un hub o un guion en memoria.
 
-## Decisiones
+## Notas de implementación
 
-**Sin framework y sin bundler.** TypeScript emite ESM con extensiones `.js`
+No hay framework ni bundler. TypeScript emite ESM con extensiones `.js`
 explícitas, que es lo que ya exige `module: NodeNext`, y el navegador lo carga
-tal cual. De `protocol` solo se importan tipos, que desaparecen al compilar. El
-servidor de desarrollo es un `http.createServer` con `tsc --build --watch` al
-lado. Cero dependencias de ejecución.
+directamente. De `protocol` solo se importan tipos, que desaparecen al
+compilar. El servidor de desarrollo es un `http.createServer` con
+`tsc --build --watch` al lado.
 
-**El hub manda rosters, no eventos de entrada y salida.** «Entró @fulano» se
-deduce comparando el roster nuevo con el anterior, en `session-state.ts`. Es lo
-que más se rompe en silencio, y por eso es lo más probado.
+El hub no manda eventos de entrada y salida, manda el roster entero en cada
+cambio. «Entró @fulano» se deduce comparando el roster nuevo con el anterior,
+en `session-state.ts`. Es la parte que más se rompe en silencio y por eso es la
+más probada.
 
-**Las animaciones son un camino, no un estado.** Cada elemento se deja ya en su
-aspecto final y `element.animate()` solo dibuja el trayecto, sin
-`fill: forwards`. Los borrados van por temporizador y no por el evento `finish`.
-Así, si el motor de animación no arranca (captura headless, pestaña en segundo
-plano, `prefers-reduced-motion`), lo que se ve sigue siendo correcto en vez de
-quedarse invisible.
+Las animaciones no cambian el estado, solo dibujan el camino hasta él. Cada
+elemento se deja ya en su aspecto final y `element.animate()` recorre el
+trayecto, sin `fill: forwards`. Los borrados van por temporizador y no por el
+evento `finish`. Así, si el motor de animación no arranca (captura headless,
+pestaña en segundo plano, `prefers-reduced-motion`), lo que queda en pantalla
+sigue siendo correcto.
 
-**Los estados no se distinguen solo por color.** Espectador: disco sin relleno y
-borde discontinuo. Anfitrión: borde grueso. Respondiendo: anillo. Fallo: trazo
-más grueso y etiqueta «sin respuesta».
+Los estados no dependen solo del color. Espectador es un disco sin relleno con
+borde discontinuo, anfitrión lleva borde grueso, responder pinta un anillo y un
+fallo engorda el trazo y añade la etiqueta «sin respuesta».
 
-**Un solo ámbar**, según `brand/marca.md` §3. Se lo lleva la celda del centro de
-la mesa, el arco de la pregunta viva, el cursor y el foco. El anfitrión y la
-sala activa se marcan con contraste, no con un segundo acento.
+El ámbar aparece una sola vez por composición, según `brand/marca.md` §3: se lo
+lleva la celda del centro de la mesa, el arco de la pregunta viva, el cursor y
+el foco. El anfitrión y la sala activa se distinguen por contraste.
 
-**Las salas son memoria del navegador.** El hub no tiene cuentas: el código de
-sala es la llave. «Mis salas» es una lista en `localStorage`, y por eso la
-cabecera insiste con el botón de copiar. En demo se usa una lista en memoria.
+Las salas viven en `localStorage`. El hub no tiene cuentas, el código de sala es
+la única llave, así que «mis salas» es una lista local del navegador y por eso
+la cabecera insiste con el botón de copiar. En demo esa lista va en memoria.
 
-**Tipografía.** La marca pide JetBrains Mono, pero traerla por red contradice lo
-de no hacer peticiones fuera, y no metí un `.woff2` de 200 kB sin que nadie lo
-pidiera. Se usa la pila mono del sistema, con JetBrains Mono declarada por si
-está instalada.
+La marca pide JetBrains Mono, pero descargarla por red contradice lo de no hacer
+peticiones fuera y no quise meter un `.woff2` de 200 kB. Se usa la pila mono del
+sistema, con JetBrains Mono declarada por si está instalada.
 
 ## Capturas
 
