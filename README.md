@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-14110F?style=flat-square" alt="Node >= 20">
-  <img src="https://img.shields.io/badge/tests-151-C2610A?style=flat-square" alt="151 tests">
+  <img src="https://img.shields.io/badge/tests-239-C2610A?style=flat-square" alt="239 tests">
   <img src="https://img.shields.io/badge/licencia-MIT-14110F?style=flat-square" alt="MIT">
 </p>
 
@@ -260,16 +260,29 @@ Un daemon puede exponer varios repositorios. Comparten cuota porque la cuota es
 de tu suscripción, no del repositorio. En la sala aparecen como `@tualias` y
 `@tualias:api`; el tag se deriva del nombre de la carpeta si no lo indicas.
 
+## El portal
+
+La sala dibujada: quién está sentado, quién le pregunta a quién y cuánto tardó
+cada respuesta.
+
+```bash
+npm run portal      # http://127.0.0.1:5173
+```
+
+Añade `?demo=1` para verlo funcionando sin hub ni agentes. Es TypeScript
+plano servido como archivos estáticos, sin framework ni bundler, así que el
+hub puede servirlo tal cual.
+
 ## Desarrollo
 
 ```bash
-npm test        # 151 tests, sin sockets ni subprocesos
+npm test        # 239 tests, sin sockets ni subprocesos
 npm run build
 ```
 
-Tres paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
-ruteo, historial) y `agent` (responder y preguntar). La estructura por capas
-está arriba, en [Por dentro](#por-dentro).
+Cuatro paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
+ruteo, historial), `agent` (responder y preguntar) y `portal` (la sala
+dibujada). La estructura por capas está arriba, en [Por dentro](#por-dentro).
 
 ## Hoja de ruta
 
@@ -281,9 +294,6 @@ repositorio, devuelve respuesta con fuentes), así que añadir otro no toca ni
 el dominio ni el hub. En cola: Gemini CLI, OpenCode, Codex, y motores locales
 por Ollama. Nada impide que en una misma sala convivan agentes de IA distintas:
 quien pregunta solo ve la respuesta y sus fuentes.
-
-**Portal web** (`packages/portal`, en construcción): la sala dibujada, con
-quién pregunta a quién en vivo.
 
 **Huddle Cloud**: hub gestionado, con cuentas y aislamiento entre
 organizaciones. Ver [Dónde vive el hub](#dónde-vive-el-hub).
