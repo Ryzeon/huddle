@@ -87,6 +87,8 @@ export class WorkspaceAgent {
 export interface AgentStatus {
   room: string;
   alias: string;
+  /** A qué hub. Sin esto se sabe si estás conectado, pero no a dónde. */
+  hub: string;
   connected: boolean;
   quotaRemaining: number | null;
   quotaLimit: number | null;
@@ -105,6 +107,8 @@ export interface AgentServiceDeps {
 export interface AgentIdentity {
   room: string;
   alias: string;
+  /** A qué hub. Sin esto se sabe si estás conectado, pero no a dónde. */
+  hub: string;
 }
 
 export class AgentService {
@@ -173,6 +177,7 @@ export class AgentService {
     return {
       room: this.identity.room,
       alias: this.identity.alias,
+      hub: this.identity.hub,
       connected: this.activeGateway() !== undefined,
       quotaRemaining: this.deps.quota.remaining,
       quotaLimit: this.deps.quota.dailyLimit,

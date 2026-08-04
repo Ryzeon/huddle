@@ -95,7 +95,7 @@ export function buildAgent(config: Config): AgentService {
         queue,
       ),
     },
-    { room: config.room, alias: config.alias },
+    { room: config.room, alias: config.alias, hub: config.hub },
   );
 }
 
