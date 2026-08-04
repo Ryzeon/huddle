@@ -8,10 +8,10 @@ describe('bloques', () => {
     assert.equal(bloque?.kind, 'paragraph');
   });
 
-  test('junta las líneas de un mismo párrafo', () => {
+  test('las líneas seguidas son un solo párrafo, con su salto', () => {
     const bloques = parseMarkdown('una linea\ny la siguiente');
     assert.equal(bloques.length, 1);
-    assert.equal(blockToText(bloques[0]!), 'una linea y la siguiente');
+    assert.equal(blockToText(bloques[0]!), 'una linea\ny la siguiente');
   });
 
   test('una línea en blanco separa párrafos', () => {
