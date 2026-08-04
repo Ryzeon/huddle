@@ -10,6 +10,13 @@ export interface WsRoomFeedOptions {
 
 const BACKOFF_MS = [500, 1000, 2000, 4000, 8000, 15000];
 
+const TERMINAL_CLOSE: Record<number, string> = {
+  4001: 'código de sala desconocido o expirado',
+  4002: 'versión de protocolo incompatible con el hub',
+  4003: 'te expulsaron de la sala',
+  4005: 'el hub rechazó la conexión',
+};
+
 export class WsRoomFeed implements RoomFeed {
   private socket: WebSocket | null = null;
   private readonly listeners = new Set<(event: PortalEvent) => void>();
@@ -87,10 +94,13 @@ export class WsRoomFeed implements RoomFeed {
       if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
       this.socket = null;
-      // 4001/4005 son rechazos del hub: reintentar no arregla nada.
-      if (closed.code === 4001 || closed.code === 4005) {
+      // Cierres del hub que reintentar no arregla. El 4003 es la expulsión:
+      // sin esto, a quien echas se le reconecta el portal solo y vuelve a
+      // entrar, que es tanto como no haberlo expulsado.
+      const terminal = TERMINAL_CLOSE[closed.code];
+      if (terminal) {
         this.stopped = true;
-        this.emit({ t: 'transport', status: 'closed', detail: closed.reason || 'rechazado por el hub' });
+        this.emit({ t: 'transport', status: 'closed', detail: closed.reason || terminal });
         return;
       }
       this.scheduleReconnect(closed.reason || undefined);
