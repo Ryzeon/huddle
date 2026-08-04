@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Levanta el hub. Una sola persona del equipo lo corre.
+#
+#   HUDDLE_TOKEN=un-secreto ./huddle-hub
+#
+# Escucha en 0.0.0.0:8787 salvo que se cambie con HUDDLE_PORT / HUDDLE_HOST.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+exec npx --yes tsx packages/hub/src/composition/main.ts

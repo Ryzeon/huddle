@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>huddle — identidad visual</title>
+<style>
+  :root{
+    --tinta:#14110F; --papel:#FAF6F0; --carbon:#191512;
+    --ambar:#FFB000; --brasa:#C2610A; --humo:#6F6763; --ceniza:#A39A94;
+    --oxido:#9A4D08; --senal:#3FB950; --senal-claro:#1A7F37;
+    --alerta:#D9453C; --alerta-claro:#B3271E;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--papel); color:var(--tinta);
+    font-family:var(--mono); font-size:14px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:48px 24px 96px}
+  header{border-bottom:2px solid var(--tinta); padding-bottom:24px; margin-bottom:8px}
+  header .sub{color:var(--humo); margin-top:8px}
+  h2{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--humo); font-weight:700; margin:56px 0 20px;
+    border-bottom:1px dashed #d8d0c6; padding-bottom:8px;
+  }
+  h2::before{content:"> "; color:var(--brasa)}
+  .panel{padding:32px; border:1px solid #ddd4c9; background:#fff}
+  .panel.dark{background:var(--carbon); border-color:#332b25; color:var(--ceniza)}
+  .row{display:flex; flex-wrap:wrap; align-items:center; gap:40px}
+  .row.tight{gap:28px}
+  .cap{font-size:11px; color:var(--humo); letter-spacing:.06em; margin-top:10px}
+  .dark .cap{color:#6d635c}
+  .item{display:flex; flex-direction:column; align-items:flex-start}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:24px}
+  @media (max-width:760px){ .grid2{grid-template-columns:1fr} }
+
+  /* ---- swatches ---- */
+  .sw{display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px}
+  .sw div{border:1px solid rgba(0,0,0,.12); padding:14px; min-height:104px; display:flex; flex-direction:column; justify-content:flex-end}
+  .sw b{display:block; font-size:13px}
+  .sw span{font-size:11px; opacity:.75}
+
+  /* ---- pixel zoom ---- */
+  .px img{image-rendering:pixelated; border:1px solid #ddd4c9; display:block}
+  .px{display:flex; gap:20px; flex-wrap:wrap}
+
+  /* ---- clearspace ---- */
+  /* 1X = 17,16 u del viewBox; a 300 px de ancho → 17,16 × (300/416) = 12,4 px */
+  .clear{position:relative; display:inline-block; padding:12.4px; outline:1px dashed var(--brasa); outline-offset:0}
+
+  /* ---- terminal mock ---- */
+  pre.term{
+    background:var(--carbon); color:#E8E0D8; padding:24px; margin:0;
+    border-radius:8px; overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.7;
+  }
+  pre.term .p{color:var(--ambar)}
+  pre.term .a{color:var(--senal)}
+  pre.term .d{color:#6d635c}
+  .cursor{display:inline-block;width:.6em;height:1.05em;background:var(--ambar);vertical-align:-.18em}
+
+  footer{margin-top:72px; color:var(--humo); font-size:12px; border-top:1px solid #ddd4c9; padding-top:16px}
+</style>
+</head>
+<body>
+
+<!-- definiciones vectoriales: una sola vez, reutilizadas con <use> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="hd-sym">
+      <path d="M10 4.48 L42 52.48 L42 67.52 L10 115.52 L10 88.48 L28.99 60 L10 31.52 Z" fill="currentColor"/>
+      <path d="M110 4.48 L78 52.48 L78 67.52 L110 115.52 L110 88.48 L91.01 60 L110 31.52 Z" fill="currentColor"/>
+      <rect x="49" y="49" width="22" height="22" fill="var(--celda, currentColor)"/>
+    </g>
+    <g id="hd-word" fill="none" stroke="currentColor" stroke-width="12.5" stroke-linecap="butt" stroke-linejoin="miter">
+      <path d="M0 28 V100"/>
+      <path d="M0 72 Q0 56 17 56 Q34 56 34 72 V100"/>
+      <path d="M62 56 V84 Q62 100 79 100 Q96 100 96 84 V56"/>
+      <path d="M158 28 V100"/>
+      <path d="M158 56 Q124 56 124 78 Q124 100 158 100"/>
+      <path d="M220 28 V100"/>
+      <path d="M220 56 Q186 56 186 78 Q186 100 220 100"/>
+      <path d="M248 28 V100"/>
+      <path d="M308 92 Q302 100 293 100 Q276 100 276 78 Q276 56 293 56 Q310 56 310 78 H276"/>
+    </g>
+    <g id="hd-logo">
+      <g transform="translate(2.2 13.2) scale(0.78)"><use href="#hd-sym"/></g>
+      <g transform="translate(120 2.4) scale(0.9)"><use href="#hd-word"/></g>
+    </g>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+<header>
+  <svg viewBox="0 0 416 120" width="300" height="86" style="--celda:var(--brasa)" role="img" aria-label="huddle"><use href="#hd-logo"/></svg>
+  <div class="sub">identidad visual · v1 · todas las piezas en <code>brand/</code></div>
+</header>
+
+<h2>Logo sobre fondo claro</h2>
+<div class="panel">
+  <div class="row" style="--celda:var(--brasa)">
+    <div class="item">
+      <svg viewBox="0 0 416 120" width="400" role="img" aria-label="huddle"><use href="#hd-logo"/></svg>
+      <div class="cap">400 px</div>
+    </div>
+  </div>
+  <div class="row" style="--celda:var(--brasa); margin-top:36px">
+    <div class="item"><svg viewBox="0 0 416 120" width="240"><use href="#hd-logo"/></svg><div class="cap">240 px</div></div>
+    <div class="item"><svg viewBox="0 0 416 120" width="160"><use href="#hd-logo"/></svg><div class="cap">160 px</div></div>
+    <div class="item"><svg viewBox="0 0 416 120" width="120"><use href="#hd-logo"/></svg><div class="cap">120 px · mínimo</div></div>
+    <div class="item"><svg viewBox="0 0 416 120" width="96"><use href="#hd-logo"/></svg><div class="cap">96 px · demasiado pequeño</div></div>
+  </div>
+</div>
+
+<h2>Logo sobre fondo oscuro</h2>
+<div class="panel dark">
+  <div class="row" style="--celda:var(--ambar); color:var(--papel)">
+    <div class="item">
+      <svg viewBox="0 0 416 120" width="400" role="img" aria-label="huddle"><use href="#hd-logo"/></svg>
+      <div class="cap">400 px</div>
+    </div>
+  </div>
+  <div class="row" style="--celda:var(--ambar); color:var(--papel); margin-top:36px">
+    <div class="item"><svg viewBox="0 0 416 120" width="240"><use href="#hd-logo"/></svg><div class="cap">240 px</div></div>
+    <div class="item"><svg viewBox="0 0 416 120" width="160"><use href="#hd-logo"/></svg><div class="cap">160 px</div></div>
+    <div class="item"><svg viewBox="0 0 416 120" width="120"><use href="#hd-logo"/></svg><div class="cap">120 px · mínimo</div></div>
+  </div>
+</div>
+
+<h2>Un solo color</h2>
+<div class="grid2">
+  <div class="panel">
+    <div class="row tight" style="--celda:currentColor">
+      <svg viewBox="0 0 416 120" width="300"><use href="#hd-logo"/></svg>
+    </div>
+    <div class="cap">tinta sobre papel — la celda pasa a tinta</div>
+  </div>
+  <div class="panel dark">
+    <div class="row tight" style="--celda:currentColor; color:var(--papel)">
+      <svg viewBox="0 0 416 120" width="300"><use href="#hd-logo"/></svg>
+    </div>
+    <div class="cap">papel sobre carbón</div>
+  </div>
+</div>
+
+<h2>Isotipo · claro</h2>
+<div class="panel">
+  <div class="row tight">
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="128" height="128"><rect width="128" height="128" rx="26" fill="#FAF6F0"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--tinta); --celda:var(--brasa)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">128</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="64" height="64"><rect width="128" height="128" rx="26" fill="#FAF6F0"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--tinta); --celda:var(--brasa)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">64</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="32" height="32"><rect width="128" height="128" rx="26" fill="#FAF6F0"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--tinta); --celda:var(--brasa)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">32</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="16" height="16"><rect width="128" height="128" rx="26" fill="#FAF6F0"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--tinta); --celda:var(--brasa)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">16</div>
+    </div>
+  </div>
+</div>
+
+<h2>Isotipo · oscuro y favicon</h2>
+<div class="panel dark">
+  <div class="row tight">
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="128" height="128"><rect width="128" height="128" rx="26" fill="#191512"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--papel); --celda:var(--ambar)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">128</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 128 128" width="64" height="64"><rect width="128" height="128" rx="26" fill="#191512"/><g transform="translate(16.43 16.43) scale(0.7928)" style="color:var(--papel); --celda:var(--ambar)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">64</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" rx="6" fill="#191512"/><g transform="translate(1.95 1.95) scale(0.2342)" style="color:var(--papel); --celda:var(--ambar)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">favicon 32</div>
+    </div>
+    <div class="item">
+      <svg viewBox="0 0 32 32" width="16" height="16"><rect width="32" height="32" rx="6" fill="#191512"/><g transform="translate(1.95 1.95) scale(0.2342)" style="color:var(--papel); --celda:var(--ambar)"><use href="#hd-sym"/></g></svg>
+      <div class="cap">favicon 16</div>
+    </div>
+  </div>
+</div>
+
+<h2>Prueba de píxeles (renders reales, ampliados sin filtro)</h2>
+<div class="panel px">
+  <div class="item"><img src="preview/favicon-16.png" width="128" height="128" alt="favicon 16 px ampliado"><div class="cap">favicon.svg @ 16 px</div></div>
+  <div class="item"><img src="preview/isotipo-16.png" width="128" height="128" alt="isotipo 16 px ampliado"><div class="cap">isotipo.svg @ 16 px</div></div>
+  <div class="item"><img src="preview/favicon-32.png" width="128" height="128" alt="favicon 32 px ampliado"><div class="cap">favicon.svg @ 32 px</div></div>
+  <div class="item"><img src="preview/isotipo-32.png" width="128" height="128" alt="isotipo 32 px ampliado"><div class="cap">isotipo.svg @ 32 px</div></div>
+</div>
+
+<h2>Área de respeto</h2>
+<div class="panel">
+  <div class="clear" style="--celda:var(--brasa)">
+    <svg viewBox="0 0 416 120" width="300"><use href="#hd-logo"/></svg>
+  </div>
+  <div class="cap">X = lado de la celda central (17,2 u). Mínimo 1X por los cuatro lados.</div>
+</div>
+
+<h2>Paleta</h2>
+<div class="sw">
+  <div style="background:#14110F;color:#FAF6F0"><b>Tinta</b><span>#14110F · texto en claro</span></div>
+  <div style="background:#FAF6F0;color:#14110F"><b>Papel</b><span>#FAF6F0 · fondo claro</span></div>
+  <div style="background:#191512;color:#FAF6F0"><b>Carbón</b><span>#191512 · fondo oscuro</span></div>
+  <div style="background:#FFB000;color:#191512"><b>Ámbar</b><span>#FFB000 · acento en oscuro</span></div>
+  <div style="background:#C2610A;color:#FAF6F0"><b>Brasa</b><span>#C2610A · acento en claro</span></div>
+  <div style="background:#6F6763;color:#FAF6F0"><b>Humo</b><span>#6F6763 · secundario claro</span></div>
+  <div style="background:#A39A94;color:#191512"><b>Ceniza</b><span>#A39A94 · secundario oscuro</span></div>
+  <div style="background:#9A4D08;color:#FAF6F0"><b>Óxido</b><span>#9A4D08 · acento como texto</span></div>
+  <div style="background:#3FB950;color:#191512"><b>Señal</b><span>#3FB950 · en sala (oscuro)</span></div>
+  <div style="background:#1A7F37;color:#FAF6F0"><b>Señal claro</b><span>#1A7F37 · en sala (claro)</span></div>
+  <div style="background:#D9453C;color:#191512"><b>Alerta</b><span>#D9453C · sin cuota (oscuro)</span></div>
+  <div style="background:#B3271E;color:#FAF6F0"><b>Alerta claro</b><span>#B3271E · sin cuota (claro)</span></div>
+</div>
+
+<h2>En contexto</h2>
+<pre class="term"><span class="p">$</span> huddle ask <span class="p">@oscagod</span> "En qué puerto corre el servicio de facturación?"
+
+El servicio de facturación corre en el puerto 9931 (definido como BILLING_PORT).
+
+Fuentes:
+  <span class="d">src/server.ts:2</span>
+
+<span class="d">— </span><span class="p">@oscagod</span><span class="d"> · @a44512c · high · </span><span class="a">12s</span>
+<span class="p">$</span> <span class="cursor"></span></pre>
+
+<footer>
+  Todas las piezas son SVG escrito a mano. Esta página no carga nada de red:
+  los vectores están incrustados y los PNG de la prueba de píxeles salen de
+  <code>brand/preview/</code>.
+</footer>
+
+</div>
+</body>
+</html>

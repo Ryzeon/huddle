@@ -296,12 +296,6 @@ Cuatro paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
 ruteo, historial), `agent` (responder y preguntar) y `portal` (la sala
 dibujada). La estructura por capas está arriba, en [Por dentro](#por-dentro).
 
-De momento este repositorio publica `protocol` y `portal`. El hub y el agente
-llegan después, así que los comandos `huddle` de arriba describen el proyecto
-completo y todavía no se pueden ejecutar desde aquí. Mientras tanto,
-`npm run build` necesita los cuatro paquetes y `npm run build:site` construye
-solo el portal.
-
 ## Hoja de ruta
 
 Funciona extremo a extremo entre máquinas distintas, incluido macOS y Windows.

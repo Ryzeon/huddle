@@ -1,0 +1,19 @@
+{
+  "name": "@huddle/agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/adapters/inbound/cli.js",
+  "bin": {
+    "huddle": "./dist/adapters/inbound/cli.js"
+  },
+  "scripts": {
+    "daemon": "tsx src/adapters/inbound/cli.ts daemon",
+    "dev": "tsx watch src/adapters/inbound/cli.ts daemon"
+  },
+  "dependencies": {
+    "@huddle/protocol": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@huddle/hub",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/composition/main.js",
+  "scripts": {
+    "start": "tsx src/composition/main.ts",
+    "dev": "tsx watch src/composition/main.ts"
+  },
+  "dependencies": {
+    "@huddle/protocol": "*",
+    "ws": "^8.18.0"
+  }
+}
