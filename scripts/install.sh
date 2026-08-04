@@ -84,7 +84,9 @@ fi
 
 # Se prefiere la última release publicada. Mientras no haya ninguna, `main`
 # sirve: así el instalador funciona desde el primer día del proyecto.
-etiqueta="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+# Se pide la lista, no `/releases/latest`: ese endpoint se salta las
+# prereleases, y mientras el proyecto esté en beta no encontraría ninguna.
+etiqueta="$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=1" 2>/dev/null \
   | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p' | head -1 || true)"
 if [ -z "$etiqueta" ]; then
   etiqueta="main"
