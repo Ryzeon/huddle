@@ -100,7 +100,7 @@ if [ "$instalada" = "$etiqueta" ] && [ "$etiqueta" != "main" ] && [ -d "$APP" ];
   verde "ya tienes la $etiqueta, que es la última."
   if [ "$SOLO_ACTUALIZAR" -eq 1 ]; then exit 0; fi
 else
-  gris "descargando $etiqueta…"
+  gris "descargando ${etiqueta}…"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   if [ "$etiqueta" = "main" ]; then
