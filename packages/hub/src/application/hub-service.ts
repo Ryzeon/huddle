@@ -13,6 +13,7 @@ import { RoomNotifier } from './state/room-notifier.js';
 import { AskTimeouts } from './state/ask-timeouts.js';
 import { JoinRoomHandler } from './commands/join-room.js';
 import { CreateRoomHandler } from './commands/create-room.js';
+import { CloseRoomHandler } from './commands/close-room.js';
 import { KickMemberHandler } from './commands/kick-member.js';
 import { generateRoomCode, normalizeRoomCode } from '../domain/room-code.js';
 import { AskQuestionHandler } from './commands/ask-question.js';
@@ -54,6 +55,7 @@ export class HubService {
   private readonly createRoom: CreateRoomHandler;
   private readonly joinRoom: JoinRoomHandler;
   private readonly kickMember: KickMemberHandler;
+  private readonly closeRoom: CloseRoomHandler;
   private readonly askQuestion: AskQuestionHandler;
   private readonly relayAnswer: RelayAnswerHandler;
   private readonly leaveRoom: LeaveRoomHandler;
@@ -90,6 +92,11 @@ export class HubService {
     });
     this.joinRoom = new JoinRoomHandler({ ...shared, clock: deps.clock });
     this.kickMember = new KickMemberHandler({ registry: this.registry, log });
+    this.closeRoom = new CloseRoomHandler({
+      registry: this.registry,
+      transcripts: this.transcripts,
+      log,
+    });
     this.askQuestion = new AskQuestionHandler({
       notifier: this.notifier,
       timeouts,
@@ -201,6 +208,11 @@ export class HubService {
       case 'kick':
         room.touch(channel.id, now);
         this.kickMember.handle({ room, requester: member.alias, channel, message });
+        return;
+
+      case 'close':
+        this.closeRoom.handle({ room, requester: member.alias, channel, message });
+        this.persistRooms();
         return;
 
       // El resto viene del que responde y vuelve a quien preguntó.

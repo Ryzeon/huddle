@@ -95,6 +95,12 @@ export interface CreateRoomMessage {
   quotaRemaining: number | null;
 }
 
+/** Cierra la sala para todos. Solo el anfitrión. */
+export interface CloseRoomMessage {
+  t: 'close';
+  reason?: string;
+}
+
 export interface KickMessage {
   t: 'kick';
   alias: Alias;
@@ -177,6 +183,7 @@ export interface HeartbeatMessage {
 
 export type ClientMessage =
   | CreateRoomMessage
+  | CloseRoomMessage
   | KickMessage
   | JoinMessage
   | AskMessage
@@ -215,7 +222,7 @@ export interface HostChangedMessage {
 
 export interface RoomClosedMessage {
   t: 'room_closed';
-  reason: 'kicked' | 'empty';
+  reason: 'kicked' | 'empty' | 'closed_by_host';
   detail?: string;
 }
 

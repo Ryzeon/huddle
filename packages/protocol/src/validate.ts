@@ -8,6 +8,7 @@
  */
 
 import type {
+  CloseRoomMessage,
   AskMessage,
   CreateRoomMessage,
   KickMessage,
@@ -157,6 +158,13 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       if (tag) out.tag = tag;
       const card = validateCard(msg.card);
       if (card) out.card = card;
+      return out;
+    }
+
+    case 'close': {
+      const out: CloseRoomMessage = { t: 'close' };
+      const motivo = optionalStr(msg, 'reason', 200);
+      if (motivo) out.reason = motivo;
       return out;
     }
 

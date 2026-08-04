@@ -5,7 +5,7 @@ import { runDaemon } from './cli/daemon.js';
 import { usage } from './cli/io.js';
 import { runAsk, runQuery } from './cli/queries.js';
 import { runAddRepo, runJoin, runListRepos, runRemoveRepo } from './cli/repos.js';
-import { runCreate, runKick } from './cli/rooms.js';
+import { runClose, runCreate, runKick } from './cli/rooms.js';
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -17,6 +17,8 @@ async function main(): Promise<void> {
       return runJoin(args);
     case 'kick':
       return runKick(args);
+    case 'close':
+      return runClose(args);
     case 'add-repo':
       return runAddRepo(args);
     case 'remove-repo':

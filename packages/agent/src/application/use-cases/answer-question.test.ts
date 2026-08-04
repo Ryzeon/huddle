@@ -61,6 +61,7 @@ class FakeRoom implements RoomGatewayPort {
     return Promise.resolve('TEST1-ROOM1');
   }
   kick(): void {}
+  closeRoom(): void {}
   disconnect(): void {}
   isConnected(): boolean {
     return true;

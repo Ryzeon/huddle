@@ -31,6 +31,10 @@ export function serveControl(agent: Agent, alreadyStarted = false): void {
       return result;
     },
     repos: () => loadConfig().workspaces,
+    closeRoom: (reason) => {
+      agent.closeRoom(reason);
+      return { ok: true };
+    },
     // Se contesta primero y se sale después: si saliéramos aquí, quien lo
     // pidió no llegaría a saber que funcionó.
     shutdown: () => {

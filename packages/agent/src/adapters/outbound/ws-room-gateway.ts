@@ -170,6 +170,10 @@ export class WsRoomGateway implements RoomGatewayPort {
     });
   }
 
+  closeRoom(reason?: string): void {
+    this.send(reason ? { t: 'close', reason } : { t: 'close' });
+  }
+
   kick(alias: Alias, reason?: string): void {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
   }

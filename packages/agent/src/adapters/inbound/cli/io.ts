@@ -36,6 +36,7 @@ export function usage(): never {
       '  mcp                    Servidor MCP por stdio (lo lanza tu agente)',
       '  ask <destino> "..."    Preguntar desde la terminal',
       '  kick <@alias>          Expulsar a alguien (solo el anfitrión)',
+      '  close                  Cerrar la sala del todo (solo el anfitrión)',
       '  who                    Quién está en la sala',
       '  status                 Estado de tu agente',
     ].join('\n'),

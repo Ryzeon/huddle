@@ -299,6 +299,7 @@ vigente se cierra sola.
 | `huddle repos` · `remove-repo <tag>` | Gestionarlos |
 | `huddle who` · `status` | Ver la sala y tu estado |
 | `huddle kick <@alias>` | Expulsar (solo el anfitrión) |
+| `huddle close` | Cerrar la sala y borrar su historial (solo el anfitrión) |
 
 Un daemon puede exponer varios repositorios. Comparten cuota porque la cuota es
 de tu suscripción, no del repositorio. En la sala aparecen como `@tualias` y
@@ -347,8 +348,6 @@ con un hub desplegado y agentes respondiendo sobre repositorios reales.
 
 Lo que **no** hay todavía, dicho sin rodeos:
 
-- **No se puede cerrar una sala.** Cuando el último se va, queda dormida con su
-  historial hasta que la retención la purga a los 30 días.
 - **No hay autenticación.** El código de sala es toda la seguridad. Basta para
   un equipo; no para un servicio abierto.
 - **Un solo motor de IA.** El puerto está aislado, pero el único adaptador

@@ -56,6 +56,10 @@ export class WorkspaceAgent {
     return this.deps.room.create(name, { onQuestion: (question) => this.handle(question) });
   }
 
+  closeRoom(reason?: string): void {
+    this.deps.room.closeRoom(reason);
+  }
+
   kick(alias: string, reason?: string): void {
     this.deps.room.kick(alias, reason);
   }
@@ -141,6 +145,12 @@ export class AgentService {
     const primary = this.deps.workspaces[0];
     if (!primary) throw new Error('no hay ningún repositorio configurado');
     primary.kick(alias, reason);
+  }
+
+  closeRoom(reason?: string): void {
+    const primary = this.deps.workspaces[0];
+    if (!primary) throw new Error('no hay ningún repositorio configurado');
+    primary.closeRoom(reason);
   }
 
   async createRoom(name: string): Promise<string> {

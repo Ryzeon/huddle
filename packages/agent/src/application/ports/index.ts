@@ -53,6 +53,8 @@ export interface RoomGatewayPort {
   connect(handlers: RoomEventHandlers): void;
   create(name: string, handlers: RoomEventHandlers): Promise<string>;
   kick(alias: Alias, reason?: string): void;
+  /** Cierra la sala para todos. El hub solo lo acepta del anfitrión. */
+  closeRoom(reason?: string): void;
   disconnect(): void;
   isConnected(): boolean;
 

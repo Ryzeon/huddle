@@ -3,7 +3,7 @@ import { chmodSync, existsSync, unlinkSync } from 'node:fs';
 import { SOCKET_PATH } from '../../config.js';
 
 export interface ControlRequest {
-  op: 'ask' | 'status' | 'members' | 'kick' | 'add_repo' | 'remove_repo' | 'repos' | 'shutdown';
+  op: 'ask' | 'status' | 'members' | 'kick' | 'add_repo' | 'remove_repo' | 'repos' | 'shutdown' | 'close';
   to?: string;
   question?: string;
   ttl?: number;
@@ -25,6 +25,7 @@ export interface ControlHandlers {
   repos(): unknown;
   /** Se apaga tras contestar, para que arranque de nuevo con otra sala. */
   shutdown(): unknown;
+  closeRoom(reason?: string): unknown;
 }
 
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -127,6 +128,8 @@ async function dispatch(line: string, handlers: ControlHandlers): Promise<Contro
     }
     case 'repos':
       return { ok: true, data: handlers.repos() };
+    case 'close':
+      return { ok: true, data: handlers.closeRoom(req.reason) };
     case 'shutdown':
       return { ok: true, data: handlers.shutdown() };
     default:

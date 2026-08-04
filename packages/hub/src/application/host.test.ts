@@ -324,3 +324,65 @@ describe('la sala es de quien la creó', () => {
     assert.equal(ana2.last('host_changed'), undefined, 'ya lo tenía; no ha vuelto de nada');
   });
 });
+
+describe('cerrar la sala', () => {
+  let now: number;
+  let hub: HubService;
+  let code: string;
+
+  const create = (channel: FakeChannel, alias: string) => {
+    hub.handle(channel, {
+      t: 'create', v: PROTOCOL_VERSION, name: 'Equipo', alias,
+      card: { repo: 'repo', dirs: [] }, quotaRemaining: 10,
+    });
+    return channel.last('welcome')!.room;
+  };
+
+  const join = (channel: FakeChannel, alias: string) => {
+    hub.handle(channel, {
+      t: 'join', v: PROTOCOL_VERSION, room: code, alias,
+      card: { repo: 'repo', dirs: [] }, quotaRemaining: 10,
+    });
+  };
+
+  beforeEach(() => {
+    now = 1_000_000;
+    hub = new HubService({
+      clock: { now: () => now }, timers: noTimers, transcripts: noTranscripts,
+    });
+    code = create(new FakeChannel('ana'), '@ana');
+  });
+
+  test('el anfitrión la cierra y el código deja de servir', () => {
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto');
+
+    hub.handle(new FakeChannel('ana'), { t: 'close' });
+
+    const tarde = new FakeChannel('tarde');
+    hub.handle(tarde, {
+      t: 'join', v: PROTOCOL_VERSION, room: code, alias: '@tarde', quotaRemaining: null,
+    });
+    assert.notEqual(tarde.last('welcome')?.room, code, 'la sala ya no existe');
+  });
+
+  test('a todos les llega el motivo antes de cortarles', () => {
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto');
+
+    hub.handle(new FakeChannel('ana'), { t: 'close' });
+
+    assert.equal(beto.last('room_closed')?.reason, 'closed_by_host');
+    assert.ok(beto.closed, 'y se le cierra la conexión');
+  });
+
+  test('quien no es anfitrión no puede cerrarla', () => {
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto');
+
+    hub.handle(beto, { t: 'close' });
+
+    assert.equal(beto.last('error')?.reason, 'denied_by_owner');
+    assert.equal(hub.stats().rooms, 1, 'la sala sigue en pie');
+  });
+});
