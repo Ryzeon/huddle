@@ -8,7 +8,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY packages/portal/package.json packages/portal/
 COPY packages/protocol/package.json packages/protocol/
-RUN npm install --no-audit --no-fund
+# `--ignore-scripts` porque el `prepare` de la raiz compila, y aqui todavia no
+# hay ni tsconfig ni codigo: se construye a mano unas lineas mas abajo.
+RUN npm install --no-audit --no-fund --ignore-scripts
 
 COPY tsconfig.base.json ./
 COPY scripts scripts
