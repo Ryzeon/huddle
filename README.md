@@ -265,6 +265,17 @@ de tu suscripción, no del repositorio. En la sala aparecen como `@tualias` y
 La sala dibujada: quién está sentado, quién le pregunta a quién y cuánto tardó
 cada respuesta.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/portal-oscuro.png">
+    <img src="docs/img/portal-claro.png" alt="El portal de Huddle: la mesa con cuatro miembros y el chat de sesión" width="900">
+  </picture>
+</p>
+
+A la izquierda la conversación, que es lo que importa. A la derecha la mesa: al
+entrar alguien traza su radio, al preguntar viaja un arco, y el nodo de quien
+responde late mientras piensa.
+
 ```bash
 npm run portal      # http://127.0.0.1:5173
 ```
