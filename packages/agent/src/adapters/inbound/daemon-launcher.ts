@@ -15,14 +15,13 @@
  * vez de reconectar en bucle.
  */
 
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { SOCKET_PATH } from '../../config.js';
 
-// Arrancar en frío pasa por `npx tsx`, que compila al vuelo: veinte segundos
-// se quedaban cortos en la primera vez.
-const STARTUP_TIMEOUT_MS = 60_000;
+const STARTUP_TIMEOUT_MS = 20_000;
 const POLL_INTERVAL_MS = 250;
 
 export function isDaemonListening(socketPath = SOCKET_PATH): Promise<boolean> {
@@ -44,7 +43,7 @@ export function isDaemonListening(socketPath = SOCKET_PATH): Promise<boolean> {
 export async function ensureDaemonRunning(socketPath = SOCKET_PATH): Promise<boolean> {
   if (await isDaemonListening(socketPath)) return false;
 
-  spawnDetachedDaemon();
+  const stderr = spawnDetachedDaemon();
 
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -52,24 +51,58 @@ export async function ensureDaemonRunning(socketPath = SOCKET_PATH): Promise<boo
     if (await isDaemonListening(socketPath)) return true;
   }
 
+  const motivo = stderr();
   throw new Error(
-    `el daemon no llegó a arrancar en ${STARTUP_TIMEOUT_MS / 1000}s. ` +
-      'Pruébalo a mano con `huddle daemon` para ver el error.',
+    `el daemon no llegó a arrancar en ${STARTUP_TIMEOUT_MS / 1000}s.` +
+      (motivo ? ` Dijo: ${motivo.split('\n')[0] ?? ''}` : '') +
+      ' Pruébalo a mano con `huddle daemon` para ver el error completo.',
   );
 }
 
-function spawnDetachedDaemon(): void {
-  // Mismo ejecutable y mismo entrypoint que el proceso actual: así hereda el
-  // HUDDLE_HOME y la instalación desde la que se lanzó el MCP.
-  const entrypoint = fileURLToPath(new URL('./cli.js', import.meta.url));
+/**
+ * Cómo relanzarse a uno mismo como daemon.
+ *
+ * `./cli.js` solo existe al lado de este módulo cuando corre compilado. Desde
+ * fuente el archivo de al lado es `cli.ts`, así que aquel `spawn` lanzaba una
+ * ruta inexistente, el hijo moría al instante y, con la salida descartada, el
+ * fallo no aparecía en ningún sitio: solo se veía el plazo agotarse.
+ */
+function resolveEntrypoint(): string[] {
+  const candidatos = [
+    new URL('./cli.js', import.meta.url),
+    new URL('../../../dist/adapters/inbound/cli.js', import.meta.url),
+  ].map((url) => fileURLToPath(url));
 
-  const child = spawn(process.execPath, [entrypoint, 'daemon'], {
+  for (const candidato of candidatos) {
+    if (existsSync(candidato)) return [candidato];
+  }
+
+  // Sin compilar: se relanza por el mismo camino por el que arrancó este
+  // proceso, sea cual sea (tsx incluido).
+  return [...process.execArgv, process.argv[1] ?? ''];
+}
+
+/** Devuelve lo que el hijo escriba en stderr, para poder contar por qué murió. */
+function spawnDetachedDaemon(): () => string {
+  const child = spawn(process.execPath, [...resolveEntrypoint(), 'daemon'], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', 'pipe'],
     env: { ...process.env },
   });
+
+  let stderr = '';
+  child.stderr?.on('data', (chunk: Buffer) => {
+    if (stderr.length < MAX_STDERR) stderr += chunk.toString('utf8');
+  });
+  child.on('error', (error) => {
+    stderr += error.message;
+  });
   child.unref();
+
+  return () => stderr.trim();
 }
+
+const MAX_STDERR = 2_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
