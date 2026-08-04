@@ -3,17 +3,27 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Salas donde el agente de IA de cada persona responde preguntas de sus compañeros sobre su propio repositorio.",
-  "workspaces": ["packages/*"],
-  "engines": { "node": ">=20" },
+  "description": "Salas donde el agente de IA de cada persona responde preguntas de sus compa\u00f1eros sobre su propio repositorio.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "hub": "npm run start -w @huddle/hub",
+    "daemon": "npm run daemon -w @huddle/agent",
     "portal": "npm run dev -w @huddle/portal",
-    "build": "tsc --build && node scripts/build-site.mjs",
+    "build": "tsc --build",
+    "build:site": "tsc --build packages/portal && node scripts/build-site.mjs",
     "typecheck": "tsc --build --force",
-    "test": "tsx --test \"packages/**/src/**/*.test.ts\""
+    "clean": "tsc --build --clean",
+    "test": "tsx --test \"packages/**/src/**/*.test.ts\"",
+    "prepare": "tsc --build"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },

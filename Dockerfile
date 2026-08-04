@@ -10,12 +10,12 @@ COPY packages/portal/package.json packages/portal/
 COPY packages/protocol/package.json packages/protocol/
 RUN npm install --no-audit --no-fund
 
-COPY tsconfig.base.json tsconfig.json ./
+COPY tsconfig.base.json ./
 COPY scripts scripts
 COPY packages packages
 # El HTML pide el favicon desde /brand/, así que la marca entra en el sitio.
 COPY brand brand
-RUN npm run build
+RUN npm run build:site
 
 FROM nginx:alpine
 COPY --from=build /app/site /usr/share/nginx/html
