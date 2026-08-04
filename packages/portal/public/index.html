@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es" data-tema="oscuro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>huddle — portal</title>
+    <meta name="description" content="la sala de huddle: quién está en la mesa y qué se está preguntando" />
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/estilos.css" />
+    <script type="module" src="/dist/composition/main.js"></script>
+  </head>
+  <body>
+    <div class="portal">
+      <header class="cabecera" data-cabecera>
+        <a class="cabecera__marca" href="/" data-marca aria-label="huddle — inicio"></a>
+
+        <div class="cabecera__sala">
+          <h1 class="cabecera__nombre" data-sala-nombre>sin sala</h1>
+          <p class="cabecera__codigo">
+            <span class="etiqueta">código</span>
+            <code data-sala-codigo>—</code>
+            <button class="boton boton--fino" type="button" data-copiar>copiar</button>
+          </p>
+        </div>
+
+        <dl class="cabecera__datos">
+          <div><dt>anfitrión</dt><dd data-anfitrion>—</dd></div>
+          <div><dt>tú</dt><dd data-tu>—</dd></div>
+          <div><dt>mesa</dt><dd data-miembros>0</dd></div>
+        </dl>
+
+        <p class="estado" data-estado data-tono="apagado" role="status">sin conectar</p>
+
+        <button class="boton boton--fino" type="button" data-tema title="cambiar entre tema claro y oscuro">
+          tema
+        </button>
+      </header>
+
+      <aside class="lateral">
+        <section class="salas" data-salas aria-label="tus salas">
+          <header class="panel__cabeza">
+            <h2>salas</h2>
+            <div class="panel__acciones">
+              <button class="boton boton--fino" type="button" data-entrar-sala>entrar</button>
+              <button class="boton boton--realce boton--fino" type="button" data-nueva-sala>
+                + crear
+              </button>
+            </div>
+          </header>
+          <ul class="salas__lista" data-salas-lista></ul>
+        </section>
+
+        <section class="chat" data-chat aria-label="chat de sesión">
+          <header class="panel__cabeza">
+            <h2>sesión</h2>
+            <p class="panel__nota">la sala, en directo</p>
+          </header>
+
+          <div class="chat__lista" data-chat-lista role="log" aria-live="polite" aria-relevant="additions"></div>
+
+          <div class="compositor">
+            <div class="compositor__sugerencias" data-chat-sugerencias role="listbox" aria-label="menciones" hidden></div>
+            <label class="visualmente-oculto" for="entrada">mensaje</label>
+            <textarea
+              id="entrada"
+              class="compositor__caja"
+              data-chat-entrada
+              rows="2"
+              placeholder="escribe, o /ask @alias tu pregunta"
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+            <p class="compositor__pista" data-chat-pista>enter envía · mayús+enter salta de línea</p>
+          </div>
+        </section>
+      </aside>
+
+      <main class="escenario" aria-label="mesa de la sala">
+        <div class="escenario__lienzo" data-mesa></div>
+
+        <div class="vacio" data-vacio>
+          <p class="vacio__titulo">no estás en ninguna sala</p>
+          <p class="vacio__texto">
+            el código de sala es la llave: quien lo tiene, entra. si aún no tienes ninguno,
+            mira <a href="?demo=1">una sesión de demostración</a>.
+          </p>
+          <div class="vacio__acciones">
+            <button class="boton" type="button" data-entrar-sala>entrar con un código</button>
+            <button class="boton boton--realce" type="button" data-nueva-sala>+ crear sala</button>
+          </div>
+        </div>
+
+        <button class="boton boton--fino escenario__repetir" type="button" data-repetir hidden>
+          repetir demo
+        </button>
+      </main>
+    </div>
+
+    <dialog class="dialogo" data-dialogo aria-label="salas">
+      <form method="dialog">
+        <div class="pestanas" role="tablist">
+          <button class="pestana pestana--activa" type="button" role="tab" data-modo="entrar" aria-selected="true">
+            entrar a una sala
+          </button>
+          <button class="pestana" type="button" role="tab" data-modo="crear" aria-selected="false">
+            crear sala
+          </button>
+        </div>
+
+        <label class="campo" data-campo-codigo>
+          <span>código de sala</span>
+          <input name="codigo" type="text" placeholder="MPP8V-7HZS5" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label class="campo" data-campo-nombre hidden>
+          <span>nombre de la sala</span>
+          <input name="nombre" type="text" placeholder="plataforma" autocomplete="off" />
+        </label>
+
+        <label class="campo">
+          <span>tu alias</span>
+          <input name="alias" type="text" placeholder="@ana" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label class="campo">
+          <span>hub</span>
+          <input name="hub" type="text" placeholder="ws://localhost:8787" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <p class="dialogo__nota">
+          el código de sala <b>es</b> la llave: quien lo tiene, entra. el portal entra siempre como
+          espectador: mira y puede preguntar, pero no responde por ti.
+        </p>
+
+        <menu class="dialogo__botones">
+          <button class="boton" type="button" data-cancelar>cancelar</button>
+          <button class="boton boton--principal" type="submit" data-aceptar>entrar</button>
+        </menu>
+      </form>
+    </dialog>
+  </body>
+</html>

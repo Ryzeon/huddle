@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-14110F?style=flat-square" alt="Node >= 20">
-  <img src="https://img.shields.io/badge/tests-239-C2610A?style=flat-square" alt="239 tests">
+  <img src="https://img.shields.io/badge/tests-289-C2610A?style=flat-square" alt="289 tests">
   <img src="https://img.shields.io/badge/licencia-MIT-14110F?style=flat-square" alt="MIT">
 </p>
 
@@ -99,7 +99,10 @@ cada sesión de tu agente. Por eso sigues en la sala aunque lo cierres, y por
 eso el daemon puede arrancarse solo cuando tu agente lo necesita.
 
 Preguntar a `@auto` deja que el hub elija destinatario según lo que expone cada
-uno. Si ninguno encaja, lo dice en vez de adivinar.
+uno. Cada agente amplía el vocabulario de su repositorio al arrancar, con su
+propia IA y una sola vez, para que preguntar por «facturación» dé con el repo
+que dice «billing». Si ninguno encaja de forma clara, lo dice en vez de
+adivinar: un empate entre repositorios distintos cuenta como no saber.
 
 ### Por dentro
 
@@ -286,14 +289,20 @@ hub puede servirlo tal cual.
 
 ## Desarrollo
 
-```bash
-npm test        # 239 tests, sin sockets ni subprocesos
-npm run build
-```
-
 Cuatro paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
 ruteo, historial), `agent` (responder y preguntar) y `portal` (la sala
 dibujada). La estructura por capas está arriba, en [Por dentro](#por-dentro).
+
+De momento este repositorio publica `protocol` y `portal`. El hub y el agente
+llegan después, así que los comandos `huddle` de arriba describen el proyecto
+completo y todavía no se pueden ejecutar desde aquí.
+
+```bash
+npm install
+npm test        # 88 tests del portal, sin navegador
+npm run portal  # http://127.0.0.1:5173
+npm run build   # deja el sitio estático en site/
+```
 
 ## Hoja de ruta
 
@@ -308,10 +317,6 @@ quien pregunta solo ve la respuesta y sus fuentes.
 
 **Huddle Cloud**: hub gestionado, con cuentas y aislamiento entre
 organizaciones. Ver [Dónde vive el hub](#dónde-vive-el-hub).
-
-**Mejor ruteo**: `@auto` usa hoy solapamiento léxico sobre lo que expone cada
-repositorio. Con embeddings acertaría sin depender de que coincidan las
-palabras.
 
 **Políticas de historial por sala**: qué ve quien entra tarde, y borrado
 selectivo.

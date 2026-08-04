@@ -1,0 +1,957 @@
+/* ==========================================================================
+   huddle — portal
+   Paleta y tipografía: brand/marca.md. Ningún color fuera de esa guía salvo
+   los tres tonos de superficie, que son mezclas del propio fondo (carbón o
+   papel) para separar planos; no introducen tinte nuevo.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  --fondo: #191512;          /* carbón */
+  --superficie: #201b17;
+  --superficie-alta: #272019;
+  --borde: #332c25;
+  --borde-fuerte: #4a4038;
+  --texto: #faf6f0;          /* papel */
+  --texto-2: #a39a94;        /* ceniza */
+  --acento: #ffb000;         /* ámbar */
+  --acento-texto: #ffb000;
+  --ok: #3fb950;             /* señal */
+  --mal: #d9453c;            /* alerta */
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  --r: 4px;
+
+  /*
+   * El chat es el contenido: la mesa dice quién está y qué pasa, pero lo que
+   * se lee son las preguntas y sus respuestas. Por eso la columna crece con la
+   * pantalla en vez de quedarse fija: a 344px se llevaba el 18% de un monitor
+   * ancho. El tope evita que las líneas se hagan incómodas de leer.
+   */
+  --lateral: clamp(380px, 34vw, 640px);
+}
+
+:root[data-tema="claro"] {
+  color-scheme: light;
+
+  --fondo: #faf6f0;          /* papel */
+  --superficie: #f3ece2;
+  --superficie-alta: #ece3d6;
+  --borde: #ded3c4;
+  --borde-fuerte: #c3b6a4;
+  --texto: #14110f;          /* tinta */
+  --texto-2: #6f6763;        /* humo */
+  --acento: #c2610a;         /* brasa */
+  --acento-texto: #9a4d08;   /* óxido */
+  --ok: #1a7f37;
+  --mal: #b3271e;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+a {
+  color: var(--acento-texto);
+  text-underline-offset: 3px;
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:where(button, textarea, input, a):focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* --- estructura ---------------------------------------------------------- */
+
+.portal {
+  display: grid;
+  grid-template-columns: var(--lateral) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "cabecera cabecera"
+    "lateral  escenario";
+  height: 100%;
+  gap: 1px;
+  background: var(--borde);
+}
+
+.cabecera {
+  grid-area: cabecera;
+}
+.lateral {
+  grid-area: lateral;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1px;
+  min-height: 0;
+  background: var(--borde);
+}
+.escenario {
+  grid-area: escenario;
+}
+
+/* --- cabecera ------------------------------------------------------------ */
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 12px 18px;
+  background: var(--superficie);
+  flex-wrap: wrap;
+}
+
+.cabecera__marca {
+  display: inline-flex;
+  color: var(--texto);
+  /* Área de respeto: 1,5X del logo (marca.md §5). */
+  padding-right: 20px;
+}
+
+.cabecera__sala {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cabecera__nombre {
+  font-size: 15px;
+}
+
+.cabecera__codigo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.cabecera__codigo code {
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto);
+}
+
+.etiqueta {
+  color: var(--texto-2);
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+.cabecera__datos {
+  display: flex;
+  gap: 20px;
+  margin: 0;
+  margin-inline-start: auto;
+}
+
+.cabecera__datos dt {
+  color: var(--texto-2);
+  font-size: 11px;
+}
+
+.cabecera__datos dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.estado {
+  margin: 0;
+  padding: 3px 9px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+.estado::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: 7px;
+  vertical-align: 1px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.estado[data-tono="ok"] {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.estado[data-tono="mal"] {
+  color: var(--mal);
+  border-color: color-mix(in srgb, var(--mal) 45%, transparent);
+}
+.estado[data-tono="esperando"] {
+  color: var(--acento-texto);
+  border-color: color-mix(in srgb, var(--acento) 45%, transparent);
+}
+
+/* --- botones ------------------------------------------------------------- */
+
+.boton {
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie-alta);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  padding: 6px 12px;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.boton:hover:not(:disabled) {
+  border-color: var(--texto-2);
+}
+.boton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.boton--fino {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+.boton--principal {
+  color: var(--acento-texto);
+  border-color: var(--acento);
+  font-weight: 700;
+}
+.boton--principal:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--acento) 14%, transparent);
+  border-color: var(--acento);
+}
+.boton--realce {
+  color: var(--texto);
+  border-color: var(--texto-2);
+  font-weight: 700;
+}
+.boton--realce:hover:not(:disabled) {
+  background: var(--superficie-alta);
+  border-color: var(--texto);
+}
+.boton--hecho {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+/* --- paneles ------------------------------------------------------------- */
+
+.panel__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie);
+}
+.panel__cabeza h2 {
+  color: var(--texto-2);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+.panel__acciones {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+.panel__nota {
+  margin: 0 0 0 auto;
+  color: var(--texto-2);
+  font-size: 11px;
+  text-align: end;
+}
+
+/* --- salas --------------------------------------------------------------- */
+
+.salas {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Comparte columna con el chat: lo que se lleve aquí se lo quita a él. */
+  max-height: 24vh;
+  background: var(--fondo);
+}
+
+.salas__lista {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.salas__vacio {
+  margin: 10px 8px;
+  color: var(--texto-2);
+  font-size: 11px;
+}
+
+.sala {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--r);
+}
+.sala:hover {
+  background: var(--superficie);
+}
+
+.sala__abrir {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  font: inherit;
+  color: var(--texto);
+  background: none;
+  border: 0;
+  border-inline-start: 2px solid transparent;
+  cursor: pointer;
+  text-align: start;
+}
+/* El único ámbar de la pantalla es el de la mesa (marca.md §3). Aquí la sala
+   activa se marca con la tinta/papel de más contraste, no con un segundo acento. */
+.sala--activa .sala__abrir {
+  border-inline-start-color: var(--texto);
+}
+.sala--activa {
+  background: var(--superficie);
+}
+.sala__abrir .marca {
+  flex: none;
+  color: var(--texto-2);
+}
+.sala--activa .sala__abrir .marca {
+  color: var(--texto);
+}
+.sala__texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sala__nombre {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sala__codigo {
+  color: var(--texto-2);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+.sala__olvidar {
+  padding: 0 10px;
+  font: inherit;
+  color: var(--texto-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+.sala:hover .sala__olvidar,
+.sala__olvidar:focus-visible {
+  opacity: 1;
+}
+.sala__olvidar:hover {
+  color: var(--mal);
+}
+
+/* --- chat ---------------------------------------------------------------- */
+
+.chat {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  background: var(--fondo);
+}
+
+.chat__lista {
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+.entrada {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  gap: 0 8px;
+  padding: 3px 0;
+  align-items: baseline;
+}
+
+.entrada__glifo {
+  color: var(--texto-2);
+  text-align: center;
+  user-select: none;
+}
+.entrada__cabeza,
+.entrada__texto,
+.entrada__meta {
+  margin: 0;
+}
+.entrada__cabeza {
+  color: var(--texto-2);
+}
+.entrada__alias {
+  color: var(--texto);
+  font-weight: 700;
+}
+.entrada__alias--tu {
+  color: var(--acento-texto);
+}
+.entrada__texto {
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+.entrada__meta {
+  color: var(--texto-2);
+  font-size: 11px;
+}
+.entrada__hora {
+  color: var(--texto-2);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.entrada__fuentes {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--texto-2);
+  font-size: 11px;
+}
+.entrada__fuentes li::before {
+  content: "└ ";
+}
+
+.entrada--cita {
+  padding: 6px 0;
+}
+.entrada--muted .entrada__cabeza,
+.entrada--muted .entrada__glifo {
+  color: var(--texto-2);
+}
+.entrada--ok .entrada__glifo {
+  color: var(--ok);
+}
+.entrada--bad .entrada__glifo,
+.entrada--bad .entrada__cabeza {
+  color: var(--mal);
+}
+.entrada--bad .entrada__alias {
+  color: var(--mal);
+}
+.entrada--accent .entrada__glifo {
+  color: var(--acento-texto);
+}
+
+.mencion {
+  color: var(--acento-texto);
+  font-weight: 700;
+}
+
+/* --- compositor ---------------------------------------------------------- */
+
+.compositor {
+  position: relative;
+  border-top: 1px solid var(--borde);
+  background: var(--superficie);
+  padding: 10px 12px;
+}
+
+.compositor__caja {
+  display: block;
+  width: 100%;
+  resize: none;
+  font: inherit;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  padding: 8px 10px;
+  caret-color: var(--acento);
+}
+.compositor__caja::placeholder {
+  color: var(--texto-2);
+}
+.compositor__caja:disabled {
+  opacity: 0.5;
+}
+
+.compositor__pista {
+  margin: 6px 0 0;
+  color: var(--texto-2);
+  font-size: 10.5px;
+}
+
+.compositor__sugerencias {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: calc(100% - 8px);
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie-alta);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  overflow: hidden;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+}
+.sugerencia {
+  font: inherit;
+  text-align: start;
+  padding: 6px 10px;
+  color: var(--texto);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.sugerencia--activa {
+  background: var(--acento);
+  color: var(--fondo);
+  font-weight: 700;
+}
+
+/* --- escenario y mesa ---------------------------------------------------- */
+
+.escenario {
+  position: relative;
+  display: grid;
+  background: var(--fondo);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Retícula tenue: la sala es una celda de terminal, no un lienzo vacío. */
+.escenario::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--borde) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--borde) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.escenario__lienzo {
+  position: relative;
+  min-height: 0;
+}
+
+.mesa {
+  display: block;
+}
+
+.mesa__tablero {
+  fill: color-mix(in srgb, var(--superficie) 80%, transparent);
+  stroke: var(--borde-fuerte);
+  stroke-width: 1.5;
+}
+.mesa__tablero--interior {
+  fill: none;
+  stroke: var(--borde);
+  stroke-dasharray: 3 6;
+}
+.mesa__celda {
+  fill: var(--acento);
+}
+.mesa__celda--activa {
+  animation: parpadeo 1.05s steps(1, end) infinite;
+}
+.radio {
+  fill: none;
+  stroke: var(--borde-fuerte);
+  stroke-width: 1.5;
+  transition: opacity 200ms ease;
+}
+.radio--saliendo {
+  opacity: 0;
+}
+
+.nodo {
+  color: var(--texto-2);
+  transition: opacity 200ms ease;
+}
+/* El contenido ya está centrado en el origen, así que escalar desde 0 0 es
+   escalar desde el centro del nodo. */
+.nodo__cuerpo {
+  transform-origin: 0 0;
+}
+.nodo--saliendo {
+  opacity: 0;
+}
+.nodo__disco {
+  fill: var(--superficie-alta);
+  stroke: var(--borde-fuerte);
+  stroke-width: 1.5;
+}
+.nodo__glifo {
+  pointer-events: none;
+}
+.nodo__latido {
+  fill: none;
+  stroke: none;
+  stroke-width: 1.5;
+}
+.nodo__alias {
+  fill: var(--texto);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.nodo__tag {
+  fill: var(--texto-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.nodo__marca {
+  fill: var(--texto-2);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+.nodo--tu {
+  color: var(--texto);
+}
+.nodo--tu .nodo__disco {
+  stroke: var(--texto-2);
+  stroke-dasharray: 4 3;
+}
+.nodo--anfitrion {
+  color: var(--texto);
+}
+.nodo--anfitrion .nodo__disco {
+  stroke: var(--texto);
+  stroke-width: 2;
+}
+.nodo--espectador .nodo__disco {
+  fill: none;
+}
+.nodo--ausente {
+  opacity: 0.45;
+}
+.nodo--ocupado {
+  color: var(--texto);
+}
+.nodo--ocupado .nodo__latido {
+  stroke: var(--acento);
+  animation: latido 1.25s ease-out infinite;
+}
+.nodo--ocupado .nodo__disco {
+  stroke: var(--acento);
+}
+
+/* --- arcos de actividad -------------------------------------------------- */
+
+.arco__linea,
+.arco__destello {
+  fill: none;
+  stroke-linecap: round;
+}
+.arco__linea {
+  stroke-width: 1.75;
+}
+.arco__destello {
+  stroke-width: 3.5;
+  opacity: 0.9;
+}
+.arco--saliendo {
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+.arco__etiqueta {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.arco--pregunta .arco__linea,
+.arco--pregunta .arco__destello {
+  stroke: var(--acento);
+}
+.arco--pregunta .arco__etiqueta {
+  fill: var(--acento-texto);
+}
+
+.arco--respuesta .arco__linea,
+.arco--respuesta .arco__destello {
+  stroke: var(--ok);
+}
+.arco--respuesta .arco__etiqueta {
+  fill: var(--ok);
+}
+
+.arco--fallo .arco__linea {
+  stroke: var(--mal);
+  stroke-width: 2.5;
+}
+.arco--fallo .arco__destello {
+  stroke: var(--mal);
+}
+.arco--fallo .arco__etiqueta {
+  fill: var(--mal);
+}
+
+@keyframes latido {
+  0% {
+    r: 33;
+    opacity: 0.85;
+  }
+  100% {
+    r: 46;
+    opacity: 0;
+  }
+}
+
+@keyframes parpadeo {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+/* --- vacío y demo -------------------------------------------------------- */
+
+.vacio {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 24px;
+  background: var(--fondo);
+}
+.vacio__acciones {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.vacio[hidden] {
+  display: none;
+}
+.vacio__titulo {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+.vacio__texto {
+  margin: 0;
+  color: var(--texto-2);
+  max-width: 42ch;
+}
+
+.escenario__repetir {
+  position: absolute;
+  inset-block-end: 14px;
+  inset-inline-end: 14px;
+}
+
+/* --- diálogo ------------------------------------------------------------- */
+
+.dialogo {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 6px;
+}
+.dialogo::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.dialogo form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.pestanas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--borde);
+  padding-bottom: 10px;
+}
+.pestana {
+  font: inherit;
+  padding: 5px 10px;
+  color: var(--texto-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  cursor: pointer;
+}
+.pestana--activa {
+  color: var(--texto);
+  background: var(--superficie-alta);
+  border-color: var(--borde-fuerte);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.campo[hidden] {
+  display: none;
+}
+.campo span {
+  color: var(--texto-2);
+  font-size: 11px;
+}
+.campo input {
+  font: inherit;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  padding: 7px 9px;
+  caret-color: var(--acento);
+}
+
+.dialogo__nota {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 11px;
+}
+.dialogo__botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- responsive ---------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  :root {
+    /* Sigue proporcional, pero cede antes para que la mesa no se ahogue. */
+    --lateral: clamp(320px, 32vw, 420px);
+  }
+  .cabecera__datos {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 920px) {
+  .portal {
+    grid-template-columns: minmax(0, 1fr);
+    /* Apilado, la mesa se queda con lo justo para leerse y el resto va al chat. */
+    grid-template-rows: auto minmax(240px, 32vh) minmax(0, 1fr);
+    grid-template-areas:
+      "cabecera"
+      "escenario"
+      "lateral";
+    height: auto;
+    min-height: 100%;
+  }
+  .cabecera {
+    gap: 12px;
+    row-gap: 8px;
+  }
+  .cabecera__datos {
+    margin-inline-start: 0;
+    order: 3;
+    width: 100%;
+  }
+  .salas {
+    max-height: 26vh;
+  }
+  .chat__lista {
+    max-height: 46vh;
+  }
+}
+
+/* --- sin animación ------------------------------------------------------- */
+
+/* `?estatico=1` hace lo mismo que la preferencia del sistema, pero a mano:
+   es lo que vuelve deterministas las capturas del modo demo. */
+:root[data-estatico] *,
+:root[data-estatico] *::before,
+:root[data-estatico] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+:root[data-estatico] .nodo--ocupado .nodo__latido {
+  r: 34;
+  opacity: 1;
+  stroke: var(--acento);
+}
+:root[data-estatico] .mesa__celda--activa {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  /* Sin latido, el nodo ocupado se distingue por un anillo fijo. */
+  .nodo--ocupado .nodo__latido {
+    r: 34;
+    opacity: 1;
+    stroke: var(--acento);
+  }
+  .mesa__celda--activa {
+    opacity: 1;
+  }
+}

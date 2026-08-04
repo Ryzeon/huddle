@@ -1,0 +1,15 @@
+{
+  "name": "@huddle/portal",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/composition/main.js",
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "serve": "tsx scripts/dev.ts --no-watch",
+    "shots": "tsx scripts/shots.ts"
+  },
+  "dependencies": {
+    "@huddle/protocol": "*"
+  }
+}
