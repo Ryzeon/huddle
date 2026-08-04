@@ -13,6 +13,8 @@ RUN npm install --no-audit --no-fund
 COPY tsconfig.base.json tsconfig.json ./
 COPY scripts scripts
 COPY packages packages
+# El HTML pide el favicon desde /brand/, así que la marca entra en el sitio.
+COPY brand brand
 RUN npm run build
 
 FROM nginx:alpine
