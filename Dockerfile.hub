@@ -1,0 +1,36 @@
+# El hub: un WebSocket con estado en disco. Se compila una vez y corre con node,
+# no con tsx, que es una herramienta de desarrollo.
+
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY packages/hub/package.json packages/hub/
+COPY packages/protocol/package.json packages/protocol/
+# `--ignore-scripts` porque el `prepare` de la raiz compila, y aqui todavia no
+# hay ni tsconfig ni codigo.
+RUN npm install --no-audit --no-fund --ignore-scripts
+
+COPY tsconfig.base.json ./
+COPY packages/protocol packages/protocol
+COPY packages/hub packages/hub
+RUN npx tsc --build packages/hub
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Solo lo compilado y sus dependencias: ni fuentes ni tsc en la imagen final.
+COPY --from=build /app/node_modules node_modules
+COPY --from=build /app/package.json ./
+COPY --from=build /app/packages/protocol/package.json packages/protocol/
+COPY --from=build /app/packages/protocol/dist packages/protocol/dist
+COPY --from=build /app/packages/hub/package.json packages/hub/
+COPY --from=build /app/packages/hub/dist packages/hub/dist
+
+# Las salas y su historial sobreviven al despliegue solo si esto es un volumen.
+ENV HUDDLE_HISTORY_DIR=/data
+VOLUME ["/data"]
+
+EXPOSE 8787
+CMD ["node", "packages/hub/dist/composition/main.js"]
