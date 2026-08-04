@@ -9,6 +9,7 @@ import {
   type MentionQuery,
 } from '../../domain/composer.js';
 import { clear, el, need } from './dom.js';
+import { botonCopiar, renderMarkdown, textoPlano } from './markdown-view.js';
 
 export interface ChatViewHandlers {
   onMessage(text: string): void;
@@ -196,15 +197,25 @@ function renderEntry(entry: FormattedEntry, you: string | null): HTMLElement {
 
   if (entry.quoted) {
     body.appendChild(head);
-    const text = el('p', { class: 'entrada__texto' });
-    for (const chunk of splitMentions(entry.text)) {
-      if (chunk.kind === 'mention') {
-        text.appendChild(el('span', { class: 'mencion', text: chunk.value }));
-      } else {
-        text.appendChild(document.createTextNode(chunk.value));
+
+    // Las respuestas del agente vienen en markdown; lo que escribe una persona
+    // en el chat, no. Renderizarlo todo igual convertiría un asterisco suelto
+    // en cursiva sin que nadie lo pidiera.
+    const text = el('div', { class: 'entrada__texto' });
+    if (entry.markdown) {
+      text.appendChild(renderMarkdown(entry.text));
+      body.appendChild(text);
+      body.appendChild(botonCopiar(textoPlano(entry.text), 'copiar la respuesta'));
+    } else {
+      for (const chunk of splitMentions(entry.text)) {
+        if (chunk.kind === 'mention') {
+          text.appendChild(el('span', { class: 'mencion', text: chunk.value }));
+        } else {
+          text.appendChild(document.createTextNode(chunk.value));
+        }
       }
+      body.appendChild(text);
     }
-    body.appendChild(text);
   } else {
     head.appendChild(document.createTextNode(entry.text));
     body.appendChild(head);

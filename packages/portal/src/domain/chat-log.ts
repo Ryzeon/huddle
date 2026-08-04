@@ -10,6 +10,8 @@ export interface FormattedEntry {
   meta?: string;
   tone: Tone;
   quoted: boolean;
+  /** Solo las respuestas del agente vienen en markdown; el chat humano no. */
+  markdown?: boolean;
   time: string;
   sources?: string[];
 }
@@ -88,6 +90,7 @@ export function formatEntry(entry: LogEntry): FormattedEntry {
         ...(entry.meta ? { meta: entry.meta } : {}),
         tone: 'ok',
         quoted: entry.text !== undefined,
+        markdown: entry.text !== undefined,
         ...(entry.sources && entry.sources.length > 0
           ? { sources: entry.sources.map(formatSource) }
           : {}),
