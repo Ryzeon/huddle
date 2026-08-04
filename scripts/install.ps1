@@ -1,69 +1,156 @@
-# Instala Huddle en Windows: compila, entra a una sala, registra el servidor MCP
-# y deja el daemon corriendo.
+# Instala o actualiza Huddle desde GitHub, en Windows.
 #
-#   .\scripts\install.ps1 -Room MPP8V-7HZS5 -Alias @tualias
+#   irm https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.ps1 | iex
 #
+# O con parámetros:
+#   .\install.ps1 -Alias @tualias
+#
+# Volver a ejecutarlo actualiza a la última versión publicada.
 param(
-  [Parameter(Mandatory = $true)][string]$Room,
-  [Parameter(Mandatory = $true)][string]$Alias,
+  [string]$Alias,
+  [string]$Room,
   [string]$Hub = "wss://hub.ryzeon.dev",
   [string]$Expose = $PWD.Path,
+  [switch]$Update,
   [switch]$NoMcp,
   [switch]$NoDaemon
 )
 
 $ErrorActionPreference = "Stop"
-$repo = Split-Path -Parent $PSScriptRoot
+
+$repoSlug = "Ryzeon/huddle"
+$prefix = if ($env:HUDDLE_PREFIX) { $env:HUDDLE_PREFIX } else { Join-Path $HOME ".huddle" }
+$app = Join-Path $prefix "app"
+$binDir = Join-Path $env:LOCALAPPDATA "Huddle\bin"
 
 function Gris($m) { Write-Host $m -ForegroundColor DarkGray }
 function Verde($m) { Write-Host $m -ForegroundColor Green }
 
+if (-not $Update) {
+  if (-not $Alias) { $Alias = Read-Host "Con que alias apareces en las salas (ej. @ryzeon)" }
+  if (-not $Alias) { throw "Falta -Alias: con que nombre apareces en las salas." }
+
+  $respuesta = Read-Host "A que hub te conectas [$Hub]"
+  if ($respuesta) { $Hub = $respuesta }
+}
+
+# --- Requisitos -------------------------------------------------------------
+
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Hace falta Node. Instalalo desde https://nodejs.org"
 }
-
 $major = [int](node -p 'process.versions.node.split(".")[0]')
 if ($major -lt 20) { throw "Node $major es demasiado viejo; hace falta 20 o superior." }
 
-if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
-  throw "No encuentro el CLI de Claude Code. Instalalo desde https://claude.com/claude-code"
+if (-not $NoMcp -and -not (Get-Command claude -ErrorAction SilentlyContinue)) {
+  throw "No encuentro el CLI de Claude Code. Instalalo desde https://claude.com/claude-code, o usa -NoMcp"
 }
 
-$Expose = (Resolve-Path $Expose).Path
-Gris "repositorio a exponer: $Expose"
+# --- Que version toca -------------------------------------------------------
 
-Gris "instalando dependencias..."
-Push-Location $repo
+# Se pide la lista, no `/releases/latest`: ese endpoint se salta las
+# prereleases, y mientras el proyecto este en beta no encontraria ninguna.
+$tag = "main"
 try {
-  npm install --silent --no-audit --no-fund
-  Gris "compilando..."
-  npx tsc --build
-} finally { Pop-Location }
+  $releases = Invoke-RestMethod "https://api.github.com/repos/$repoSlug/releases?per_page=1" `
+    -Headers @{ "User-Agent" = "huddle-install" }
+  if ($releases -and $releases[0].tag_name) { $tag = $releases[0].tag_name }
+} catch {
+  Gris "sin releases publicadas todavia; instalando desde main"
+}
 
-# En Windows el lanzador es el .cmd: `huddle` a secas es un script de bash y
-# el sistema ofreceria elegir con que abrirlo.
-$huddle = Join-Path $repo "huddle.cmd"
+$versionFile = Join-Path $prefix "version"
+$instalada = if (Test-Path $versionFile) { Get-Content $versionFile -Raw } else { "" }
 
-Gris "entrando a la sala..."
-& $huddle join $Room $Alias --hub $Hub --cwd $Expose
-if ($LASTEXITCODE -ne 0) { throw "no se pudo entrar a la sala" }
+if ($instalada.Trim() -eq $tag -and $tag -ne "main" -and (Test-Path $app)) {
+  Verde "ya tienes la $tag, que es la ultima."
+  if ($Update) { exit 0 }
+} else {
+  Gris "descargando $tag..."
+  $url = if ($tag -eq "main") {
+    "https://github.com/$repoSlug/archive/refs/heads/main.zip"
+  } else {
+    "https://github.com/$repoSlug/archive/refs/tags/$tag.zip"
+  }
+
+  $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("huddle-" + [guid]::NewGuid())
+  New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+  try {
+    $zip = Join-Path $tmp "huddle.zip"
+    Invoke-WebRequest $url -OutFile $zip -UseBasicParsing
+    Expand-Archive $zip -DestinationPath $tmp -Force
+    $extraido = Get-ChildItem $tmp -Directory | Select-Object -First 1
+
+    # Se reemplaza entero en vez de mezclar: un archivo que desaparecio en la
+    # version nueva no debe seguir ahi. La config vive fuera, en $prefix.
+    New-Item -ItemType Directory -Path $prefix -Force | Out-Null
+    if (Test-Path $app) { Remove-Item $app -Recurse -Force }
+    Move-Item $extraido.FullName $app
+    Set-Content -Path $versionFile -Value $tag -NoNewline
+
+    Gris "instalando dependencias y compilando..."
+    Push-Location $app
+    try {
+      npm install --silent --no-audit --no-fund
+      npx tsc --build
+    } finally { Pop-Location }
+  } finally {
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+# --- Dejarlo en el PATH -----------------------------------------------------
+
+# En Windows el lanzador es el .cmd: `huddle` a secas es un script de bash y el
+# sistema ofreceria elegir con que abrirlo.
+New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+$huddle = Join-Path $app "huddle.cmd"
+
+# Un .cmd que delega, en vez de un enlace simbolico: crearlos pide permisos de
+# administrador o modo desarrollador, y esto funciona siempre.
+Set-Content -Path (Join-Path $binDir "huddle.cmd") -Value "@echo off`r`n`"$huddle`" %*"
+Set-Content -Path (Join-Path $binDir "huddle-update.cmd") `
+  -Value "@echo off`r`npowershell -ExecutionPolicy Bypass -File `"$app\scripts\install.ps1`" -Update %*"
+
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notlike "*$binDir*") {
+  [Environment]::SetEnvironmentVariable("Path", "$userPath;$binDir", "User")
+  Gris "anadido $binDir al PATH; abre una terminal nueva para que surta efecto"
+}
+
+Verde "huddle instalado en $binDir ($tag)"
+
+if ($Update) { Verde "actualizado."; exit 0 }
+
+# --- Registrar el MCP -------------------------------------------------------
 
 if (-not $NoMcp) {
   # Idempotente: si ya estaba, se reemplaza en vez de duplicarse.
   claude mcp remove huddle 2>$null | Out-Null
-  claude mcp add huddle -- $huddle mcp
+  # El alias y el hub viajan como entorno del MCP: son los valores por defecto
+  # que usara `room_join` cuando le pases solo el codigo de la sala.
+  claude mcp add huddle --env "HUDDLE_ALIAS=$Alias" --env "HUDDLE_HUB=$Hub" -- $huddle mcp
   Verde "servidor MCP registrado: tu agente ya puede preguntar por ti"
 }
 
 Write-Host ""
-Verde "Listo."
+Verde "Listo. Para actualizar mas adelante:  huddle-update"
 Write-Host ""
+
+if (-not $Room) {
+  Write-Host "Ya puedes entrar a una sala. Dile a Claude:"
+  Write-Host "  <<entrame a la sala ABCDE-12345>>"
+  Write-Host ""
+  Write-Host "O desde el terminal:"
+  Write-Host "  huddle join ABCDE-12345 $Alias"
+  exit 0
+}
+
+& $huddle join $Room $Alias --hub $Hub --cwd (Resolve-Path $Expose).Path --force
+if ($LASTEXITCODE -ne 0) { throw "no se pudo entrar a la sala" }
 
 if (-not $NoDaemon) {
   Write-Host "Arrancando el daemon. Dejalo abierto; Ctrl+C para salir de la sala."
   Write-Host ""
   & $huddle daemon
-} else {
-  Write-Host "Arrancalo cuando quieras con:"
-  Write-Host "  $huddle daemon"
 }

@@ -67,7 +67,13 @@ A partir de ahí le hablas normal:
 
 Para actualizar más adelante: `huddle-update`.
 
-En Windows, `.\scripts\install.ps1 -Room TU-CODIGO -Alias @tualias`.
+En Windows, en PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.ps1 | iex
+```
+
+Si no le pasas `--alias` (o `-Alias`), te lo pregunta, junto con el hub.
 
 ### A mano, o para desarrollar
 

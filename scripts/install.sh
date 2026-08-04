@@ -58,10 +58,32 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Se lee de /dev/tty y no de stdin: con `curl … | bash` el stdin es el propio
+# script, así que un `read` normal se comería sus líneas.
+preguntar() {
+  etiqueta="$1"
+  defecto="$2"
+  [ -r /dev/tty ] || return 1
+  if [ -n "$defecto" ]; then
+    printf '%s [%s]: ' "$etiqueta" "$defecto" > /dev/tty
+  else
+    printf '%s: ' "$etiqueta" > /dev/tty
+  fi
+  read -r RESPUESTA < /dev/tty || return 1
+  [ -n "$RESPUESTA" ] || RESPUESTA="$defecto"
+  [ -n "$RESPUESTA" ]
+}
+
 if [ "$SOLO_ACTUALIZAR" -eq 0 ]; then
   # Instalar no es entrar a una sala. El alias y el hub se guardan como valores
-  # por defecto; el código de sala llega después, cuando alguien te lo pase.
+  # por defecto para el MCP; el código llega después, cuando alguien te lo pase.
+  if [ -z "$ALIAS" ] && preguntar "Con qué alias apareces en las salas (ej. @ryzeon)" ""; then
+    ALIAS="$RESPUESTA"
+  fi
   [ -n "$ALIAS" ] || { rojo "falta --alias: con qué nombre apareces en las salas"; uso; }
+
+  if preguntar "A qué hub te conectas" "$HUB"; then HUB="$RESPUESTA"; fi
+
   EXPOSE="$(cd "$EXPOSE" && pwd)"
 fi
 
