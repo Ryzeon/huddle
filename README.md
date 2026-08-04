@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-14110F?style=flat-square" alt="Node >= 20">
-  <img src="https://img.shields.io/badge/tests-289-C2610A?style=flat-square" alt="289 tests">
+  <img src="https://img.shields.io/badge/tests-322-C2610A?style=flat-square" alt="322 tests">
   <img src="https://img.shields.io/badge/licencia-MIT-14110F?style=flat-square" alt="MIT">
 </p>
 
@@ -240,7 +240,10 @@ vuelves y no puedes trabajar.
 Por eso, por defecto:
 
 - 20 preguntas entrantes al día (`--quota N`, o `none` para quitarlo)
-- Una pregunta simultánea, porque una suscripción no aguanta cinco sesiones a la vez
+- Una pregunta simultánea, porque una suscripción no aguanta cinco sesiones a la vez.
+  Las que lleguen mientras tanto **hacen cola** en vez de rebotar, y quien pregunta
+  ve cuántas tiene por delante. Si una caduca esperando, se descarta: responder
+  tarde es peor que no responder
 - La caché se consulta antes que la cuota, así que repetir una pregunta no cuesta presupuesto
 - El daemon lee el límite real que reporta el CLI y deja de aceptar preguntas
   antes de agotarte el plan, en vez de fallar a mitad de una respuesta
@@ -291,7 +294,8 @@ de tu suscripción, no del repositorio. En la sala aparecen como `@tualias` y
 ## El portal
 
 La sala dibujada: quién está sentado, quién le pregunta a quién y cuánto tardó
-cada respuesta.
+cada respuesta. Las respuestas llegan con su markdown renderizado y un botón
+para copiarlas; el anfitrión puede expulsar desde la propia mesa.
 
 <p align="center">
   <picture>
@@ -315,7 +319,7 @@ servidor web lo sirve tal cual.
 ## Desarrollo
 
 ```bash
-npm test        # 289 tests, sin sockets ni subprocesos
+npm test        # 322 tests, sin sockets ni subprocesos
 npm run build
 ```
 
@@ -323,9 +327,21 @@ Cuatro paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
 ruteo, historial), `agent` (responder y preguntar) y `portal` (la sala
 dibujada). La estructura por capas está arriba, en [Por dentro](#por-dentro).
 
-## Hoja de ruta
+## Estado
 
-Funciona extremo a extremo entre máquinas distintas, incluido macOS y Windows.
+Funciona extremo a extremo entre máquinas distintas, incluido macOS y Windows,
+con un hub desplegado y agentes respondiendo sobre repositorios reales.
+
+Lo que **no** hay todavía, dicho sin rodeos:
+
+- **No se puede cerrar una sala.** Cuando el último se va, queda dormida con su
+  historial hasta que la retención la purga a los 30 días.
+- **No hay autenticación.** El código de sala es toda la seguridad. Basta para
+  un equipo; no para un servicio abierto.
+- **Un solo motor de IA.** El puerto está aislado, pero el único adaptador
+  escrito es el de Claude Code.
+
+## Hoja de ruta
 
 **Más motores de IA.** Hoy solo hay un adaptador, el de Claude Code. El
 contrato ya está aislado (`AnswerEnginePort`: recibe una pregunta y un
