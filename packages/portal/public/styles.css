@@ -1022,3 +1022,41 @@ a {
   opacity: 1;
   margin-block-start: 6px;
 }
+
+/* --- expulsar, solo para el anfitrión ------------------------------------ */
+
+.nodo__expulsar {
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.nodo:hover .nodo__expulsar,
+.nodo__expulsar:focus-visible,
+.nodo__expulsar--armado { opacity: 1; }
+
+.nodo__expulsar-fondo {
+  fill: var(--superficie-alta);
+  stroke: var(--borde-fuerte);
+  stroke-width: 1;
+}
+.nodo__expulsar-glifo {
+  fill: var(--texto-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Armado: pide confirmación, y se ve que la pide. */
+.nodo__expulsar--armado .nodo__expulsar-fondo {
+  fill: color-mix(in srgb, var(--mal) 20%, transparent);
+  stroke: var(--mal);
+}
+.nodo__expulsar--armado .nodo__expulsar-glifo {
+  fill: var(--mal);
+  font-size: 10px;
+}
+
+.nodo__expulsar:focus-visible .nodo__expulsar-fondo {
+  stroke: var(--acento);
+  stroke-width: 2;
+}

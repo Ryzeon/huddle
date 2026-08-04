@@ -7,6 +7,11 @@ import { TIMING, type ShouldAnimate } from './timing.js';
 
 const LOW_QUOTA = 5;
 
+/** Cuánto se queda el botón pidiendo confirmación antes de volver a su sitio. */
+const CONFIRM_MS = 3_000;
+
+export type OnKick = (label: string) => void;
+
 export interface PlacedNode {
   seat: Seat;
   group: SVGGElement;
@@ -21,6 +26,7 @@ export class NodeLayer {
     private readonly spokes: SVGGElement,
     private readonly nodeRadius: number,
     private readonly shouldAnimate: ShouldAnimate,
+    private readonly onKick?: OnKick,
   ) {}
 
   sync(seats: readonly Seat[], state: SessionState): void {
@@ -151,8 +157,75 @@ export class NodeLayer {
     clear(labels);
     this.renderLabels(labels, seat, member, marks);
 
+    // Solo el anfitrión expulsa, y a sí mismo no: el hub lo rechazaría, y
+    // ofrecer un botón que no puede funcionar es peor que no ofrecerlo.
+    const puedeExpulsar =
+      this.onKick !== undefined &&
+      state.host !== null &&
+      state.you !== null &&
+      state.host === state.you.split(':')[0] &&
+      seat.alias !== state.host;
+
+    group.querySelector('.nodo__expulsar')?.remove();
+    if (puedeExpulsar) group.appendChild(this.kickButton(seat));
+
     group.querySelector(':scope > title')?.remove();
     group.appendChild(svg('title', { text: titleFor(seat, marks) }));
+  }
+
+  /**
+   * Dos toques: el primero pide confirmación y el segundo expulsa. Un solo
+   * clic para echar a alguien de la sala es demasiado fácil de dar sin querer,
+   * y un `confirm()` del navegador bloquea toda la página.
+   */
+  private kickButton(seat: Seat): SVGGElement {
+    const boton = svg('g', {
+      class: 'nodo__expulsar',
+      attrs: {
+        role: 'button',
+        tabindex: '0',
+        transform: `translate(${this.nodeRadius - 4} ${-this.nodeRadius + 4})`,
+      },
+    });
+    boton.appendChild(svg('circle', { class: 'nodo__expulsar-fondo', attrs: { r: 9 } }));
+    const glifo = svg('text', {
+      class: 'nodo__expulsar-glifo',
+      text: '×',
+      attrs: { 'text-anchor': 'middle', y: 4 },
+    });
+    boton.appendChild(glifo);
+    boton.appendChild(svg('title', { text: `expulsar a ${seat.label}` }));
+
+    let armado = false;
+    let volver: ReturnType<typeof setTimeout> | undefined;
+
+    const activar = (event: Event): void => {
+      event.stopPropagation();
+      event.preventDefault();
+
+      if (armado) {
+        clearTimeout(volver);
+        this.onKick?.(seat.label);
+        return;
+      }
+
+      armado = true;
+      boton.classList.add('nodo__expulsar--armado');
+      glifo.textContent = '¿?';
+      volver = setTimeout(() => {
+        armado = false;
+        boton.classList.remove('nodo__expulsar--armado');
+        glifo.textContent = '×';
+      }, CONFIRM_MS);
+    };
+
+    boton.addEventListener('click', activar);
+    boton.addEventListener('keydown', (event) => {
+      const key = (event as KeyboardEvent).key;
+      if (key === 'Enter' || key === ' ') activar(event);
+    });
+
+    return boton;
   }
 
   private renderLabels(

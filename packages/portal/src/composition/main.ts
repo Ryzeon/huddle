@@ -87,7 +87,10 @@ export function bootstrap(): void {
   const tableHost = need<HTMLElement>('[data-mesa]');
   // `?estatico=1` apaga las animaciones sin tocar la preferencia del sistema:
   // es lo que hace deterministas las capturas.
-  const table = new TableView(tableHost, { sinAnimacion: params.has('estatico') });
+  const table = new TableView(tableHost, {
+    sinAnimacion: params.has('estatico'),
+    onKick: (label) => store.kick(label),
+  });
 
   const store = new SessionStore({
     feed,

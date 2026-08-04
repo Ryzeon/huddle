@@ -21,6 +21,8 @@ const MIN_AVAILABLE = 120;
 const MIN_RADIUS = 90;
 
 export interface TableViewOptions {
+  /** Qué hacer al pulsar expulsar. Sin esto, el botón no se pinta. */
+  onKick?: (label: string) => void;
   sinAnimacion?: boolean;
 }
 
@@ -55,7 +57,7 @@ export class TableView {
     this.host.appendChild(this.root);
 
     const animate = (): boolean => this.shouldAnimate();
-    this.nodes = new NodeLayer(nodeLayer, spokeLayer, NODE_RADIUS, animate);
+    this.nodes = new NodeLayer(nodeLayer, spokeLayer, NODE_RADIUS, animate, options.onKick);
     this.arcs = new ArcLayer(arcLayer, NODE_RADIUS, animate);
     this.roster = new RosterSummary(this.host);
 
