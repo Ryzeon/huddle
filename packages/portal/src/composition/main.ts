@@ -135,6 +135,14 @@ export function bootstrap(): void {
     window.location.reload();
   });
 
+  // Salir es dejar de estar: se corta la conexión y se vuelve al portal sin
+  // sala. La sala sigue recordada en el lateral para poder volver.
+  const salir = document.querySelector<HTMLButtonElement>('[data-salir]');
+  salir?.addEventListener('click', () => {
+    feed.stop();
+    window.location.href = window.location.pathname;
+  });
+
   let remembered: string | null = null;
   store.subscribe((state) => {
     header.render(state);
@@ -142,6 +150,7 @@ export function bootstrap(): void {
     chat.render(state);
     roomsView.render(state);
     empty.hidden = state.room !== null;
+    if (salir) salir.hidden = state.room === null;
 
     // Se recuerda una sola vez por sala: escribir en cada `room_state` sería
     // tocar `localStorage` decenas de veces por sesión sin ganar nada.
