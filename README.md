@@ -44,36 +44,43 @@ cuánto tardó. Si no trae fuentes, el agente la da por fallida.
 
 ## Empezar
 
-Un solo comando. Necesitas [Claude Code](https://claude.com/claude-code) y Node 20 o superior.
+Un comando. Necesitas [Claude Code](https://claude.com/claude-code) y Node 20 o
+superior.
+
+**macOS y Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh \
-  | bash -s -- --alias @tualias
+curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh | bash
 ```
 
-Eso instala Huddle, lo deja en tu PATH y **registra el servidor MCP en Claude
-Code** con tu alias y tu hub como valores por defecto. No entra a ninguna sala:
-para eso hace falta un código, y ese te lo pasa quien la creó.
+**Windows**, en PowerShell
 
-Cuando lo tengas, díselo a Claude y ya está:
+```powershell
+irm https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.ps1 | iex
+```
+
+Te preguntará dos cosas y nada más:
+
+```
+Con qué alias apareces en las salas (ej. @ryzeon): @ryzeon
+A qué hub te conectas [wss://hub.ryzeon.dev]:
+```
+
+Con eso instala Huddle, lo deja en tu PATH y **registra el servidor MCP en
+Claude Code** con esos dos valores como predeterminados. No entra a ninguna
+sala: para eso hace falta un código, y ese te lo pasa quien la creó.
+
+Cuando lo tengas, díselo a Claude:
 
 > *«éntrame a la sala MPP8V-7HZS5»*
 
-A partir de ahí le hablas normal:
+Y a partir de ahí le hablas normal:
 
 > *«pregúntale a @ana cómo se autentican los webhooks»*
 > *«¿quién está en la sala?»*
 > *«expón también mi repo de pagos»*
 
 Para actualizar más adelante: `huddle-update`.
-
-En Windows, en PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.ps1 | iex
-```
-
-Si no le pasas `--alias` (o `-Alias`), te lo pregunta, junto con el hub.
 
 ### A mano, o para desarrollar
 
