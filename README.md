@@ -44,6 +44,26 @@ cuánto tardó. Si no trae fuentes, el agente la da por fallida.
 
 ## Empezar
 
+Un solo comando. Necesitas [Claude Code](https://claude.com/claude-code) y Node 20 o superior.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh \
+  | bash -s -- --room TU-CODIGO --alias @tualias
+```
+
+Eso compila, te mete en la sala, **registra el servidor MCP en Claude Code** y
+deja el daemon corriendo. A partir de ahí le hablas a Claude normal:
+
+> *«pregúntale a @ana cómo se autentican los webhooks»*
+> *«¿quién está en la sala?»*
+> *«expón también mi repo de pagos»*
+
+Para actualizar más adelante: `huddle-update`.
+
+En Windows, `.\scripts\install.ps1 -Room TU-CODIGO -Alias @tualias`.
+
+### A mano, o para desarrollar
+
 ```bash
 npm install
 

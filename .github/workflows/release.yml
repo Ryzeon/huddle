@@ -1,0 +1,41 @@
+name: release
+
+# Publica una release al empujar un tag `v*`. Los tests corren antes: una
+# release que no pasa sus propias pruebas no debería existir.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --build
+      - run: npm test
+
+      # El instalador se baja el tarball que GitHub genera del tag, así que no
+      # hace falta adjuntar nada: basta con que la release exista.
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            Instalación en un paso:
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh \
+              | bash -s -- --room TU-CODIGO --alias @tualias
+            ```
+
+            Para actualizar: `huddle-update`

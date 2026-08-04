@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /$
+# Las URLs de sala llevan el código, que es la llave: no se indexan.
+Disallow: /*?
+Sitemap: https://huddle.ryzeon.dev/sitemap.xml
