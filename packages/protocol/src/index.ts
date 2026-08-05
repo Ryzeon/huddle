@@ -268,6 +268,21 @@ export interface FolderPutMessage {
   text: string;
 }
 
+/**
+ * Escribe varios archivos de una vez.
+ *
+ * No es un atajo por comodidad: vaciar un zip o una carpeta son decenas de
+ * archivos, y mandarlos de uno en uno hacía dos cosas mal a la vez — se comía
+ * el tope de ráfaga a la tercera parte del camino, y difundía el estado de la
+ * carpeta a toda la sala una vez por archivo. Un lote cuenta como un cambio y
+ * se difunde una sola vez, que es lo que el tope quería proteger.
+ */
+export interface FolderPutManyMessage {
+  t: 'folder_put_many';
+  id: string;
+  files: Array<{ path: string; text: string }>;
+}
+
 export interface FolderDropMessage {
   t: 'folder_drop';
   id: string;
@@ -404,6 +419,7 @@ export type ClientMessage =
   | ResultMessage
   | ErrorMessage
   | FolderPutMessage
+  | FolderPutManyMessage
   | FolderDropMessage
   | FolderGetMessage
   | HeartbeatMessage;
@@ -534,6 +550,8 @@ export interface FolderOkMessage {
   t: 'folder_ok';
   id: string;
   path: string;
+  /** Cuántos entraron, cuando fue un lote. */
+  count?: number;
 }
 
 export type ServerMessage =

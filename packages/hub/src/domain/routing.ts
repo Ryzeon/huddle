@@ -21,6 +21,13 @@ const STOPWORDS = new Set([
   'obtener', 'poner', 'mostrar', 'listar', 'guardar', 'borrar', 'leer',
   'send', 'sends', 'create', 'make', 'use', 'uses', 'get', 'set', 'list',
   'show', 'save', 'delete', 'read', 'add', 'run', 'runs',
+
+  // Verbos de pregunta. Se colaron al escribir las respuestas en la carpeta:
+  // una pregunta como «¿qué tabla guarda los bultos?» generaba un nodo
+  // `temas/guarda`, que no agrupa nada con nada.
+  'guarda', 'identifica', 'contiene', 'devuelve', 'define', 'existe',
+  'llama', 'sirve', 'funciona', 'ocurre', 'pasa', 'tiene', 'trata',
+  'necesita', 'permite', 'maneja', 'genera',
 ]);
 
 export function tokenize(text: string): string[] {

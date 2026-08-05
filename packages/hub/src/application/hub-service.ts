@@ -356,6 +356,14 @@ export class HubService {
         return;
       }
 
+      case 'folder_put_many': {
+        room.touch(channel.id, now);
+        if (this.writeFolder.putMany({ room, member, channel, message })) {
+          this.persistFolder(room);
+        }
+        return;
+      }
+
       case 'folder_drop': {
         room.touch(channel.id, now);
         if (this.writeFolder.drop({ room, member, channel, message })) {

@@ -225,6 +225,7 @@ export async function bootstrap(): Promise<void> {
         onOpen: (path) => store.openFile(path),
         onClose: () => store.closeFile(),
         onWrite: (path, text) => store.writeFile(path, text),
+        onWriteMany: (files) => store.writeFiles(files),
         onRemove: (path) => store.removeFile(path),
         onNote: (text) => store.note(text, 'failed'),
       })
@@ -306,7 +307,7 @@ export async function bootstrap(): Promise<void> {
   store.subscribe((state) => {
     if (semilla && !sembrado && state.room !== null) {
       sembrado = true;
-      for (const upload of semilla.uploads) store.writeFile(upload.path, upload.text);
+      store.writeFiles(semilla.uploads);
       for (const motivo of semilla.rechazados) store.note(motivo, 'failed');
       if (semilla.uploads.length > 0) {
         store.note(

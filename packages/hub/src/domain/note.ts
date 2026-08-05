@@ -45,6 +45,9 @@ const MAX_TOPICS = 4;
 
 const MAX_SLUG_LENGTH = 48;
 
+/** El tope de un segmento de ruta en `normalizeFolderPath`. */
+const MAX_SEGMENT = 64;
+
 /**
  * De qué trata una respuesta.
  *
@@ -105,7 +108,18 @@ function unique(terms: readonly string[]): string[] {
  */
 export function notePath(source: NoteSource): string {
   const cola = source.id.slice(-4).toLowerCase();
-  return `respuestas/${isoDay(source.at)}-${bare(source.to)}-${slugify(source.question)}-${cola}.md`;
+  const prefijo = `${isoDay(source.at)}-${bare(source.to)}`;
+
+  // Lo que le queda al asunto después de la fecha, el alias, la cola y `.md`.
+  // Sin esta cuenta, una pregunta larga generaba un nombre de más de 64
+  // caracteres: la nota se escribía, pero `normalizeFolderPath` la rechazaba
+  // después, así que nadie podía abrirla y no llegaba a ningún disco. El hub
+  // no puede generar rutas que su propia frontera no acepte.
+  const presupuesto = MAX_SEGMENT - prefijo.length - cola.length - 5;
+  const asunto = slugify(source.question).slice(0, Math.max(presupuesto, 0)).replace(/-+$/, '');
+
+  const nombre = asunto ? `${prefijo}-${asunto}-${cola}` : `${prefijo}-${cola}`;
+  return `respuestas/${nombre}.md`;
 }
 
 export function buildNote(source: NoteSource): GeneratedNote {

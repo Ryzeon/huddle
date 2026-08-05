@@ -1479,3 +1479,50 @@ a {
   background: var(--superficie);
   border-top: 1px solid var(--borde);
 }
+
+/* Las rutas de un vault real son largas («CASO_PEDY-LDUME-…_edicion_en_LID.md»).
+   Cortarlas con puntos suspensivos dejaba media lista en «CASO_P…», que no
+   distingue un archivo de otro: mejor dos líneas y el nombre entero. */
+.carpeta__cuerpo {
+  grid-template-columns: minmax(220px, 320px) 1fr;
+}
+
+.carpeta__archivo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+/* --- el árbol --- */
+
+.carpeta__items .carpeta__items {
+  /* La guía vertical es lo que deja seguir un nivel sin contar sangrías. */
+  margin-inline-start: 9px;
+  border-inline-start: 1px solid var(--borde);
+}
+
+.carpeta__carpeta {
+  padding-block: 4px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+
+.carpeta__carpeta:hover {
+  color: var(--texto);
+  background: var(--superficie-alta);
+}
+
+.carpeta__carpeta::marker {
+  color: var(--borde-fuerte);
+  font-size: 0.8em;
+}
+
+.carpeta__rama > summary:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: -2px;
+}

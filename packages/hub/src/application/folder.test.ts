@@ -378,3 +378,115 @@ describe('la memoria de la sala', () => {
     assert.equal(ana.last('folder_state'), undefined);
   });
 });
+
+describe('vaciar un zip o una carpeta entera', () => {
+  let clockNow: number;
+  let hub: HubService;
+  let codeSeq = 0;
+
+  const crear = (channel: FakeChannel) => {
+    hub.handle(channel, {
+      t: 'create',
+      v: PROTOCOL_VERSION,
+      name: 'Equipo',
+      alias: '@ana',
+      card: { repo: 'web', dirs: [] },
+      quotaRemaining: 10,
+    });
+  };
+
+  beforeEach(() => {
+    clockNow = 1_000_000;
+    hub = new HubService({
+      clock: { now: () => clockNow },
+      timers: noTimers,
+      transcripts: { append: () => undefined, read: () => [], purge: () => 0, rename: () => true },
+      verifier: rejectEverything,
+      generateCode: () => `TEST${++codeSeq}-ROOM1`,
+    });
+  });
+
+  /**
+   * El caso que rompió en real: un vault de Obsidian con 54 notas. De uno en
+   * uno se comía el tope de ráfaga a los veinte y difundía 54 veces.
+   */
+  test('un lote de 50 archivos entra entero y difunde una sola vez', () => {
+    const ana = new FakeChannel('a');
+    crear(ana);
+    const antes = ana.count('folder_state');
+
+    hub.handle(ana, {
+      t: 'folder_put_many',
+      id: 'l1',
+      files: Array.from({ length: 50 }, (_, i) => ({
+        path: `notas/vault/n${i}.md`,
+        text: `# nota ${i}`,
+      })),
+    });
+
+    assert.equal(ana.last('folder_state')?.entries.length, 50);
+    assert.equal(ana.count('folder_state') - antes, 1, 'una difusión, no cincuenta');
+    assert.equal(ana.last('folder_ok')?.count, 50);
+  });
+
+  test('varios lotes seguidos no agotan el tope de ráfaga', () => {
+    const ana = new FakeChannel('a');
+    crear(ana);
+
+    // 250 archivos en cinco lotes: antes eran 250 escrituras y rebotaban 230.
+    for (let lote = 0; lote < 5; lote++) {
+      hub.handle(ana, {
+        t: 'folder_put_many',
+        id: `l${lote}`,
+        files: Array.from({ length: 50 }, (_, i) => ({
+          path: `notas/l${lote}-n${i}.md`,
+          text: 'x',
+        })),
+      });
+    }
+
+    assert.equal(ana.last('folder_state')?.entries.length, 250);
+    assert.equal(ana.last('error'), undefined, 'ningún rebote');
+  });
+
+  test('lo que no cabe se cuenta, pero no tumba el lote', () => {
+    const ana = new FakeChannel('a');
+    crear(ana);
+
+    hub.handle(ana, {
+      t: 'folder_put_many',
+      id: 'l1',
+      files: [
+        { path: 'notas/cabe.md', text: 'x' },
+        { path: 'notas/enorme.md', text: 'y'.repeat(9_000_000) },
+        { path: 'notas/tambien.md', text: 'z' },
+      ],
+    });
+
+    assert.equal(ana.last('folder_ok')?.count, 2);
+    assert.ok(ana.last('folder_state')?.entries.some((e) => e.path === 'notas/tambien.md'));
+  });
+
+  test('con write: host, un lote de otro no entra', () => {
+    const ana = new FakeChannel('a');
+    const beto = new FakeChannel('b');
+    hub.handle(ana, {
+      t: 'create',
+      v: PROTOCOL_VERSION,
+      name: 'Equipo',
+      alias: '@ana',
+      quotaRemaining: 10,
+      folderWrite: 'host',
+    } as never);
+    const code = ana.last('welcome')?.room ?? '';
+    hub.handle(beto, { t: 'join', v: PROTOCOL_VERSION, room: code, alias: '@beto', quotaRemaining: 10 });
+
+    hub.handle(beto, {
+      t: 'folder_put_many',
+      id: 'l1',
+      files: [{ path: 'notas/mia.md', text: 'x' }],
+    });
+
+    assert.equal(beto.last('error')?.reason, 'denied_by_owner');
+  });
+});

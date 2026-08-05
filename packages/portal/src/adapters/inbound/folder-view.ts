@@ -21,6 +21,8 @@ export interface FolderViewOptions {
   onOpen: (path: string) => void;
   onClose: () => void;
   onWrite: (path: string, text: string) => void;
+  /** Varios de una vez: un zip o una carpeta entera. */
+  onWriteMany: (files: readonly { path: string; text: string }[]) => void;
   onRemove: (path: string) => void;
   /** Para contar lo que no se pudo subir, en el hilo de la sesión. */
   onNote: (text: string) => void;
@@ -40,6 +42,8 @@ export class FolderView {
   private readonly newButton: HTMLButtonElement;
   private readonly upload: HTMLInputElement;
   private readonly uploadLabel: HTMLElement;
+  private readonly uploadDir: HTMLInputElement;
+  private readonly uploadDirLabel: HTMLElement;
 
   private open = false;
   /** Se recuerda para no repintar la lista entera en cada latido. */
@@ -69,6 +73,13 @@ export class FolderView {
       // Sin esto, elegir el mismo archivo dos veces seguidas no dispara nada:
       // el valor no cambia y el `change` no llega.
       this.upload.value = '';
+    });
+
+    this.uploadDirLabel = need<HTMLElement>('[data-carpeta-carpeta-etiqueta]', root);
+    this.uploadDir = need<HTMLInputElement>('[data-carpeta-carpeta]', root);
+    this.uploadDir.addEventListener('change', () => {
+      void this.take(this.uploadDir.files);
+      this.uploadDir.value = '';
     });
 
     // Arrastrar es la forma natural de meter algo en una carpeta. El
@@ -130,6 +141,7 @@ export class FolderView {
     const puedeEscribir = this.canWrite(state);
     this.newButton.hidden = !puedeEscribir;
     this.uploadLabel.hidden = !puedeEscribir;
+    this.uploadDirLabel.hidden = !puedeEscribir;
     this.paintList(state);
     this.paintViewer(state);
   }
@@ -145,7 +157,7 @@ export class FolderView {
     if (!files || files.length === 0 || !this.state || !this.canWrite(this.state)) return;
 
     const { ok, rechazados } = await readUploads(files);
-    for (const upload of ok) this.options.onWrite(upload.path, upload.text);
+    if (ok.length > 0) this.options.onWriteMany(ok);
     for (const motivo of rechazados) this.options.onNote(motivo);
   }
 
@@ -178,22 +190,50 @@ export class FolderView {
       return;
     }
 
-    for (const [group, entries] of groupByFolder(state.folder)) {
-      this.list.appendChild(el('h3', { class: 'carpeta__grupo', text: group }));
-      const ul = el('ul', { class: 'carpeta__items' });
-      for (const entry of entries) ul.appendChild(this.item(entry));
-      this.list.appendChild(ul);
-    }
+    this.list.appendChild(this.branch(buildTree(state.folder), 0));
   }
 
-  private item(entry: FolderEntry): HTMLElement {
+  /**
+   * Una rama del árbol.
+   *
+   * Las carpetas son `<details>` a propósito: plegar y desplegar sale gratis,
+   * funciona con el teclado y lo anuncia un lector de pantalla sin que haya que
+   * escribir un solo atributo ARIA.
+   */
+  private branch(nodes: Nodo[], depth: number): HTMLElement {
+    const ul = el('ul', { class: 'carpeta__items' });
+
+    for (const node of nodes) {
+      if (node.entry) {
+        ul.appendChild(this.item(node.entry, node.nombre, depth));
+        continue;
+      }
+
+      const hijos = this.branch(node.hijos, depth + 1);
+      const carpeta = el('details', { class: 'carpeta__rama', attrs: { open: true } });
+      const titulo = el('summary', {
+        class: 'carpeta__carpeta',
+        text: node.nombre,
+        attrs: { style: `padding-inline-start:${10 + depth * 14}px` },
+      });
+      carpeta.append(titulo, hijos);
+      ul.appendChild(el('li', { children: [carpeta] }));
+    }
+
+    return ul;
+  }
+
+  private item(entry: FolderEntry, nombre: string, depth: number): HTMLElement {
     const abrir = el('button', {
       class: 'carpeta__archivo',
-      type: 'button',
-      text: leafOf(entry.path),
+      text: nombre,
       title: `${entry.path} · ${entry.by}`,
-      attrs: { 'data-ruta': entry.path },
-    } as never);
+      attrs: {
+        type: 'button',
+        'data-ruta': entry.path,
+        style: `padding-inline-start:${10 + depth * 14}px`,
+      },
+    });
     abrir.addEventListener('click', () => this.options.onOpen(entry.path));
 
     const acciones = el('span', { class: 'carpeta__acciones' });
@@ -414,19 +454,49 @@ export function linkify(
   }
 }
 
-/** El primer tramo de la ruta, que es como la gente lee una carpeta. */
-function groupByFolder(entries: readonly FolderEntry[]): Map<string, FolderEntry[]> {
-  const groups = new Map<string, FolderEntry[]>();
-  for (const entry of entries) {
-    const slash = entry.path.indexOf('/');
-    const group = slash < 0 ? 'raíz' : entry.path.slice(0, slash);
-    const list = groups.get(group);
-    if (list) list.push(entry);
-    else groups.set(group, [entry]);
-  }
-  return groups;
+/**
+ * Un nodo del árbol: o tiene contenido, o tiene hijos.
+ *
+ * Es la forma que la carpeta tiene de verdad. La lista plana agrupada valía
+ * para cuatro notas; con un vault dentro, lo que se necesita es el árbol.
+ */
+interface Nodo {
+  nombre: string;
+  hijos: Nodo[];
+  entry?: FolderEntry;
 }
 
-function leafOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1);
+export function buildTree(entries: readonly FolderEntry[]): Nodo[] {
+  const raiz: Nodo = { nombre: '', hijos: [] };
+
+  for (const entry of entries) {
+    const partes = entry.path.split('/');
+    let actual = raiz;
+
+    for (const [i, parte] of partes.entries()) {
+      const hoja = i === partes.length - 1;
+      let hijo = actual.hijos.find((n) => n.nombre === parte && Boolean(n.entry) === hoja);
+
+      if (!hijo) {
+        hijo = { nombre: parte, hijos: [] };
+        if (hoja) hijo.entry = entry;
+        actual.hijos.push(hijo);
+      }
+      actual = hijo;
+    }
+  }
+
+  ordenar(raiz.hijos);
+  return raiz.hijos;
 }
+
+/** Carpetas antes que archivos, y cada grupo por nombre: como cualquier árbol. */
+function ordenar(nodos: Nodo[]): void {
+  nodos.sort((a, b) => {
+    const carpetaA = a.entry ? 1 : 0;
+    const carpetaB = b.entry ? 1 : 0;
+    return carpetaA - carpetaB || a.nombre.localeCompare(b.nombre);
+  });
+  for (const nodo of nodos) ordenar(nodo.hijos);
+}
+
