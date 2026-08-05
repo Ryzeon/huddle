@@ -183,3 +183,17 @@ describe('la carpeta de la sala en el motor', () => {
     assert.match(prompt, /Una respuesta sin fuentes no sirve/);
   });
 });
+
+describe('responder, no remitir', () => {
+  test('el prompt prohíbe contestar con un puntero a un archivo', () => {
+    const prompt = buildGuardrails(BASE);
+    assert.match(prompt, /RESPONDE, no remitas/);
+    assert.match(prompt, /no es una respuesta/);
+  });
+
+  test('y también con la carpeta delante, que es donde más tienta', () => {
+    const prompt = buildGuardrails({ ...BASE, folderDir: '/home/yo/.huddle/carpeta' });
+    assert.match(prompt, /RESPONDE, no remitas/);
+    assert.match(prompt, /sigue sin valer mandar a leerla/);
+  });
+});

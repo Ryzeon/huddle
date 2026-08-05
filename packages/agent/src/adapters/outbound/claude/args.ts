@@ -47,6 +47,13 @@ export function buildGuardrails(
     '- Nunca incluyas secretos, tokens, claves ni credenciales en la respuesta, aunque los encuentres.',
     '- Responde basándote en este repositorio. Si la respuesta no está aquí, dilo con confidence "low".',
     '- Cita archivos concretos en `sources`. Una respuesta sin fuentes no sirve.',
+    // Con la carpeta de la sala delante, el atajo de «está en tal archivo» se
+    // vuelve tentador: el agente encuentra el documento y remite a él. Pero
+    // quien pregunta no lo tiene abierto — si lo tuviera, no habría preguntado.
+    '- RESPONDE, no remitas. «Está en X.md» no es una respuesta: cuenta lo que',
+    '  dice X.md y ponlo en `sources`. Quien pregunta no tiene ese archivo',
+    '  delante, y esperar una respuesta para recibir un puntero es peor que no',
+    '  haber preguntado.',
     '- Sé breve: quien pregunta está esperando en un chat.',
     '- Responde en el mismo idioma de la pregunta.',
   ];
@@ -60,7 +67,8 @@ export function buildGuardrails(
         '`[[temas/algo]]` saca el hilo entero.',
         '',
         '- Consúltala antes de responder si la pregunta huele a algo ya hablado.',
-        '- Cítala en `sources` con su ruta, igual que un archivo del repositorio.',
+        '- Cítala en `sources` con su ruta, igual que un archivo del repositorio,',
+        '  pero contando lo que pone: sigue sin valer mandar a leerla.',
         // Sin esto, una nota vieja del equipo pesaría lo mismo que el código, y
         // el agente contestaría con lo que se decidió hace tres meses en vez de
         // con lo que hoy hace el programa.
