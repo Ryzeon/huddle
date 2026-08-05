@@ -58,7 +58,8 @@ $tag = "main"
 try {
   $releases = Invoke-RestMethod "https://api.github.com/repos/$repoSlug/releases?per_page=1" `
     -Headers @{ "User-Agent" = "huddle-install" }
-  if ($releases -and $releases[0].tag_name) { $tag = $releases[0].tag_name }
+  $primera = @($releases)[0]
+  if ($primera -and $primera.tag_name) { $tag = $primera.tag_name }
 } catch {
   Gris "sin releases publicadas todavia; instalando desde main"
 }
@@ -96,7 +97,9 @@ if ($instalada.Trim() -eq $tag -and $tag -ne "main" -and (Test-Path $app)) {
     Push-Location $app
     try {
       npm install --silent --no-audit --no-fund
+      if ($LASTEXITCODE -ne 0) { throw "npm install fallo con codigo $LASTEXITCODE" }
       npx tsc --build
+      if ($LASTEXITCODE -ne 0) { throw "la compilacion fallo con codigo $LASTEXITCODE" }
     } finally { Pop-Location }
   } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -129,11 +132,23 @@ if ($Update) { Verde "actualizado."; exit 0 }
 # --- Registrar el MCP -------------------------------------------------------
 
 if (-not $NoMcp) {
-  # Idempotente: si ya estaba, se reemplaza en vez de duplicarse.
-  claude mcp remove huddle 2>$null | Out-Null
+  # Idempotente: si ya estaba, se reemplaza en vez de duplicarse. El `try` es
+  # porque un comando nativo que falla con `2>$null` sigue disparando el
+  # ErrorActionPreference y mataria el script.
+  try { claude mcp remove huddle 2>&1 | Out-Null } catch { }
+
   # El alias y el hub viajan como entorno del MCP: son los valores por defecto
   # que usara `room_join` cuando le pases solo el codigo de la sala.
-  claude mcp add huddle --env "HUDDLE_ALIAS=$Alias" --env "HUDDLE_HUB=$Hub" -- $huddle mcp
+  #
+  # Los argumentos van en una lista: el `--` suelto lo puede interpretar
+  # PowerShell antes de que llegue a `claude`, y asi pasa literal.
+  $argumentos = @(
+    'mcp', 'add', 'huddle',
+    '--env', "HUDDLE_ALIAS=$Alias",
+    '--env', "HUDDLE_HUB=$Hub",
+    '--', $huddle, 'mcp'
+  )
+  & claude @argumentos
   Verde "servidor MCP registrado: tu agente ya puede preguntar por ti"
 }
 
