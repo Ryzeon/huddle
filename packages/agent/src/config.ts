@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { normalizeAlias, type Alias } from '@huddle/protocol';
+import { normalizeAlias, normalizeTag, type Alias } from '@huddle/protocol';
 
 export const HUDDLE_DIR = process.env.HUDDLE_HOME ?? join(homedir(), '.huddle');
 export const CONFIG_PATH = join(HUDDLE_DIR, 'config.json');
@@ -152,13 +152,24 @@ interface LegacyConfig extends Config {
 }
 
 function readWorkspaces(raw: Partial<LegacyConfig>): Workspace[] {
-  if (Array.isArray(raw.workspaces) && raw.workspaces.length > 0) return raw.workspaces;
+  if (Array.isArray(raw.workspaces) && raw.workspaces.length > 0) {
+    return raw.workspaces.map(withNormalTag);
+  }
   if (typeof raw.cwd === 'string') {
     const migrated: Workspace = { cwd: raw.cwd };
     if (raw.tag) migrated.tag = raw.tag;
-    return [migrated];
+    return [withNormalTag(migrated)];
   }
   return [];
+}
+
+/**
+ * El hub valida el tag normalizado, así que la firma del alias se calcula
+ * sobre él: guardar `API` y firmar `API` hace que el hub verifique `api` y la
+ * firma no valide.
+ */
+function withNormalTag(workspace: Workspace): Workspace {
+  return workspace.tag ? { ...workspace, tag: normalizeTag(workspace.tag) } : workspace;
 }
 
 /**

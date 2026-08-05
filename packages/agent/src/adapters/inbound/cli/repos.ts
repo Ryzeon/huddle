@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { normalizeAlias } from '@huddle/protocol';
+import { normalizeAlias, normalizeTag } from '@huddle/protocol';
 import {
   CONFIG_PATH,
   DEFAULT_CONFIG,
@@ -40,7 +40,8 @@ export function runJoin(args: string[]): void {
   }
 
   const cwd = resolve(flag(args, 'cwd') ?? process.cwd());
-  const workspace: Workspace = { cwd, tag: flag(args, 'tag') ?? assignTag(cwd, []) };
+  const tag = flag(args, 'tag');
+  const workspace: Workspace = { cwd, tag: tag ? normalizeTag(tag) : assignTag(cwd, []) };
 
   const config: Config = {
     ...DEFAULT_CONFIG,

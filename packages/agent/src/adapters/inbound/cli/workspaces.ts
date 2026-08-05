@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { normalizeTag } from '@huddle/protocol';
 import {
   assertUniqueTags,
   assignTag,
@@ -23,7 +24,7 @@ export function addWorkspaceToConfig(path: string, tag?: string): Workspace {
     .map((workspace) => workspace.tag)
     .filter((value): value is string => Boolean(value));
 
-  const added: Workspace = { cwd, tag: tag ?? assignTag(cwd, taken) };
+  const added: Workspace = { cwd, tag: tag ? normalizeTag(tag) : assignTag(cwd, taken) };
   const workspaces = [...config.workspaces, added];
   assertUniqueTags(workspaces);
 
