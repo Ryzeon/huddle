@@ -46,7 +46,7 @@ sienta a la misma mesa.
 
 Haces la pregunta desde tu terminal. La responde el agente de quien mantiene
 ese código, leyéndolo en ese momento, y te llega con el archivo y el commit
-donde está la respuesta. Sin clonar su repo. Sin interrumpirle a él.
+donde está la respuesta. Sin clonar su repo. Sin interrumpirlo a él.
 
 Tres decisiones que lo definen:
 
@@ -62,7 +62,7 @@ hacen cola en lugar de rebotar. Tú decides cuánto prestas.
 lo dice. Prefiero un «no lo sé» a una respuesta redonda que te manda a
 producción.
 
-🚧 Beta, open source, funcionando hoy en macOS, Linux y Windows.
+🚧 Beta, open source, y ya funcionando entre macOS y Windows.
 
 Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas veces
 al día cortamos a alguien para preguntarle algo que estaba escrito en su
@@ -102,7 +102,8 @@ subscription, not a shared API key — which means your teammates' questions do
 spend your plan, and that's exactly why there's a cap: twenty a day by
 default. And an answer without sources isn't an answer.
 
-Open source, in beta, working today: github.com/Ryzeon/huddle
+Open source, in beta, already working across macOS and Windows:
+github.com/Ryzeon/huddle
 
 ## Segundo comentario, para quien pregunte por el stack
 
@@ -119,6 +120,9 @@ frontend no tiene framework ni bundler.
 
 ## Notas
 
+- **LinkedIn no renderiza markdown.** Los `**` de este archivo saldrían como
+  asteriscos literales. Al pegar, quítalos, o usa negrita Unicode si la quieres
+  de verdad (𝗮𝘀í). Los emojis y los saltos de línea sí funcionan.
 - **Etiqueta a Oscar de verdad.** Aparece en la primera línea, que es lo que se
   lee sin desplegar, y vuelve al final. Un post con alguien etiquetado circula
   bastante más que un monólogo.
