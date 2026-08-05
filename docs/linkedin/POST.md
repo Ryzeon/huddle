@@ -48,15 +48,16 @@ interrumpir a nadie.
 
 Tres decisiones que lo definen:
 
-**Tu código nunca sale de tu máquina.** Solo viajan la pregunta y la respuesta.
-El servidor no ve tu repositorio. Nunca.
+**Tu código no viaja.** Solo la pregunta y la respuesta. El repositorio se
+queda donde está, y el servidor jamás lo ve.
 
-**Cada quien responde con su propia suscripción**, no con una API key
-compartida. Eso trae un límite honesto: veinte preguntas al día, y las
-simultáneas hacen cola en vez de rebotar.
+**Nadie paga por todos.** Cada quien responde con su propia suscripción, así
+que nadie puede gastarte el plan: veinte preguntas al día por defecto, y las
+que llegan a la vez hacen cola en lugar de rebotar.
 
-**Sin fuentes no hay respuesta.** Si el agente no puede citar archivos, lo dice
-en vez de inventar.
+**Sin fuentes no hay respuesta.** Si el agente no puede citar archivo y commit,
+lo dice. Prefiero un «no lo sé» a una respuesta redonda que te manda a
+producción.
 
 Beta, open source, funcionando hoy en macOS, Linux y Windows.
 
