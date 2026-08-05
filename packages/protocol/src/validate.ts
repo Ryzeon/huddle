@@ -25,8 +25,12 @@ import type {
   RotateCodeMessage,
   SourceRef,
   TraceMessage,
+  FolderPutMessage,
+  FolderDropMessage,
+  FolderGetMessage,
+  FolderWrite,
 } from './index.js';
-import { normalizeAlias, normalizeTag } from './index.js';
+import { normalizeAlias, normalizeFolderPath, normalizeTag } from './index.js';
 
 export class ValidationError extends Error {
   readonly field: string;
@@ -54,6 +58,11 @@ export const LIMITS = {
   pubkey: 43,
   /** Firma Ed25519: 64 bytes, 86 caracteres. */
   sig: 86,
+  /** Un archivo de la carpeta. El frame del hub corta en 1 MB; esto deja sitio al JSON. */
+  folderText: 256_000,
+  folderPath: 160,
+  /** Cuántos archivos caben en la carpeta de una sala. */
+  folderFiles: 500,
 } as const;
 
 const B64U = /^[A-Za-z0-9_-]+$/;
@@ -160,6 +169,22 @@ export function validateProof(value: unknown): IdentityProof | undefined {
   return { pubkey, sig, nonce };
 }
 
+/**
+ * La ruta de un archivo de la carpeta, ya saneada.
+ *
+ * `normalizeFolderPath` lanza `Error` a secas porque también lo usan la CLI y
+ * el portal, donde `ValidationError` no significa nada. Aquí se traduce, para
+ * que el motivo real llegue al cliente en vez de un «frame inválido».
+ */
+function folderPath(obj: Obj): string {
+  const raw = str(obj, 'path', LIMITS.folderPath);
+  try {
+    return normalizeFolderPath(raw);
+  } catch (error) {
+    throw new ValidationError('path', error instanceof Error ? error.message : 'ruta inválida');
+  }
+}
+
 function validateSources(value: unknown): SourceRef[] {
   if (!Array.isArray(value)) return [];
   const out: SourceRef[] = [];
@@ -208,6 +233,12 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
         );
       }
       if (policy === 'approved') out.policy = policy;
+
+      const folderWrite = oneOf(msg, 'folderWrite', ['all', 'host'] as const, 'all');
+      if (folderWrite === 'host') out.folderWrite = folderWrite satisfies FolderWrite;
+      // La memoria va encendida salvo que se pida lo contrario, así que solo
+      // viaja el `false`: una sala donde no quiere quedar rastro escrito.
+      if (msg.folderMemory === false) out.folderMemory = false;
       return out;
     }
 
@@ -347,6 +378,36 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       };
       const detail = optionalStr(msg, 'detail', 500);
       if (detail) out.detail = detail;
+      return out;
+    }
+
+    case 'folder_put': {
+      const out: FolderPutMessage = {
+        t: 'folder_put',
+        id: str(msg, 'id', 64),
+        // `normalizeFolderPath` es lo que impide que un path escrito por un
+        // miembro acabe escribiendo fuera de la carpeta en el disco ajeno.
+        path: folderPath(msg),
+        text: str(msg, 'text', LIMITS.folderText),
+      };
+      return out;
+    }
+
+    case 'folder_drop': {
+      const out: FolderDropMessage = {
+        t: 'folder_drop',
+        id: str(msg, 'id', 64),
+        path: folderPath(msg),
+      };
+      return out;
+    }
+
+    case 'folder_get': {
+      const out: FolderGetMessage = {
+        t: 'folder_get',
+        id: str(msg, 'id', 64),
+        path: folderPath(msg),
+      };
       return out;
     }
 

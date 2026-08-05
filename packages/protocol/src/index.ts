@@ -63,8 +63,13 @@ const MAX_PATH_LENGTH = 160;
  * lista de prohibiciones siempre se queda corta ante `%2e%2e` o `..\\`.
  */
 export function normalizeFolderPath(raw: string): string {
-  const trimmed = raw.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  const trimmed = raw.trim().replace(/\\/g, '/');
   if (!trimmed) throw new Error('ruta vacía');
+  // Una ruta absoluta no escaparía —los segmentos se validan igual—, pero
+  // convertir "/etc/passwd" en "carpeta/etc/passwd" es adivinar qué quería
+  // quien la escribió. Quien manda una ruta absoluta no quiere un archivo de
+  // la carpeta, y merece enterarse.
+  if (trimmed.startsWith('/')) throw new Error('la ruta debe ser relativa a la carpeta');
   if (trimmed.length > MAX_PATH_LENGTH) {
     throw new Error(`ruta demasiado larga (máximo ${MAX_PATH_LENGTH} caracteres)`);
   }
@@ -249,6 +254,31 @@ export interface CreateRoomMessage {
   quotaRemaining: number | null;
   proof?: IdentityProof;
   policy?: RoomPolicy;
+  /** Quién escribe en la carpeta. Por defecto, cualquiera de la sala. */
+  folderWrite?: FolderWrite;
+  /** `false` para que las respuestas no queden escritas en la carpeta. */
+  folderMemory?: boolean;
+}
+
+/** Escribe o reemplaza un archivo de la carpeta de la sala. */
+export interface FolderPutMessage {
+  t: 'folder_put';
+  id: string;
+  path: string;
+  text: string;
+}
+
+export interface FolderDropMessage {
+  t: 'folder_drop';
+  id: string;
+  path: string;
+}
+
+/** Pide el contenido de un archivo. El estado solo trae los metadatos. */
+export interface FolderGetMessage {
+  t: 'folder_get';
+  id: string;
+  path: string;
 }
 
 /** El anfitrión deja entrar a quien espera. `remember`: y a la próxima, directo. */
@@ -373,6 +403,9 @@ export type ClientMessage =
   | TraceMessage
   | ResultMessage
   | ErrorMessage
+  | FolderPutMessage
+  | FolderDropMessage
+  | FolderGetMessage
   | HeartbeatMessage;
 
 /** El reto. Sale nada más abrir el socket, antes de que nadie diga quién es. */
@@ -468,6 +501,41 @@ export interface RequestMessage {
   ttl: number;
 }
 
+/**
+ * La carpeta entera, sin contenidos. Sale al entrar y en cada cambio.
+ *
+ * Va completo y no en incrementos a propósito: un cliente que se perdió un
+ * mensaje se quedaría desincronizado para siempre, y reconciliar deltas cuesta
+ * más código que mandar 200 líneas de metadatos.
+ */
+export interface FolderStateMessage {
+  t: 'folder_state';
+  entries: FolderEntry[];
+  /** Quién puede escribir; el cliente lo usa para no ofrecer lo que se va a rechazar. */
+  write: FolderWrite;
+}
+
+export interface FolderFileMessage {
+  t: 'folder_file';
+  id: string;
+  path: string;
+  text: string;
+  at: number;
+}
+
+/**
+ * Acuse de una escritura o un borrado, solo para quien lo pidió.
+ *
+ * El `folder_state` que sale detrás va a toda la sala y no lleva id, así que
+ * sin esto quien escribe no puede distinguir «hecho» de «todavía no ha
+ * llegado», y un `huddle folder put` no tendría nada que contestar.
+ */
+export interface FolderOkMessage {
+  t: 'folder_ok';
+  id: string;
+  path: string;
+}
+
 export type ServerMessage =
   | ChallengeMessage
   | WelcomeMessage
@@ -480,6 +548,9 @@ export type ServerMessage =
   | JoinRequestMessage
   | JoinRequestGoneMessage
   | RequestMessage
+  | FolderStateMessage
+  | FolderFileMessage
+  | FolderOkMessage
   | ChunkMessage
   | TraceMessage
   | ResultMessage
