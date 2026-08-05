@@ -21,6 +21,17 @@
     <meta name="twitter:image" content="/brand/og.png" />
     <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <!--
+      El portal no lleva bundler: el navegador carga el ESM que emite tsc tal
+      cual. Casi todo lo que usa de `@huddle/protocol` son tipos, que
+      desaparecen al compilar, pero la firma del alias necesita el código de
+      verdad — y ese especificador el navegador no sabe resolverlo solo.
+      Reimplementarlo aquí duplicaría el texto que se firma en dos sitios, que
+      es la última cosa que conviene duplicar.
+    -->
+    <script type="importmap">
+      { "imports": { "@huddle/protocol": "/protocol/index.js" } }
+    </script>
     <script type="module" src="/dist/composition/main.js"></script>
   </head>
   <body>

@@ -27,6 +27,10 @@ const WATCH = !process.argv.includes('--no-watch');
 /** Prefijo de URL → carpeta del disco. El orden importa: gana el más largo. */
 const MOUNTS: Array<[string, string]> = [
   ['/dist/', join(PACKAGE_DIR, 'dist')],
+  // Lo que el import map del HTML llama `@huddle/protocol`. El navegador no
+  // resuelve especificadores de paquete, y el portal necesita el código real
+  // de la firma, no solo sus tipos.
+  ['/protocol/', join(REPO_ROOT, 'packages', 'protocol', 'dist')],
   ['/brand/', join(REPO_ROOT, 'brand')],
   ['/', join(PACKAGE_DIR, 'public')],
 ];
