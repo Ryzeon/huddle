@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildArgs, buildGuardrails, buildSettings } from './args.js';
+import { relativeToFolder } from './engine.js';
 import { describeToolUse, parseAnswerPayload } from './stream.js';
 
 const BASE = {
@@ -195,5 +196,27 @@ describe('responder, no remitir', () => {
     const prompt = buildGuardrails({ ...BASE, folderDir: '/home/yo/.huddle/carpeta' });
     assert.match(prompt, /RESPONDE, no remitas/);
     assert.match(prompt, /sigue sin valer mandar a leerla/);
+  });
+});
+
+describe('las fuentes de la carpeta', () => {
+  const dir = '/home/yo/.huddle/carpeta';
+
+  test('se citan como carpeta/, no con la ruta del disco de quien responde', () => {
+    assert.deepEqual(
+      relativeToFolder([{ file: `${dir}/notas/glosario.md`, line: 12 }], dir),
+      [{ file: 'carpeta/notas/glosario.md', line: 12 }],
+    );
+  });
+
+  test('las del repositorio se quedan como están', () => {
+    assert.deepEqual(relativeToFolder([{ file: 'src/server.ts', line: 2 }], dir), [
+      { file: 'src/server.ts', line: 2 },
+    ]);
+  });
+
+  test('una ruta que solo empieza parecido no se recorta', () => {
+    const otra = `${dir}-vieja/x.md`;
+    assert.equal(relativeToFolder([{ file: otra }], dir)[0]?.file, otra);
   });
 });

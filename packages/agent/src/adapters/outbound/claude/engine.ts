@@ -1,5 +1,6 @@
 import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import type { SourceRef } from '@huddle/protocol';
 import type {
   AnswerEnginePort,
   AnswerOutcome,
@@ -138,8 +139,31 @@ export class ClaudeCodeEngine implements AnswerEnginePort {
       );
     }
 
-    return toOutcome(finalEvent, durationMs, sessionId);
+    const outcome = toOutcome(finalEvent, durationMs, sessionId);
+    return this.config.folderDir
+      ? { ...outcome, sources: relativeToFolder(outcome.sources, this.config.folderDir) }
+      : outcome;
   }
+}
+
+/**
+ * Las fuentes de la carpeta, en corto.
+ *
+ * El motor cita con la ruta absoluta que le dimos en `--add-dir`, así que una
+ * respuesta llegaba con «/Users/quien-sea/.huddle/carpeta/notas/x.md» — que no
+ * le dice nada a quien pregunta desde otra máquina, y de paso enseña dónde
+ * vive el que responde. Dentro de la sala, esa ruta se llama `carpeta/`.
+ */
+export function relativeToFolder(
+  sources: readonly SourceRef[],
+  folderDir: string,
+): SourceRef[] {
+  const raiz = folderDir.endsWith('/') ? folderDir : `${folderDir}/`;
+  return sources.map((source) =>
+    source.file.startsWith(raiz)
+      ? { ...source, file: `carpeta/${source.file.slice(raiz.length)}` }
+      : source,
+  );
 }
 
 function failure(error: string, durationMs: number, sessionId?: string): AnswerOutcome {
