@@ -36,6 +36,7 @@ export interface AnswerQuestionConfig {
 }
 
 export interface AgentSessionState {
+  /** Raíz fija de la que forkea cada pregunta. Nunca se reescribe al responder. */
   ownerSessionId?: string;
   usageLimit?: UsageLimit;
 }
@@ -185,8 +186,8 @@ export class AnswerQuestionUseCase {
       },
     );
 
-    if (outcome.sessionId) this.state.ownerSessionId = outcome.sessionId;
-
+    // La sesión de una respuesta NO se guarda: encadenarlas haría que la
+    // siguiente pregunta forkeara la anterior y viera su propia respuesta.
     if (!outcome.ok) {
       room.sendFailure(incoming.id, 'agent_failed', outcome.error ?? 'el agente falló');
       audit.record({ event: 'agent_failed', from: incoming.from, detail: outcome.error });

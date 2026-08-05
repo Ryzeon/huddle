@@ -247,13 +247,27 @@ describe('AnswerQuestionUseCase', () => {
     assert.equal(room.chunks.join(''), 'está en src/auth.ts');
   });
 
-  test('aprende la sesión del dueño y la forkea en la siguiente pregunta', async () => {
+  test('cada pregunta forkea de la misma raíz, no de la respuesta anterior', async () => {
+    state.ownerSessionId = 'sess-dueno';
     const useCase = build();
-    await useCase.execute(question);
-    assert.equal(engine.calls[0]?.resumeSessionId, undefined, 'la primera no tiene de dónde forkear');
 
+    await useCase.execute(question);
     await useCase.execute({ ...question, id: 'q2', question: 'otra cosa bien distinta' });
-    assert.equal(engine.calls[1]?.resumeSessionId, 'sess-nueva');
+
+    assert.equal(engine.calls[0]?.resumeSessionId, 'sess-dueno');
+    assert.equal(engine.calls[1]?.resumeSessionId, 'sess-dueno', 'no forkea lo que acaba de responder');
+    assert.equal(state.ownerSessionId, 'sess-dueno', 'responder no mueve la raíz');
+  });
+
+  test('sin raíz capturada las dos preguntas arrancan limpias', async () => {
+    const useCase = build();
+
+    await useCase.execute(question);
+    await useCase.execute({ ...question, id: 'q2', question: 'otra cosa bien distinta' });
+
+    assert.equal(engine.calls[0]?.resumeSessionId, undefined);
+    assert.equal(engine.calls[1]?.resumeSessionId, undefined, 'la segunda no hereda la primera');
+    assert.equal(state.ownerSessionId, undefined);
   });
 
   test('deja de aceptar preguntas si la suscripción está al límite', async () => {
