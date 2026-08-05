@@ -29,7 +29,7 @@ Lo preguntas por el chat del equipo. Estás integrando el API de otro squad para
 sacar una feature. La documentación tiene tres meses y el Swagger miente en dos
 campos.
 
-Y esperas.
+Y esperas. ⏳
 
 Tu agente de IA conoce tu repositorio al dedillo. Del suyo no sabe nada. Y la
 respuesta lleva meses escrita, en un archivo, a cuarenta centímetros de la
@@ -48,24 +48,24 @@ interrumpir a nadie.
 
 Tres decisiones que lo definen:
 
-**Tu código no viaja.** Solo la pregunta y la respuesta. El repositorio se
+🔒 **Tu código no viaja.** Solo la pregunta y la respuesta. El repositorio se
 queda donde está, y el servidor jamás lo ve.
 
-**Nadie paga por todos.** Cada quien responde con su propia suscripción, así
+💳 **Nadie paga por todos.** Cada quien responde con su propia suscripción, así
 que nadie puede gastarte el plan: veinte preguntas al día por defecto, y las
 que llegan a la vez hacen cola en lugar de rebotar.
 
-**Sin fuentes no hay respuesta.** Si el agente no puede citar archivo y commit,
+📎 **Sin fuentes no hay respuesta.** Si el agente no puede citar archivo y commit,
 lo dice. Prefiero un «no lo sé» a una respuesta redonda que te manda a
 producción.
 
-Beta, open source, funcionando hoy en macOS, Linux y Windows.
+🚧 Beta, open source, funcionando hoy en macOS, Linux y Windows.
 
 Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas veces
 al día interrumpimos a alguien para preguntarle algo que su repositorio ya
 sabía responder.
 
-¿Cuántas van hoy?
+¿Cuántas van hoy? 👇
 
 🔗 github.com/Ryzeon/huddle
 
