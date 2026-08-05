@@ -386,3 +386,39 @@ describe('cerrar la sala', () => {
     assert.equal(hub.stats().rooms, 1, 'la sala sigue en pie');
   });
 });
+
+describe('el dueño que mira', () => {
+  test('recupera el mando aunque vuelva como espectador', () => {
+    let now = 1_000_000;
+    const hub = new HubService({
+      clock: { now: () => now }, timers: noTimers, transcripts: noTranscripts,
+    });
+
+    // Crear desde el portal: el creador es dueño aunque luego entre mirando.
+    const ana = new FakeChannel('ana');
+    hub.handle(ana, {
+      t: 'create', v: PROTOCOL_VERSION, name: 'Equipo', alias: '@ana', quotaRemaining: null,
+    });
+    const code = ana.last('welcome')!.room;
+
+    now += 1_000;
+    const beto = new FakeChannel('beto');
+    hub.handle(beto, {
+      t: 'join', v: PROTOCOL_VERSION, room: code, alias: '@beto', quotaRemaining: null,
+    });
+
+    hub.disconnect('ana');
+    assert.equal(beto.last('host_changed')?.host, '@beto');
+
+    // Recargar la página: el portal entra de nuevo, y siempre como espectador.
+    now += 1_000;
+    const recargada = new FakeChannel('ana-2');
+    hub.handle(recargada, {
+      t: 'join', v: PROTOCOL_VERSION, room: code, alias: '@ana',
+      viewer: true, quotaRemaining: null,
+    });
+
+    assert.equal(recargada.last('welcome')?.host, '@ana', 'la sala vuelve a ser suya');
+    assert.equal(beto.last('host_changed')?.reason, 'returned');
+  });
+});

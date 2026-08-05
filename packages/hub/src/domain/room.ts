@@ -135,8 +135,12 @@ export class Room {
 
     // El dueño vuelve: recupera el mando de quien se lo estaba guardando. No
     // cuenta una reconexión de quien ya lo tenía, que no es volver de nada.
+    // Un espectador no se convierte en anfitrión por llegar, pero el dueño sí
+    // recupera lo suyo aunque entre mirando: el portal siempre entra como
+    // espectador, así que exigir lo contrario dejaba al creador sin su sala al
+    // recargar la página.
     const reclaimedHost =
-      !becameHost && !member.viewer && this.owner === member.alias && this.host !== member.alias;
+      !becameHost && this.owner === member.alias && this.host !== member.alias;
     if (reclaimedHost) this.host = member.alias;
 
     const outcome = { becameHost, reclaimedHost };
