@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { normalizeFolderPath } from '@huddle/protocol';
 import { buildNote, linkInto, notePath, slugify, topicsOf, type NoteSource } from './note.js';
 
 const base: NoteSource = {
@@ -42,10 +43,15 @@ describe('de qué trata una respuesta', () => {
 
 describe('la ruta de una nota', () => {
   test('lleva fecha, quién respondió y de qué iba', () => {
-    assert.equal(
-      notePath(base),
-      'respuestas/2026-08-05-ryzeon-en-que-puerto-corre-el-servicio-de-facturacion-wxyz.md',
-    );
+    const path = notePath(base);
+
+    assert.ok(path.startsWith('respuestas/2026-08-05-ryzeon-en-que-puerto-corre-el-'));
+    assert.ok(path.endsWith('-wxyz.md'), path);
+    // La cadena exacta no se afirma: depende de dónde caiga el recorte, y lo
+    // que de verdad importa es que la ruta valga. La versión anterior de este
+    // test fijaba un nombre de 73 caracteres que el propio hub rechazaba
+    // después al pedirlo.
+    assert.doesNotThrow(() => normalizeFolderPath(path));
   });
 
   test('la misma pregunta dos veces el mismo día no se pisa', () => {
@@ -117,5 +123,61 @@ describe('los nodos del grafo', () => {
     const texto = linkInto(undefined, 'respuestas/x.md', 'gente/ryzeon.md')!;
     assert.match(texto, /^# ryzeon\n/);
     assert.match(texto, /ha respondido/);
+  });
+});
+
+describe('los verbos no son temas', () => {
+  test('«qué tabla guarda los bultos» no crea temas/guarda', () => {
+    const temas = topicsOf('¿Qué tabla guarda los bultos?', []);
+    assert.equal(temas.includes('guarda'), false, `salió ${temas.join(', ')}`);
+    assert.ok(temas.includes('tabla') || temas.includes('bulto'));
+  });
+
+  test('«por qué campos se identifica un pedido» tampoco', () => {
+    const temas = topicsOf('¿Por qué campos se identifica un Pedido?', []);
+    assert.equal(temas.includes('identifica'), false, `salió ${temas.join(', ')}`);
+    assert.ok(temas.includes('pedido') || temas.includes('campo'));
+  });
+});
+
+describe('lo que el hub genera tiene que caber por su propia puerta', () => {
+  /**
+   * Este es el fallo que se vio en real: una pregunta larga generaba una nota
+   * de 71 caracteres, y `normalizeFolderPath` corta en 64. La nota existía en
+   * la carpeta pero nadie podía abrirla, y no llegaba a ningún disco.
+   */
+  test('una pregunta larguísima sigue dando una ruta válida', () => {
+    const path = notePath({
+      ...base,
+      to: '@ryz',
+      question: '¿Qué tabla guarda los bultos y cómo se identifica cada uno de ellos?',
+    });
+
+    assert.doesNotThrow(() => normalizeFolderPath(path));
+    assert.ok(path.startsWith('respuestas/2026-08-05-ryz-'));
+    assert.ok(path.endsWith('.md'));
+  });
+
+  test('ni el alias más largo posible la rompe', () => {
+    const path = notePath({
+      ...base,
+      to: `@${'x'.repeat(31)}`,
+      question: 'a'.repeat(400),
+    });
+
+    assert.doesNotThrow(() => normalizeFolderPath(path));
+  });
+
+  test('las notas y los nodos que genera pasan todos la frontera', () => {
+    const { path, links } = buildNote({
+      ...base,
+      to: '@ryz',
+      question: '¿Por qué campos se identifica un Pedido en integration-processing?',
+      keywords: ['facturacion', 'pedidos', 'integracion'],
+    });
+
+    for (const ruta of [path, ...links]) {
+      assert.doesNotThrow(() => normalizeFolderPath(ruta), `no pasa: ${ruta}`);
+    }
   });
 });
