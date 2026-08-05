@@ -11,7 +11,8 @@ export interface WaitingGuest {
   channelId: string;
   alias: Alias;
   tag?: string;
-  key: string;
+  /** La clave con la que firmó, si firmó. Nunca la cadena vacía. */
+  key?: string;
   card?: CapabilityCard;
   viewer?: boolean;
   at: number;
@@ -54,6 +55,8 @@ export class Admission {
 
   restoreApproved(entries: ApprovedEntry[]): void {
     for (const entry of entries) {
+      // Una entrada sin clave aprobaría a todo el que no firma.
+      if (!entry.key) continue;
       this.approvedByKey.set(entry.key, entry);
     }
   }
@@ -67,7 +70,8 @@ export class Admission {
   }
 
   /** El alias con el que esa clave entró antes, si entró. */
-  aliasOwner(key: string): Alias | undefined {
+  aliasOwner(key: string | undefined): Alias | undefined {
+    if (!key) return undefined;
     return this.approvedByKey.get(key)?.alias;
   }
 
@@ -86,10 +90,16 @@ export class Admission {
     return { kind: 'wait' };
   }
 
-  /** Encola. Si esa clave ya esperaba, sustituye: insistir no es hacer cola dos veces. */
+  /**
+   * Encola. Si esa CLAVE ya esperaba, sustituye: insistir no es hacer cola dos
+   * veces. Quien no firma no tiene clave, y por tanto no sustituye a nadie:
+   * agrupar por "sin clave" borraría de la cola a dos desconocidos distintos.
+   */
   addWaiting(guest: WaitingGuest): void {
-    for (const [channelId, waiting] of this.waitingByChannel) {
-      if (waiting.key === guest.key) this.waitingByChannel.delete(channelId);
+    if (guest.key) {
+      for (const [channelId, waiting] of this.waitingByChannel) {
+        if (waiting.key === guest.key) this.waitingByChannel.delete(channelId);
+      }
     }
     this.waitingByChannel.set(guest.channelId, guest);
   }
@@ -121,7 +131,9 @@ export class Admission {
     if (!guest) return undefined;
 
     this.waitingByChannel.delete(guest.channelId);
-    if (remember) {
+    // Sin clave no hay a quién recordar: guardarlo aprobaría a cualquiera que
+    // no firme.
+    if (remember && guest.key) {
       this.approvedByKey.set(guest.key, { key: guest.key, alias: guest.alias, at });
     }
     return guest;

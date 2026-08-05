@@ -41,17 +41,16 @@ export class RoomNotifier {
   sendPendingRequests(room: Room, host: Alias): void {
     for (const channelId of room.channelsOf(host)) {
       for (const guest of room.waitingList()) {
+        const knownAlias = room.admission.aliasOwner(guest.key);
         this.toChannel(channelId, {
           t: 'join_request',
           id: guest.id,
           alias: guest.alias,
           tag: guest.tag,
-          key: keyTail(guest.key),
+          key: guest.key ? keyTail(guest.key) : '',
           card: guest.card,
           at: guest.at,
-          ...(room.admission.aliasOwner(guest.key) && {
-            knownAlias: room.admission.aliasOwner(guest.key),
-          }),
+          ...(knownAlias && { knownAlias }),
         });
       }
     }

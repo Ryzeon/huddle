@@ -60,7 +60,9 @@ function sanitize(record: RoomRecord): RoomRecord {
   clean.approved = Array.isArray(clean.approved)
     ? clean.approved.filter(
         (entry) =>
+          // La clave vacía aprobaría a cualquiera que no firme.
           typeof entry?.key === 'string' &&
+          entry.key.length > 0 &&
           typeof entry?.alias === 'string' &&
           typeof entry?.at === 'number',
       )
