@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO="Ryzeon/huddle"
-HUB="wss://hub.ryzeon.dev"
+HUB="ws://localhost:8787"
 PREFIX="${HUDDLE_PREFIX:-$HOME/.huddle}"
 APP="$PREFIX/app"
 
@@ -33,7 +33,7 @@ Uso: install.sh --alias <@tualias> [opciones]
 
   --alias <@nombre>  Con qué nombre apareces en las salas. Obligatorio.
   --room <CODIGO>    Opcional: entrar ya a una sala. Si no, instala y espera.
-  --hub <url>        Hub al que conectarse. Por defecto wss://hub.ryzeon.dev
+  --hub <url>        Hub al que conectarse. Por defecto ws://localhost:8787
   --expose <dir>     Repositorio que expones. Por defecto, el directorio actual.
   --update           Solo actualizar el código; no toca sala ni MCP.
   --no-mcp           No registrar el servidor MCP.

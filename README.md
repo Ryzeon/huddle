@@ -63,12 +63,15 @@ Te preguntará dos cosas y nada más:
 
 ```
 Con qué alias apareces en las salas (ej. @ryzeon): @ryzeon
-A qué hub te conectas [wss://hub.ryzeon.dev]:
+A qué hub te conectas [ws://localhost:8787]:
 ```
 
 Con eso instala Huddle, lo deja en tu PATH y **registra el servidor MCP en
 Claude Code** con esos dos valores como predeterminados. No entra a ninguna
 sala: para eso hace falta un código, y ese te lo pasa quien la creó.
+
+El hub lo levanta alguien de tu equipo con `npm run hub`, y se comparte por IP
+en la red local o por un túnel. Ver [Dónde vive el hub](#dónde-vive-el-hub).
 
 Cuando lo tengas, díselo a Claude:
 

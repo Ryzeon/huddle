@@ -9,7 +9,7 @@
 param(
   [string]$Alias,
   [string]$Room,
-  [string]$Hub = "wss://hub.ryzeon.dev",
+  [string]$Hub = "ws://localhost:8787",
   [string]$Expose = $PWD.Path,
   [switch]$Update,
   [switch]$NoMcp,
