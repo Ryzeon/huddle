@@ -91,18 +91,20 @@ export function enterRoom(
     verified,
   });
 
-  // Con el mando se hereda la puerta, y quien lo recupera la recupera también.
   if (becameHost || reclaimedHost) {
     notifier.broadcast(room, {
       t: 'host_changed',
       host: alias,
       reason: reclaimedHost ? 'returned' : 'created',
     });
-    notifier.sendPendingRequests(room, alias);
   } else if (promoted && room.hostAlias === promoted) {
     notifier.broadcast(room, { t: 'host_changed', host: promoted, reason: 'left' });
     notifier.sendPendingRequests(room, promoted);
   }
+
+  // El backlog va por ser anfitrión, no por acabar de serlo: quien recarga sin
+  // haber perdido el mando vuelve con la lista vacía, y nadie más puede abrir.
+  if (room.isHost(alias)) notifier.sendPendingRequests(room, alias);
 
   notifier.broadcastRoster(room);
   return { verified, bound };

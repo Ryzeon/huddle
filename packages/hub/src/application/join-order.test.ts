@@ -115,6 +115,7 @@ describe('la puerta antes que la identidad', () => {
     alias: string,
     room: string,
     who?: ReturnType<typeof identity>,
+    viewer?: boolean,
   ): void => {
     const nonce = greet(channel);
     hub.handle(channel, {
@@ -123,10 +124,11 @@ describe('la puerta antes que la identidad', () => {
       room,
       alias,
       quotaRemaining: null,
+      ...(viewer && { viewer }),
       ...(who && {
         proof: {
           pubkey: who.pubkey,
-          sig: who.sign(identityProofText({ kind: 'join', room, alias, nonce })),
+          sig: who.sign(identityProofText({ kind: 'join', room, alias, viewer, nonce })),
           nonce,
         },
       }),
@@ -265,6 +267,69 @@ describe('la puerta antes que la identidad', () => {
 
     assert.equal(vuelve.last('host_changed')?.reason, 'returned');
     assert.equal(vuelve.last('join_request')?.id, solicitud, 'recuperar el mando es recuperar la puerta');
+  });
+
+  test('el anfitrión que recarga el portal recupera las solicitudes que esperaban', () => {
+    const anfitriona = new FakeChannel('ana-1');
+    const code = create(anfitriona, '@ana', ana, 'approved');
+
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto', code, identity());
+    admitir(anfitriona, anfitriona.last('join_request')!.id);
+
+    const zoe = new FakeChannel('zoe');
+    join(zoe, '@zoe', code, identity());
+    const solicitud = anfitriona.last('join_request')!.id;
+
+    // Recargar la página abre otro socket, como espectador, antes de que el
+    // hub se entere de que el viejo se cayó: sigue siendo la anfitriona.
+    const recargada = new FakeChannel('ana-2');
+    join(recargada, '@ana', code, ana, true);
+
+    assert.equal(recargada.last('welcome')?.host, '@ana', 'nunca dejó de mandar');
+    assert.equal(
+      recargada.last('join_request')?.id,
+      solicitud,
+      'la pestaña nueva no vio la solicitud, y nadie más puede abrir la puerta',
+    );
+    assert.equal(zoe.closed, undefined, '@zoe sigue esperando');
+  });
+
+  test('el anfitrión que recarga tras caerse también las recupera', () => {
+    const anfitriona = new FakeChannel('ana-1');
+    const code = create(anfitriona, '@ana', ana, 'approved');
+
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto', code, identity());
+    admitir(anfitriona, anfitriona.last('join_request')!.id);
+
+    const zoe = new FakeChannel('zoe');
+    join(zoe, '@zoe', code, identity());
+    const solicitud = anfitriona.last('join_request')!.id;
+
+    hub.disconnect('ana-1');
+    const recargada = new FakeChannel('ana-2');
+    join(recargada, '@ana', code, ana, true);
+
+    assert.equal(recargada.last('join_request')?.id, solicitud);
+  });
+
+  test('quien entra sin mandar no recibe la puerta de otro', () => {
+    const anfitriona = new FakeChannel('ana-1');
+    const code = create(anfitriona, '@ana', ana, 'approved');
+
+    const beto = new FakeChannel('beto');
+    join(beto, '@beto', code, identity());
+    admitir(anfitriona, anfitriona.last('join_request')!.id);
+
+    const zoe = new FakeChannel('zoe');
+    join(zoe, '@zoe', code, identity());
+
+    const otra = new FakeChannel('beto-2');
+    join(otra, '@beto', code, identity());
+
+    assert.equal(otra.last('join_request'), undefined, 'la puerta es del anfitrión');
+    assert.equal(zoe.last('join_request'), undefined, 'y menos aún de quien la está esperando');
   });
 
   test('desalojar al okupa que era anfitrión anuncia el mando nuevo', () => {
