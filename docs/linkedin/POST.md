@@ -31,7 +31,7 @@ campos.
 
 Y esperas. ⏳
 
-Tu agente de IA conoce tu repositorio al dedillo. Del suyo no sabe nada. Y la
+Tu agente de IA conoce tu repositorio como nadie. Del suyo no sabe nada. Y la
 respuesta lleva meses escrita, en un archivo, a cuarenta centímetros de la
 persona que no te contesta porque está en una reunión.
 
