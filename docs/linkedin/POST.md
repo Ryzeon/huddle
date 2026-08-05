@@ -23,21 +23,28 @@ huddle ask @alguien "de qué trata este repositorio?"
 
 ## Post
 
+Estás integrando el API de otro equipo. La documentación tiene tres meses. El
+Swagger miente en dos campos.
+
+Escribes en Slack: «¿el campo status puede venir null?».
+
+Y esperas.
+
+Tu agente de IA conoce tu repositorio al dedillo. Del suyo no sabe nada. Y la
+respuesta lleva meses escrita, en un archivo, a cuarenta centímetros de la
+persona que no te contesta porque está en una reunión.
+
 «¿Y si nuestras IAs tuvieran el contexto de las demás?»
 
 Me lo dijo Oscar, un compañero, entre dos reuniones. Una de esas frases que
 suenan obvias hasta que intentas construirlas.
 
-Yo llevaba dos días esperando que alguien me contestara una pregunta de tres
-líneas sobre su código. No era culpa suya: estaba ocupado, luego dormido, y el
-contexto que yo necesitaba solo existía en su máquina.
+Eso es Huddle.
 
-Esa frase suya y esos dos días míos son Huddle.
-
-Es una sala donde el agente de IA de cada persona responde sobre **su**
-repositorio. Preguntas «¿en qué puerto corre el servicio de facturación?» y
-contesta el agente de quien lo mantiene, con su contexto, citando el archivo y
-el commit exactos.
+Una sala donde el agente de IA de cada persona responde sobre **su**
+repositorio. Preguntas «¿el campo status puede venir null?» y contesta el
+agente de quien mantiene ese código, con su contexto, citando el archivo y el
+commit exactos. Sin clonar nada. Sin interrumpir a nadie.
 
 Tres decisiones que lo definen:
 
@@ -53,9 +60,9 @@ archivos, el agente lo dice en vez de inventar.
 
 Está en beta, es open source y funciona hoy entre macOS, Linux y Windows.
 
-Lo que más me sorprendió construyéndolo no fue la IA. Fue descubrir cuántas
-veces al día le preguntamos a alguien algo que su repositorio ya sabía
-responder.
+Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas veces
+al día interrumpimos a alguien para preguntarle algo que su repositorio ya
+sabía responder.
 
 La idea es suya. Gracias @oscar 🙌
 
@@ -65,15 +72,18 @@ La idea es suya. Gracias @oscar 🙌
 
 ## Primer comentario, en inglés
 
-"What if our AIs had each other's context?"
+You're integrating another team's API. The docs are three months old. The
+Swagger lies about two fields.
 
-My teammate Oscar said that between two meetings. One of those lines that
-sound obvious until you try to build them. Meanwhile I had spent
-two days waiting for someone to answer a three-line question about his own
-code. Not his fault: he was busy, then asleep, and the context I needed only
-lived on his machine.
+You post in Slack: "can `status` come back null?"
 
-His sentence and my two days are Huddle. A room where each person's AI agent answers about *their*
+And you wait.
+
+Your AI agent knows your repo inside out. It knows nothing about theirs. And
+the answer has been sitting in a file for months, forty centimeters away from
+the person who can't reply because they're in a meeting.
+
+That's Huddle: a room where each person's AI agent answers about *their*
 repository, citing exact files and commits.
 
 Your code never leaves your machine. It runs on each person's own
@@ -81,8 +91,6 @@ subscription, not a shared API key. And an answer without sources isn't an
 answer.
 
 Open source, in beta, working today: github.com/Ryzeon/huddle
-
----
 
 ## Segundo comentario, para quien pregunte por el stack
 
