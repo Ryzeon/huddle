@@ -17,12 +17,13 @@ import type {
   ChunkMessage,
   ClientMessage,
   ErrorMessage,
+  IdentityProof,
   JoinMessage,
   ResultMessage,
   SourceRef,
   TraceMessage,
 } from './index.js';
-import { normalizeAlias } from './index.js';
+import { normalizeAlias, normalizeTag } from './index.js';
 
 export class ValidationError extends Error {
   readonly field: string;
@@ -45,7 +46,14 @@ export const LIMITS = {
   keywords: 80,
   summary: 1_000,
   traceText: 500,
+  nonce: 64,
+  /** Ed25519 en base64url crudo: 32 bytes son exactamente 43 caracteres. */
+  pubkey: 43,
+  /** Firma Ed25519: 64 bytes, 86 caracteres. */
+  sig: 86,
 } as const;
+
+const B64U = /^[A-Za-z0-9_-]+$/;
 
 type Obj = Record<string, unknown>;
 
@@ -124,6 +132,31 @@ function validateCard(value: unknown): CapabilityCard | undefined {
   return card;
 }
 
+/**
+ * La prueba de identidad. Las longitudes son exactas, no máximos: cualquier
+ * otra cosa no es una clave Ed25519 y no hay por qué pasársela a la
+ * criptografía para que lo descubra ella.
+ */
+export function validateProof(value: unknown): IdentityProof | undefined {
+  if (value === undefined || value === null) return undefined;
+  const obj = asObject(value, 'proof');
+
+  const pubkey = str(obj, 'pubkey', LIMITS.pubkey);
+  const sig = str(obj, 'sig', LIMITS.sig);
+  const nonce = str(obj, 'nonce', LIMITS.nonce);
+
+  if (pubkey.length !== LIMITS.pubkey || !B64U.test(pubkey)) {
+    throw new ValidationError('proof.pubkey', 'no es una clave Ed25519 en base64url');
+  }
+  if (sig.length !== LIMITS.sig || !B64U.test(sig)) {
+    throw new ValidationError('proof.sig', 'no es una firma Ed25519 en base64url');
+  }
+  if (!B64U.test(nonce)) {
+    throw new ValidationError('proof.nonce', 'no es base64url');
+  }
+  return { pubkey, sig, nonce };
+}
+
 function validateSources(value: unknown): SourceRef[] {
   if (!Array.isArray(value)) return [];
   const out: SourceRef[] = [];
@@ -155,7 +188,7 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       };
       if (!out.name.trim()) throw new ValidationError('name', 'la sala necesita un nombre');
       const tag = optionalStr(msg, 'tag', 64);
-      if (tag) out.tag = tag;
+      if (tag) out.tag = normalizeTag(tag);
       const card = validateCard(msg.card);
       if (card) out.card = card;
       return out;
@@ -190,7 +223,7 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
             : int(msg, 'quotaRemaining', 0, 1_000_000),
       };
       const tag = optionalStr(msg, 'tag', 64);
-      if (tag) out.tag = tag;
+      if (tag) out.tag = normalizeTag(tag);
       if (msg.viewer === true) out.viewer = true;
       const card = validateCard(msg.card);
       if (card) out.card = card;
@@ -266,6 +299,7 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
             'agent_failed',
             'rate_limited',
             'bad_request',
+            'identity_mismatch',
           ] as const,
           'agent_failed',
         ),

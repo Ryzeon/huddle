@@ -15,6 +15,9 @@ const TERMINAL_CLOSE: Record<number, string> = {
   4002: 'versión de protocolo incompatible con el hub',
   4003: 'te expulsaron de la sala',
   4005: 'el hub rechazó la conexión',
+  4006: 'el anfitrión cambió el código de la sala',
+  4007: 'ese alias está firmado por otra clave',
+  4008: 'el anfitrión no te dejó entrar',
 };
 
 export class WsRoomFeed implements RoomFeed {

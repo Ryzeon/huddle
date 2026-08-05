@@ -86,6 +86,26 @@ export class FileTranscriptStore implements TranscriptStorePort {
     return kept.length;
   }
 
+  /**
+   * Mueve el historial de una sala a otro código, para una rotación.
+   *
+   * Devuelve falso si el destino ya existe: `renameSync` pisa en POSIX, y
+   * pisar aquí borraría el historial de otra sala sin dejar rastro.
+   */
+  rename(from: string, to: string): boolean {
+    const origen = this.fileFor(from);
+    const destino = this.fileFor(to);
+    if (!existsSync(origen)) return true; // una sala sin historial se "mueve" sola
+    if (existsSync(destino)) return false;
+
+    try {
+      renameSync(origen, destino);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** El código ya viene validado, pero nunca se construyen rutas sin sanear. */
   private fileFor(roomCode: string): string {
     return join(this.dir, `${roomCode.replace(/[^A-Z0-9-]/gi, '_')}.jsonl`);

@@ -55,6 +55,7 @@ export interface RoomGatewayPort {
   kick(alias: Alias, reason?: string): void;
   /** Cierra la sala para todos. El hub solo lo acepta del anfitrión. */
   closeRoom(reason?: string): void;
+  room(): RoomInfo | undefined;
   disconnect(): void;
   isConnected(): boolean;
 
@@ -106,6 +107,11 @@ export interface RoomInfo {
   name: string;
   host: string;
   youAreHost: boolean;
+}
+
+export interface IdentitySigner {
+  publicKey: string;
+  sign(text: string): string;
 }
 
 export interface PresenceProvider {

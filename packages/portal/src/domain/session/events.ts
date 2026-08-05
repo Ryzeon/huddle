@@ -36,7 +36,7 @@ export interface HostChangedEvent {
 
 export interface RoomClosedEvent {
   t: 'room_closed';
-  reason: 'kicked' | 'empty';
+  reason: 'kicked' | 'empty' | 'closed_by_host' | 'code_rotated' | 'identity_taken';
   detail?: string;
 }
 

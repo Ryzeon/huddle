@@ -48,7 +48,17 @@ class MemoryTranscripts implements TranscriptStorePort {
     else this.byRoom.set(roomCode, kept);
     return kept.length;
   }
+  rename(from: string, to: string): boolean {
+    if (this.byRoom.has(to)) return false;
+    const entries = this.byRoom.get(from);
+    if (!entries) return true;
+    this.byRoom.delete(from);
+    this.byRoom.set(to, entries);
+    return true;
+  }
 }
+
+const rejectEverything = { verify: () => false };
 
 class MemoryRooms {
   records: RoomRecord[] = [];
@@ -69,7 +79,7 @@ describe('salas que sobreviven al reinicio', () => {
 
   const build = (): HubService =>
     new HubService(
-      { clock: { now: () => now }, timers: noTimers, transcripts, rooms },
+      { clock: { now: () => now }, timers: noTimers, transcripts, rooms, verifier: rejectEverything },
       DEFAULT_HUB_CONFIG,
     );
 

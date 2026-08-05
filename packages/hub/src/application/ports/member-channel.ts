@@ -5,6 +5,14 @@ export interface TranscriptStorePort {
   append(roomCode: string, roomName: string, entry: TranscriptEntry): void;
   read(roomCode: string): TranscriptEntry[];
   purge(roomCode: string, cutoff: number): number;
+  /** Falso si el destino ya existe: pisarlo perdería el historial de otra sala. */
+  rename(from: string, to: string): boolean;
+}
+
+export interface ApprovedGuest {
+  key: string;
+  alias: string;
+  at: number;
 }
 
 export interface RoomRecord {
@@ -13,6 +21,20 @@ export interface RoomRecord {
   createdAt: number;
   /** Quien la creó. Sin esto, reiniciar el hub le quitaría la sala a su dueño. */
   owner?: string;
+  /** Alias vinculados a una clave pública, por sala. */
+  keys?: Record<string, string>;
+  policy?: 'open' | 'approved';
+  /** Clave del dueño: es lo que le devuelve la sala tras un reinicio. */
+  ownerKey?: string;
+  approved?: ApprovedGuest[];
+}
+
+export interface NoncePort {
+  next(): string;
+}
+
+export interface SignatureVerifierPort {
+  verify(pubkey: string, text: string, sig: string): boolean;
 }
 
 export interface RoomStorePort {

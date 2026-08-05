@@ -11,6 +11,7 @@ import { createHttpApi } from '../adapters/inbound/http-api.js';
 import { attachWsAdapter } from '../adapters/inbound/ws-server.js';
 import { FileTranscriptStore } from '../adapters/outbound/file-transcript-store.js';
 import { FileRoomStore } from '../adapters/outbound/file-room-store.js';
+import { ed25519Verifier, randomNonces } from '../adapters/outbound/ed25519.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +29,15 @@ export function bootstrap(): { close: () => void } {
   const transcripts = new FileTranscriptStore(HISTORY_DIR);
   const rooms = new FileRoomStore(HISTORY_DIR);
   const hub = new HubService(
-    { clock: systemClock, timers: systemTimers, transcripts, rooms, log },
+    {
+      clock: systemClock,
+      timers: systemTimers,
+      transcripts,
+      rooms,
+      verifier: ed25519Verifier,
+      nonces: randomNonces,
+      log,
+    },
     DEFAULT_HUB_CONFIG,
   );
 

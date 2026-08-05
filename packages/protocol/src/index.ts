@@ -21,6 +21,70 @@ export function isBroadcastTarget(target: Target): boolean {
   return target === '@all' || target === '@auto';
 }
 
+export function normalizeTag(raw: string): string {
+  const tag = raw.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(tag)) {
+    throw new Error(
+      `etiqueta inválida: "${raw}" (usa 1-64 chars: a-z, 0-9, guion, guion bajo)`,
+    );
+  }
+  return tag;
+}
+
+export function normalizeRoomCode(raw: string): string {
+  return raw.trim().toUpperCase().replace(/\s+/g, '');
+}
+
+/**
+ * Prefijo del texto que se firma. Va dentro de la firma para que una firma de
+ * huddle no pueda reutilizarse como firma de otra cosa.
+ */
+export const IDENTITY_PROOF_CONTEXT = 'huddle-identity-v1';
+
+export interface IdentityProof {
+  /** Clave pública Ed25519 en base64url crudo (43 chars). */
+  pubkey: string;
+  /** Firma en base64url (86 chars). */
+  sig: string;
+  /** El reto que emitió el hub al abrir el socket. */
+  nonce: string;
+}
+
+export interface IdentityProofInput {
+  kind: 'create' | 'join';
+  room: string;
+  alias: Alias;
+  tag?: string;
+  viewer?: boolean;
+  nonce: string;
+}
+
+/**
+ * El texto canónico que se firma. Ata la clave a esta sala, este alias, este
+ * tag y este reto: sin `kind`, una firma de `create` valdría como `join`.
+ */
+export function identityProofText(input: IdentityProofInput): string {
+  const fields = [
+    input.kind,
+    input.room,
+    input.alias,
+    input.tag ?? '',
+    input.viewer ? '1' : '0',
+    input.nonce,
+  ];
+  for (const field of fields) {
+    // Un salto de línea en cualquier campo movería la frontera entre campos y
+    // dejaría que dos entradas distintas firmaran el mismo texto.
+    if (field.includes('\n')) throw new Error('campo con salto de línea en la prueba de identidad');
+  }
+  return [IDENTITY_PROOF_CONTEXT, ...fields].join('\n');
+}
+
+/** Lo que se le enseña a una persona de una clave: los últimos 8 caracteres. */
+export function keyTail(pubkey: string): string {
+  return pubkey.slice(-8);
+}
+
 export interface CapabilityCard {
   repo: string;
   remote?: string;
@@ -40,6 +104,10 @@ export interface Member {
   card?: CapabilityCard;
   lastSeen: number;
   quotaRemaining: number | null;
+  /** Firmó su alias con la clave que la sala ya tenía atada a ese alias. */
+  verified?: boolean;
+  /** `keyTail` de su clave. Nunca la clave entera. */
+  key?: string;
 }
 
 export interface SourceRef {
@@ -172,7 +240,8 @@ export interface ErrorMessage {
     | 'target_offline'
     | 'agent_failed'
     | 'rate_limited'
-    | 'bad_request';
+    | 'bad_request'
+    | 'identity_mismatch';
   detail?: string;
 }
 
@@ -222,7 +291,7 @@ export interface HostChangedMessage {
 
 export interface RoomClosedMessage {
   t: 'room_closed';
-  reason: 'kicked' | 'empty' | 'closed_by_host';
+  reason: 'kicked' | 'empty' | 'closed_by_host' | 'code_rotated' | 'identity_taken';
   detail?: string;
 }
 
@@ -301,4 +370,5 @@ export {
   LIMITS,
   ValidationError,
   validateClientMessage,
+  validateProof,
 } from './validate.js';

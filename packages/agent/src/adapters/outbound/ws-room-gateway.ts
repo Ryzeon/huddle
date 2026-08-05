@@ -38,6 +38,9 @@ export const TERMINAL_CLOSE_CODES: Record<number, string> = {
   4001: 'el hub rechazó la conexión: código de sala desconocido o expirado',
   4002: 'versión de protocolo incompatible con el hub',
   4003: 'otro agente entró con tu mismo alias y tag',
+  4006: 'el anfitrión cambió el código de la sala',
+  4007: 'ese alias está firmado por otra clave',
+  4008: 'el anfitrión no te dejó entrar',
 };
 
 export interface RoomGatewayConfig {

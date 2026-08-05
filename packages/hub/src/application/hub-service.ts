@@ -4,7 +4,9 @@ import type { BucketPolicy } from '../domain/rate-limit.js';
 import type {
   ClockPort,
   MemberChannelPort,
+  NoncePort,
   RoomStorePort,
+  SignatureVerifierPort,
   TimerPort,
   TranscriptStorePort,
 } from './ports/member-channel.js';
@@ -42,6 +44,9 @@ export interface HubDeps {
   clock: ClockPort;
   timers: TimerPort;
   transcripts: TranscriptStorePort;
+  /** Sin valor por defecto a propósito: un verificador de mentira acepta todo. */
+  verifier: SignatureVerifierPort;
+  nonces?: NoncePort;
   rooms?: RoomStorePort;
   log?: (message: string) => void;
   generateCode?: () => string;
@@ -66,12 +71,16 @@ export class HubService {
   private readonly roomStore?: RoomStorePort;
   private readonly retentionMs: number;
   private readonly log: (message: string) => void;
+  private readonly verifier: SignatureVerifierPort;
+  private readonly nonces?: NoncePort;
 
   constructor(deps: HubDeps, config: HubConfig = DEFAULT_HUB_CONFIG) {
     const log = deps.log ?? (() => undefined);
 
     this.clock = deps.clock;
     this.transcripts = deps.transcripts;
+    this.verifier = deps.verifier;
+    this.nonces = deps.nonces;
     this.roomStore = deps.rooms;
     this.retentionMs = config.retentionMs;
     this.log = log;
