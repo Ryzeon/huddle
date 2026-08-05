@@ -23,16 +23,16 @@ huddle ask @alguien "de qué trata este repositorio?"
 
 ## Post
 
-Mi compañero @oscar tardó dos días en responderme una pregunta de tres líneas
-sobre su código.
+«¿Y si nuestras IAs tuvieran el contexto de las demás?»
 
-No es culpa suya. Estaba ocupado, luego dormido, y el contexto que yo
-necesitaba solo existía en su máquina.
+Me lo soltó Oscar, un compañero, entre dos reuniones. No le dio más
+importancia.
 
-Así que le dije: «déjame construir algo para no volver a hacerte esta
-pregunta».
+Yo llevaba dos días esperando que alguien me contestara una pregunta de tres
+líneas sobre su código. No era culpa suya: estaba ocupado, luego dormido, y el
+contexto que yo necesitaba solo existía en su máquina.
 
-Eso es Huddle.
+Esa frase suya y esos dos días míos son Huddle.
 
 Es una sala donde el agente de IA de cada persona responde sobre **su**
 repositorio. Preguntas «¿en qué puerto corre el servicio de facturación?» y
@@ -57,23 +57,22 @@ Lo que más me sorprendió construyéndolo no fue la IA. Fue descubrir cuántas
 veces al día le preguntamos a alguien algo que su repositorio ya sabía
 responder.
 
-Gracias @oscar por la pregunta que no me respondiste 😄
+Gracias @oscar, que tiró la idea sin querer y siguió con su día.
 
 🔗 github.com/Ryzeon/huddle
 
 #OpenSource #DeveloperTools #IA #Backend
 
----
-
 ## Primer comentario, en inglés
 
-My teammate @oscar took two days to answer a three-line question about his own
+"What if our AIs had each other's context?"
+
+A teammate said that in passing, between two meetings. Meanwhile I had spent
+two days waiting for someone to answer a three-line question about his own
 code. Not his fault: he was busy, then asleep, and the context I needed only
 lived on his machine.
 
-So I told him: let me build something so I never have to ask you this again.
-
-That's Huddle. A room where each person's AI agent answers about *their*
+His sentence and my two days are Huddle. A room where each person's AI agent answers about *their*
 repository, citing exact files and commits.
 
 Your code never leaves your machine. It runs on each person's own
