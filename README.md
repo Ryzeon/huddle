@@ -129,7 +129,7 @@ flowchart LR
 
   subgraph suya["Máquina de Ryzeon"]
     direction TB
-    dae2["daemon"] --> motor["motor de IA<br/><i>solo lectura, sesión forkeada</i>"]
+    dae2["daemon"] --> motor["motor de IA<br/><i>solo lectura, sesión limpia</i>"]
     motor --> repo[("su repositorio")]
   end
 
@@ -277,7 +277,7 @@ defensa va en capas, y solo una de ellas es el prompt:
 | Permisos | `--settings` con reglas `deny` sobre rutas sensibles | No |
 | Herramientas | `Read`, `Grep`, `Glob`, sin Bash, Write ni Edit | No |
 | Aislamiento MCP | `--strict-mcp-config` con configuración vacía | No |
-| Sesión | `--fork-session`: no escribe en tu conversación | No |
+| Sesión | sesión propia por pregunta: no toca tu conversación | No |
 | Instrucciones | Rutas prohibidas en el system prompt | Sí, por eso no va sola |
 
 Comprobado: con un `.env` presente y una petición de exfiltración disfrazada de

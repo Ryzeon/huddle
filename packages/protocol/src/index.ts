@@ -36,6 +36,86 @@ export function normalizeRoomCode(raw: string): string {
 }
 
 /**
+ * Extensiones que no entran en la carpeta de la sala.
+ *
+ * La carpeta se replica en el disco de todo el mundo, así que quien escribe en
+ * ella deja un archivo en máquinas ajenas. Nada lo ejecuta —el agente solo
+ * lee—, pero un `.sh` ahí dentro no aporta nada y sí invita a que alguien lo
+ * lance a mano. La carpeta es para lo que se escribe y se lee.
+ */
+const FORBIDDEN_EXTENSIONS = [
+  'sh', 'bash', 'zsh', 'fish', 'bat', 'cmd', 'ps1', 'psm1',
+  'exe', 'dll', 'so', 'dylib', 'app', 'scpt', 'jar', 'msi',
+];
+
+const PATH_SEGMENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
+
+/** Segmentos de ruta. Más profundidad que esto no organiza: esconde. */
+const MAX_PATH_DEPTH = 6;
+const MAX_PATH_LENGTH = 160;
+
+/**
+ * La ruta de un archivo dentro de la carpeta de la sala.
+ *
+ * Es la única frontera que impide que un `path` escrito por un miembro escriba
+ * fuera de la carpeta en el disco de los demás. Por eso valida en positivo
+ * —qué forma tiene un segmento válido— en vez de ir tachando lo peligroso: una
+ * lista de prohibiciones siempre se queda corta ante `%2e%2e` o `..\\`.
+ */
+export function normalizeFolderPath(raw: string): string {
+  const trimmed = raw.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!trimmed) throw new Error('ruta vacía');
+  if (trimmed.length > MAX_PATH_LENGTH) {
+    throw new Error(`ruta demasiado larga (máximo ${MAX_PATH_LENGTH} caracteres)`);
+  }
+
+  const segments = trimmed.split('/');
+  if (segments.length > MAX_PATH_DEPTH) {
+    throw new Error(`ruta demasiado anidada (máximo ${MAX_PATH_DEPTH} niveles)`);
+  }
+
+  for (const segment of segments) {
+    if (!PATH_SEGMENT.test(segment)) {
+      throw new Error(
+        `segmento inválido en "${raw}": usa letras, números, punto, guion y guion bajo`,
+      );
+    }
+  }
+
+  const last = segments[segments.length - 1] ?? '';
+  const extension = last.includes('.') ? last.split('.').pop()!.toLowerCase() : '';
+  if (FORBIDDEN_EXTENSIONS.includes(extension)) {
+    throw new Error(`la carpeta de la sala no admite archivos .${extension}`);
+  }
+
+  return segments.join('/');
+}
+
+/**
+ * Un archivo de la carpeta de la sala, sin su contenido.
+ *
+ * No lleva hash: `at` cambia en cada escritura, y eso basta para que quien
+ * sincroniza sepa qué se ha quedado viejo. Un hash solo valdría para
+ * desconfiar del hub, y quien no confía en el hub tiene un problema mayor que
+ * este —ver «Seguridad, lo que falta» en el README.
+ */
+export interface FolderEntry {
+  path: string;
+  /** Bytes UTF-8 del contenido. */
+  size: number;
+  /** Quién lo escribió por última vez. */
+  by: Alias;
+  at: number;
+}
+
+/**
+ * Quién puede escribir en la carpeta. `all`: cualquiera de la sala, que es lo
+ * que la hace un cuaderno común. `host`: solo el anfitrión, para salas donde
+ * la carpeta es material que se reparte, no que se edita.
+ */
+export type FolderWrite = 'all' | 'host';
+
+/**
  * Prefijo del texto que se firma. Va dentro de la firma para que una firma de
  * huddle no pueda reutilizarse como firma de otra cosa.
  */

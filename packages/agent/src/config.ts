@@ -119,7 +119,7 @@ export const DEFAULT_CONFIG: Config = {
     '**/credentials*',
   ],
   tools: ['Read', 'Grep', 'Glob'],
-  forkFromSession: true,
+  forkFromSession: false,
   cacheTtlHours: 72,
   requireSignedJoin: false,
 };
