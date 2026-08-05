@@ -16,7 +16,11 @@ export interface ControlRequest {
     | 'rotate'
     | 'pending'
     | 'admit'
-    | 'deny';
+    | 'deny'
+    | 'folder_list'
+    | 'folder_read'
+    | 'folder_write'
+    | 'folder_remove';
   to?: string;
   question?: string;
   ttl?: number;
@@ -24,6 +28,8 @@ export interface ControlRequest {
   reason?: string;
   path?: string;
   tag?: string;
+  /** El contenido de un archivo de la carpeta, para `folder_write`. */
+  text?: string;
   /** Id de solicitud de entrada. Nunca se admite por alias. */
   id?: string;
   remember?: boolean;
@@ -46,9 +52,18 @@ export interface ControlHandlers {
   pending(): unknown;
   admit(id: string, remember?: boolean): unknown;
   deny(id: string, reason?: string): unknown;
+  folderList(): unknown;
+  folderRead(path: string): Promise<unknown>;
+  folderWrite(path: string, text: string): Promise<unknown>;
+  folderRemove(path: string): Promise<unknown>;
 }
 
-const MAX_REQUEST_BYTES = 64 * 1024;
+/**
+ * Un archivo de la carpeta llega hasta 256 KB, y por aquí viaja escapado
+ * dentro de un JSON. El tope de antes —64 KB— cortaba una nota mediana a
+ * mitad, y el error habría sido «petición demasiado grande» sin decir de qué.
+ */
+const MAX_REQUEST_BYTES = 512 * 1024;
 
 /** Los named pipes de Windows no son rutas del sistema de archivos. */
 function isWindowsPipe(socketPath: string): boolean {
@@ -161,6 +176,21 @@ async function dispatch(line: string, handlers: ControlHandlers): Promise<Contro
     case 'deny': {
       if (!req.id) return { ok: false, error: 'falta `id` de la solicitud' };
       return { ok: true, data: handlers.deny(req.id, req.reason) };
+    }
+    case 'folder_list':
+      return { ok: true, data: handlers.folderList() };
+    case 'folder_read': {
+      if (!req.path) return { ok: false, error: 'falta `path`' };
+      return { ok: true, data: await handlers.folderRead(req.path) };
+    }
+    case 'folder_write': {
+      if (!req.path) return { ok: false, error: 'falta `path`' };
+      if (typeof req.text !== 'string') return { ok: false, error: 'falta `text`' };
+      return { ok: true, data: await handlers.folderWrite(req.path, req.text) };
+    }
+    case 'folder_remove': {
+      if (!req.path) return { ok: false, error: 'falta `path`' };
+      return { ok: true, data: await handlers.folderRemove(req.path) };
     }
     case 'shutdown':
       return { ok: true, data: handlers.shutdown() };

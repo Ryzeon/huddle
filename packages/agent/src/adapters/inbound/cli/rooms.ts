@@ -9,6 +9,7 @@ import {
   type Config,
 } from '../../../config.js';
 import { buildAgent } from '../../../composition/container.js';
+import type { RoomOptions } from '../../../application/ports/index.js';
 import { callControl } from '../control-server.js';
 import { serveControl } from './daemon.js';
 import { fail, flag, usage } from './io.js';
@@ -34,6 +35,18 @@ export async function runCreate(args: string[]): Promise<void> {
   }
   const policy = policyFlag === 'approved' ? 'approved' : undefined;
 
+  const folderFlag = flag(args, 'folder');
+  if (folderFlag && folderFlag !== 'all' && folderFlag !== 'host') {
+    fail(`no sé qué es --folder "${folderFlag}". Usa "all" o "host".`);
+  }
+  const options: RoomOptions = {
+    ...(policy && { policy }),
+    ...(folderFlag === 'host' && { folderWrite: 'host' as const }),
+    // El nombre va en español porque lo escribe quien crea la sala, no el
+    // protocolo: `--sin-memoria` se lee solo, `--no-folder-memory` no.
+    ...(args.includes('--sin-memoria') && { folderMemory: false }),
+  };
+
   // La sala aún no existe: `room` se rellena con el código que devuelva el hub.
   const config: Config = {
     ...DEFAULT_CONFIG,
@@ -45,7 +58,7 @@ export async function runCreate(args: string[]): Promise<void> {
   if (quota) config.dailyQuota = quota === 'none' ? null : Number.parseInt(quota, 10);
 
   const agent = buildAgent({ ...config, room: 'PENDIENTE' });
-  const code = await agent.createRoom(name, policy);
+  const code = await agent.createRoom(name, options);
   saveConfig({ ...config, room: code });
 
   printRoomCreated(name, code, policy === 'approved');

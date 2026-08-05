@@ -267,6 +267,69 @@ const TOOLS = [
     },
   },
   {
+    name: 'room_folder',
+    description:
+      'Lista la carpeta compartida de la sala: el cuaderno común del equipo. ' +
+      'Devuelve también `dir`, la ruta donde está sincronizada en este disco — ' +
+      'si la tienes, LEE Y BUSCA AHÍ DIRECTAMENTE con Read y Grep en vez de ' +
+      'llamar a room_folder_read, que es más rápido y no gasta un viaje. Los ' +
+      'archivos se enlazan con wikilinks: buscar "[[temas/algo]]" saca todo lo ' +
+      'que se ha hablado de ese tema en la sala.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'room_folder_read',
+    description:
+      'Lee un archivo de la carpeta de la sala. Úsalo solo si no puedes leer el ' +
+      'directorio que devuelve room_folder (por ejemplo, porque está fuera de ' +
+      'tu directorio de trabajo).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Ruta dentro de la carpeta, ej. "notas/api.md".' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'room_folder_write',
+    description:
+      'Escribe una nota en la carpeta de la sala, que verán —y leerán sus ' +
+      'agentes— todos los miembros. Úsalo cuando el usuario quiera dejar algo ' +
+      'apuntado para el equipo: una decisión, una convención, contexto que hoy ' +
+      'solo está en su cabeza. Reemplaza el archivo si ya existía, así que lee ' +
+      'antes si vas a añadir a algo. Escribe siempre bajo "notas/": el resto de ' +
+      'la carpeta la genera el hub y se regenera sola. Enlaza a otras notas con ' +
+      'wikilinks, [[notas/otra]], para que se encuentren entre ellas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Ruta dentro de la carpeta, ej. "notas/despliegue.md".',
+        },
+        text: { type: 'string', description: 'El contenido completo del archivo, en Markdown.' },
+      },
+      required: ['path', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'room_folder_remove',
+    description:
+      'Borra un archivo de la carpeta de la sala. Se lo borra a todo el mundo, ' +
+      'no solo a ti, así que confírmalo con el usuario antes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Ruta dentro de la carpeta.' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'room_status',
     description:
       'Estado de tu propio agente: conexión, sala, cuota que te queda hoy y ' +
@@ -468,6 +531,46 @@ export async function runMcpServer(): Promise<void> {
           const res = await withDaemon(() => callControl({ op: 'kick', alias, reason }));
           if (!res.ok) return textResult(res.error, true);
           return textResult({ ok: true, mensaje: `Expulsado ${alias} (si eras el anfitrión).` });
+        }
+
+        case 'room_folder': {
+          const res = await withDaemon(() => callControl({ op: 'folder_list' }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult(res.data);
+        }
+
+        case 'room_folder_read': {
+          const a = (args ?? {}) as { path?: unknown };
+          if (typeof a.path !== 'string') {
+            return textResult('room_folder_read necesita `path` como string.', true);
+          }
+          const path = a.path;
+          const res = await withDaemon(() => callControl({ op: 'folder_read', path }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult((res.data as { text?: string }).text ?? '');
+        }
+
+        case 'room_folder_write': {
+          const a = (args ?? {}) as { path?: unknown; text?: unknown };
+          if (typeof a.path !== 'string' || typeof a.text !== 'string') {
+            return textResult('room_folder_write necesita `path` y `text` como strings.', true);
+          }
+          const path = a.path;
+          const text = a.text;
+          const res = await withDaemon(() => callControl({ op: 'folder_write', path, text }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult(res.data);
+        }
+
+        case 'room_folder_remove': {
+          const a = (args ?? {}) as { path?: unknown };
+          if (typeof a.path !== 'string') {
+            return textResult('room_folder_remove necesita `path` como string.', true);
+          }
+          const path = a.path;
+          const res = await withDaemon(() => callControl({ op: 'folder_remove', path }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult(res.data);
         }
 
         case 'room_status': {

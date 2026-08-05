@@ -15,6 +15,7 @@ import {
   runRotate,
 } from './cli/rooms.js';
 import { runKey } from './cli/identity.js';
+import { runFolder } from './cli/folder.js';
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -44,6 +45,8 @@ async function main(): Promise<void> {
       return runRemoveRepo(args);
     case 'repos':
       return runListRepos();
+    case 'folder':
+      return runFolder(args);
     case 'daemon':
       return runDaemon();
     case 'stop':
