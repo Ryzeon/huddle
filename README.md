@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-14110F?style=flat-square" alt="Node >= 20">
-  <img src="https://img.shields.io/badge/tests-322-C2610A?style=flat-square" alt="322 tests">
+  <img src="https://img.shields.io/badge/tests-581-C2610A?style=flat-square" alt="581 tests">
   <img src="https://img.shields.io/badge/licencia-MIT-14110F?style=flat-square" alt="MIT">
 </p>
 
@@ -114,8 +114,9 @@ los webhooks»*, *«expón también mi repo de pagos»*, *«¿quién está en la
 
 ## Cómo funciona
 
-Tu código nunca sale de tu máquina. Lo único que viaja por la red es la
-pregunta y la respuesta con sus fuentes.
+Tu código nunca sale de tu máquina. Por la red viajan la pregunta, la respuesta
+con sus fuentes y lo que alguien deje escrito a propósito en [la carpeta de la
+sala](#la-carpeta-de-la-sala).
 
 ```mermaid
 flowchart LR
@@ -125,7 +126,7 @@ flowchart LR
     mcp -.->|socket local| dae["daemon<br/><i>vive largo</i>"]
   end
 
-  hub[("Hub<br/>salas · ruteo · historial")]
+  hub[("Hub<br/>salas · ruteo · historial<br/>carpeta de la sala")]
 
   subgraph suya["Máquina de Ryzeon"]
     direction TB
@@ -201,11 +202,81 @@ La regla que lo sostiene: `domain/` y `application/` no importan `ws`,
 `node:net`, `node:fs` ni `node:child_process`. Si eso deja de cumplirse es que
 se ha filtrado una capa.
 
+## La carpeta de la sala
+
+En la mesa hay una carpeta. No es de nadie: es de la sala. Cualquiera escribe
+en ella, y **el agente de todos la lee** cuando responde.
+
+```bash
+huddle folder ls                          # qué hay
+huddle folder put notas/despliegue.md     # escribir (o por la entrada estándar)
+huddle folder cat notas/despliegue.md
+huddle folder rm  notas/despliegue.md     # se lo borras a todo el mundo
+```
+
+O desde tu propia sesión de IA: *«apunta en la carpeta de la sala que los
+webhooks se firman con HMAC»*. O desde [el portal](#el-portal), que la dibuja
+en el centro de la mesa: se lee, se escribe y se arrastran archivos dentro.
+
+Y al **crear** una sala desde el portal puedes dejarla ya montada: eliges quién
+entra, quién escribe en la carpeta, si las respuestas se recuerdan, y sueltas
+ahí los documentos con los que empieza. La sala nace con su material dentro.
+
+Vale un `.zip`, y se vacía conservando su estructura: `docs/adr/001.md` sigue
+estando bajo `docs/adr/`. Se lee en el propio navegador —sin subir nada a
+ningún sitio para descomprimirlo— y solo entra el texto: las imágenes y los
+binarios se quedan fuera, con el motivo dicho. Un zip que declare más de 8 MB
+al descomprimirse se corta antes de tocarlo.
+
+Se sincroniza sola en `~/.huddle/carpeta/`, y de ahí llega al motor con
+`--add-dir`. Por eso el agente que responde la lee y la busca con las mismas
+herramientas de solo lectura de siempre: no hay índice que mantener ni
+embeddings que caduquen, hay archivos y `grep`.
+
+### La memoria del equipo, como grafo
+
+Cada respuesta que se da en la sala se queda escrita ahí:
+
+```
+carpeta/
+  notas/            ← vuestro; se edita a mano y sube solo
+  respuestas/2026-08-05-ryzeon-puerto-facturacion-w3k9.md
+  temas/facturacion.md   ← todo lo que se ha preguntado del tema
+  gente/ryzeon.md        ← todo lo que ha contestado
+```
+
+Las notas se enlazan con wikilinks, así que el grafo *es* el texto:
+`grep -rl "\[\[temas/facturacion\]\]"` saca el hilo entero de un salto. Y como
+son `.md` enlazados, puedes apuntar Obsidian a esa carpeta y verlo dibujado sin
+exportar nada.
+
+Los temas salen de cruzar la pregunta con el vocabulario del repositorio que la
+contestó, que el hub ya tiene. No cuesta ni una llamada al modelo: pedírselos a
+la IA gastaría la suscripción de quien acaba de responder.
+
+### Lo que conviene saber antes de usarla
+
+- **Lo que pongas ahí sale de tu máquina.** Es la única excepción a «tu código
+  no viaja», y es explícita: viaja lo que tú escribes, cuando lo escribes.
+- **Editar a mano funciona, y borrar también.** Lo que toques en `notas/` sube
+  solo; un `rm` distraído se lo borra a todo el equipo. El resto de la carpeta
+  la genera el hub y se regenera sola.
+- **Gana quien guarda último.** Si dos editáis el mismo archivo a la vez, se
+  queda la versión de la sala y la tuya se aparta como `<archivo>.local` — no se
+  pierde, pero tampoco se fusiona.
+- **Si la carpeta contradice al código, el agente hace caso al código.** Va en
+  su prompt: la carpeta es lo que el equipo dijo, el repositorio es lo que el
+  programa hace.
+- **Caduca con la sala**, a los treinta días sin tocarla, igual que el historial.
+  Cerrar la sala se la lleva; rotar el código se la lleva con él.
+- `huddle create … --folder host` deja la escritura solo al anfitrión, y
+  `--sin-memoria` apaga el volcado automático de respuestas.
+
 ## Dónde vive el hub
 
 Los agentes y tu código se quedan siempre en tu máquina. Entre las dos
-versiones solo cambia quién aloja el hub, que se limita a rutear mensajes y
-guardar el historial de la sala.
+versiones solo cambia quién aloja el hub, que se limita a rutear mensajes,
+guardar el historial y sostener la carpeta de la sala.
 
 ### Autoalojado, hoy
 
@@ -287,8 +358,16 @@ lectura aunque el modelo quiera hacerla.
 Además: registro de auditoría en `~/.huddle/audit.jsonl`, límite de ráfaga por
 miembro y bloqueo por alias.
 
-El historial de sala se guarda 30 días y luego se purga. Una sala sin memoria
-vigente se cierra sola.
+La capa de permisos cubre también [la carpeta de la sala](#la-carpeta-de-la-sala):
+el agente la lee con las mismas tres herramientas de solo lectura y las mismas
+reglas `deny`. Lo que cambia con ella es otra cosa, y conviene tenerlo claro:
+un miembro puede dejar un archivo en el disco de todos los demás. No se ejecuta
+nada —las extensiones ejecutables se rechazan y el agente solo lee—, pero es
+escritura en máquina ajena, y por eso la carpeta es para lo que se escribe a
+propósito.
+
+El historial de sala y su carpeta se guardan 30 días y luego se purgan. Una sala
+sin memoria vigente se cierra sola.
 
 ### Rotar el código
 
@@ -368,6 +447,7 @@ firma, en vez de degradarla a abierta en silencio.
 | `huddle ask <@alias\|@auto\|@all> "…"` | Preguntar |
 | `huddle add-repo <dir> [--tag <t>]` | Exponer otro repo, misma cuota |
 | `huddle repos` · `remove-repo <tag>` | Gestionarlos |
+| `huddle folder ls` · `cat` · `put` · `rm` | La carpeta compartida de la sala |
 | `huddle who` · `status` | Ver la sala y tu estado |
 | `huddle key` | Tu clave pública: es la que firma tu alias |
 | `huddle pending` | Quién espera a entrar (salas con aprobación) |
@@ -395,7 +475,9 @@ para copiarlas; el anfitrión puede expulsar desde la propia mesa.
 
 A la izquierda la conversación. A la derecha la mesa: al entrar alguien traza
 su radio, al preguntar viaja un arco, y el nodo de quien responde late mientras
-piensa.
+piensa. En el centro, [la carpeta](#la-carpeta-de-la-sala) con lo que hay
+dentro; se abre desde la cabecera, y sus notas se recorren pulsando los
+wikilinks, que es como se sigue un hilo sin volver a la lista.
 
 ```bash
 npm run portal      # http://127.0.0.1:5173
@@ -408,7 +490,7 @@ servidor web lo sirve tal cual.
 ## Desarrollo
 
 ```bash
-npm test        # 451 tests, sin sockets ni subprocesos
+npm test        # 581 tests, sin sockets ni subprocesos
 npm run build
 ```
 
