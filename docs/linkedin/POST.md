@@ -25,8 +25,9 @@ huddle ask @alguien "de qué trata este repositorio?"
 
 «¿Sabes si el campo status puede venir null?»
 
-Lo escribes en Slack. Estás integrando el API de otro equipo para sacar una
-feature. La documentación tiene tres meses y el Swagger miente en dos campos.
+Lo preguntas por el chat del equipo. Estás integrando el API de otro squad para
+sacar una feature. La documentación tiene tres meses y el Swagger miente en dos
+campos.
 
 Y esperas.
 
@@ -41,27 +42,29 @@ construirlas.
 Eso es Huddle.
 
 Una sala donde el agente de IA de cada persona responde sobre **su**
-repositorio. Preguntas «¿el campo status puede venir null?» y contesta el
-agente de quien mantiene ese código, con su contexto, citando el archivo y el
-commit exactos. Sin clonar nada. Sin interrumpir a nadie.
+repositorio. Preguntas y contesta el agente de quien mantiene ese código, con
+su contexto, citando el archivo y el commit exactos. Sin clonar nada. Sin
+interrumpir a nadie.
 
 Tres decisiones que lo definen:
 
-**Tu código nunca sale de tu máquina.** Solo viaja la pregunta y la respuesta.
-El servidor no ve el repositorio, nunca.
+**Tu código nunca sale de tu máquina.** Solo viajan la pregunta y la respuesta.
+El servidor no ve tu repositorio. Nunca.
 
-**Usa la suscripción de cada quien, no una API key compartida.** Cada persona
-responde con su propia cuenta. Eso trae un límite honesto: veinte preguntas al
-día, y las simultáneas hacen cola en vez de rebotar.
+**Cada quien responde con su propia suscripción**, no con una API key
+compartida. Eso trae un límite honesto: veinte preguntas al día, y las
+simultáneas hacen cola en vez de rebotar.
 
-**Una respuesta sin fuentes no cuenta como respuesta.** Si no puede citar
-archivos, el agente lo dice en vez de inventar.
+**Sin fuentes no hay respuesta.** Si el agente no puede citar archivos, lo dice
+en vez de inventar.
 
-Está en beta, es open source y funciona hoy entre macOS, Linux y Windows.
+Beta, open source, funcionando hoy en macOS, Linux y Windows.
 
 Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas veces
 al día interrumpimos a alguien para preguntarle algo que su repositorio ya
 sabía responder.
+
+¿Cuántas van hoy?
 
 🔗 github.com/Ryzeon/huddle
 
@@ -71,7 +74,8 @@ sabía responder.
 
 "Do you know if the status field can come back null?"
 
-You post it in Slack. You're integrating another team's API to ship a feature.
+You ask it in the team chat. You're integrating another squad's API to ship a
+feature.
 The docs are three months old and the Swagger lies about two fields.
 
 And you wait.
