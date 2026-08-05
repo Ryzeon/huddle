@@ -6,6 +6,7 @@ import { usage } from './cli/io.js';
 import { runAsk, runQuery } from './cli/queries.js';
 import { runAddRepo, runJoin, runListRepos, runRejoin, runRemoveRepo } from './cli/repos.js';
 import { runClose, runCreate, runKick, runRotate } from './cli/rooms.js';
+import { runKey } from './cli/identity.js';
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -37,6 +38,8 @@ async function main(): Promise<void> {
       return runMcpServer();
     case 'ask':
       return runAsk(args);
+    case 'key':
+      return runKey();
     case 'who':
       return runQuery('members');
     case 'status':

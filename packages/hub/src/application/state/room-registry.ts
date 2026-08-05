@@ -15,6 +15,7 @@ export class RoomRegistry {
       if (this.rooms.has(record.code)) continue;
       const room = new Room(record.code, record.name, this.askPolicy, record.createdAt);
       if (record.owner) room.restoreOwner(record.owner);
+      if (record.keys) room.restoreKeys(record.keys);
       this.rooms.set(record.code, room);
     }
   }
@@ -27,6 +28,8 @@ export class RoomRegistry {
         createdAt: room.createdAt,
       };
       if (room.ownerAlias) record.owner = room.ownerAlias;
+      const keys = room.keySnapshot();
+      if (Object.keys(keys).length > 0) record.keys = keys;
       return record;
     });
   }

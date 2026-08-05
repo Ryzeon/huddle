@@ -271,6 +271,23 @@ describe('cambiar el código de la sala', () => {
   });
 });
 
+describe('alias firmado', () => {
+  it('te echan porque el alias era de otro, y no se dice que la sala se cerró', () => {
+    const state = run([WELCOME, { t: 'room_closed', reason: 'identity_taken' }]);
+    assert.equal(state.closed, true);
+    assert.doesNotMatch(state.entries.at(-1)?.text ?? '', /se cerró/);
+  });
+
+  it('el motivo de identidad se traduce en el hilo', () => {
+    const state = run([
+      WELCOME,
+      { t: 'error', id: 'x', reason: 'identity_mismatch', detail: '…abc12345' },
+    ]);
+    assert.match(state.entries.at(-1)?.text ?? '', /firmado por otra clave/);
+    assert.equal(state.entries.at(-1)?.meta, '…abc12345');
+  });
+});
+
 describe('varios', () => {
   it('los ids de entrada son únicos y crecientes', () => {
     const state = run([WELCOME, { t: 'msg', from: '@ana', text: 'a' }, { t: 'msg', from: '@ana', text: 'b' }]);

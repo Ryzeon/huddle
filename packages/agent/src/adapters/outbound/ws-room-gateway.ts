@@ -2,15 +2,19 @@ import { WebSocket } from 'ws';
 import {
   type Alias,
   type ClientMessage,
+  type IdentityProof,
   type Member,
   PROTOCOL_VERSION,
   type ServerMessage,
   type Target,
   encodeMessage,
+  identityProofText,
   newId,
+  normalizeRoomCode,
   parseMessage,
 } from '@huddle/protocol';
 import type {
+  IdentitySigner,
   LoggerPort,
   OutboundResult,
   PresenceProvider,
@@ -49,7 +53,17 @@ export interface RoomGatewayConfig {
   alias: Alias;
   tag?: string;
   token?: string;
+  signer?: IdentitySigner;
+  /** Si el hub no reta, cortar en vez de entrar sin firmar. */
+  requireSignedJoin?: boolean;
 }
+
+/**
+ * Cuánto se espera al reto antes de entrar sin firmar.
+ *
+ * Un hub viejo no manda `challenge` y se quedaría esperando para siempre.
+ */
+const CHALLENGE_WAIT_MS = 3_000;
 
 interface PendingOutbound {
   resolve: (value: OutboundResult) => void;
@@ -83,6 +97,9 @@ export class WsRoomGateway implements RoomGatewayPort {
 
   private info?: RoomInfo;
   private rotation?: PendingRotation;
+  private helloSent = false;
+  private challengeSeen = false;
+  private challengeTimer?: NodeJS.Timeout;
 
   /**
    * El código vigente de la sala. No es `config.room`: tras una rotación
@@ -106,27 +123,25 @@ export class WsRoomGateway implements RoomGatewayPort {
     const socket = new WebSocket(url.toString());
     this.socket = socket;
 
+    this.helloSent = false;
+    this.challengeSeen = false;
+
     socket.on('open', () => {
       this.reconnectAttempts = 0;
-      this.logger.info(`conectado a ${this.config.hubUrl} — sala #${this.config.room}`);
-      const common = {
-        v: PROTOCOL_VERSION,
-        alias: this.config.alias,
-        tag: this.config.tag,
-        card: this.presence.card(),
-        quotaRemaining: this.presence.quotaRemaining(),
-      };
-      // Crear solo la primera vez: tras una reconexión la sala ya existe y hay
-      // que entrar con su código, no crear otra.
-      this.send(
-        this.createName && !this.info
-          ? { t: 'create', name: this.createName, ...common }
-          : { t: 'join', room: this.code, ...common },
-      );
-      this.heartbeat = setInterval(
-        () => this.send({ t: 'ping', quotaRemaining: this.presence.quotaRemaining() }),
-        HEARTBEAT_MS,
-      );
+      this.logger.info(`conectado a ${this.config.hubUrl} — sala #${this.code}`);
+      // El hello ya no sale aquí: primero hay que oír el reto para poder
+      // firmarlo. Si no llega, se decide sin él.
+      this.challengeTimer = setTimeout(() => {
+        if (this.challengeSeen || this.helloSent) return;
+        if (this.config.requireSignedJoin) {
+          this.stopping = true;
+          this.logger.warn('el hub no pidió firma y la configuración la exige; no se entra.');
+          this.socket?.close(1000, 'signed join required');
+          return;
+        }
+        this.logger.warn('el hub no pidió firma: se entra sin firmar el alias.');
+        this.sendHello();
+      }, CHALLENGE_WAIT_MS).unref();
     });
 
     socket.on('message', (raw) => {
@@ -136,6 +151,7 @@ export class WsRoomGateway implements RoomGatewayPort {
 
     socket.on('close', (code, reason) => {
       if (this.heartbeat) clearInterval(this.heartbeat);
+      if (this.challengeTimer) clearTimeout(this.challengeTimer);
       if (this.stopping) return;
 
       const terminal = TERMINAL_CLOSE_CODES[code];
@@ -161,6 +177,7 @@ export class WsRoomGateway implements RoomGatewayPort {
   disconnect(): void {
     this.stopping = true;
     if (this.heartbeat) clearInterval(this.heartbeat);
+    if (this.challengeTimer) clearTimeout(this.challengeTimer);
     this.socket?.close(1000, 'shutdown');
   }
 
@@ -271,8 +288,70 @@ export class WsRoomGateway implements RoomGatewayPort {
     });
   }
 
+  /**
+   * El primer frame. Firma el alias si hay clave y el hub ha retado.
+   *
+   * El código que se firma es el vigente, no el de la configuración: tras una
+   * rotación aquel está muerto, y firmarlo da una firma que no valida y un
+   * diagnóstico imposible.
+   */
+  private sendHello(nonce?: string): void {
+    if (this.helloSent) return;
+    this.helloSent = true;
+    if (this.challengeTimer) clearTimeout(this.challengeTimer);
+
+    const creating = Boolean(this.createName) && !this.info;
+    const common = {
+      v: PROTOCOL_VERSION,
+      alias: this.config.alias,
+      tag: this.config.tag,
+      card: this.presence.card(),
+      quotaRemaining: this.presence.quotaRemaining(),
+    };
+
+    const room = normalizeRoomCode(this.code);
+    const proof = this.prove(creating ? 'create' : 'join', creating ? '' : room, nonce);
+
+    // Crear solo la primera vez: tras una reconexión la sala ya existe y hay
+    // que entrar con su código, no crear otra.
+    this.send(
+      creating
+        ? { t: 'create', name: this.createName ?? 'sala', ...common, ...(proof && { proof }) }
+        : { t: 'join', room, ...common, ...(proof && { proof }) },
+    );
+
+    // El latido empieza con el hello, no al abrir: latir antes de decir quién
+    // eres es hablarle al hub sin haberte presentado.
+    this.heartbeat = setInterval(
+      () => this.send({ t: 'ping', quotaRemaining: this.presence.quotaRemaining() }),
+      HEARTBEAT_MS,
+    );
+  }
+
+  private prove(
+    kind: 'create' | 'join',
+    room: string,
+    nonce?: string,
+  ): IdentityProof | undefined {
+    const { signer, alias, tag } = this.config;
+    if (!signer || !nonce) return undefined;
+
+    try {
+      const text = identityProofText({ kind, room, alias, tag, nonce });
+      return { pubkey: signer.publicKey, sig: signer.sign(text), nonce };
+    } catch (error) {
+      this.logger.warn(`no se pudo firmar el alias: ${String(error)}`);
+      return undefined;
+    }
+  }
+
   private receive(message: ServerMessage): void {
     switch (message.t) {
+      case 'challenge':
+        this.challengeSeen = true;
+        this.sendHello(message.nonce);
+        return;
+
       case 'welcome': {
         this.code = message.room;
         this.info = {

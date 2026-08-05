@@ -161,6 +161,7 @@ export interface CreateRoomMessage {
   tag?: string;
   card?: CapabilityCard;
   quotaRemaining: number | null;
+  proof?: IdentityProof;
 }
 
 /** Cierra la sala para todos. Solo el anfitrión. */
@@ -191,6 +192,7 @@ export interface JoinMessage {
   card?: CapabilityCard;
   quotaRemaining: number | null;
   viewer?: boolean;
+  proof?: IdentityProof;
 }
 
 export interface AskMessage {
@@ -271,6 +273,13 @@ export type ClientMessage =
   | ErrorMessage
   | HeartbeatMessage;
 
+/** El reto. Sale nada más abrir el socket, antes de que nadie diga quién es. */
+export interface ChallengeMessage {
+  t: 'challenge';
+  v: number;
+  nonce: string;
+}
+
 export interface WelcomeMessage {
   t: 'welcome';
   v: number;
@@ -279,6 +288,7 @@ export interface WelcomeMessage {
   you: Alias;
   host: Alias;
   members: Member[];
+  verified?: boolean;
 }
 
 export interface ActivityMessage {
@@ -326,6 +336,7 @@ export interface RequestMessage {
 }
 
 export type ServerMessage =
+  | ChallengeMessage
   | WelcomeMessage
   | ActivityMessage
   | HostChangedMessage

@@ -84,6 +84,13 @@ export interface Config {
 
   forkFromSession: boolean;
   cacheTtlHours: number;
+
+  /**
+   * Cortar si el hub no pide firmar el alias. Por defecto `false`: sobre
+   * `ws://` sin TLS, quien esté en medio puede quitar el reto y la firma solo
+   * vale de verdad con `wss://` o con esto en `true`.
+   */
+  requireSignedJoin: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -114,6 +121,7 @@ export const DEFAULT_CONFIG: Config = {
   tools: ['Read', 'Grep', 'Glob'],
   forkFromSession: true,
   cacheTtlHours: 72,
+  requireSignedJoin: false,
 };
 
 export function ensureHuddleDir(): void {

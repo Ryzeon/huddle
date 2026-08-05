@@ -1,4 +1,4 @@
-import type { ClientMessage } from '@huddle/protocol';
+import { PROTOCOL_VERSION, type ClientMessage } from '@huddle/protocol';
 import type { TranscriptEntry } from '../domain/room.js';
 import type { BucketPolicy } from '../domain/rate-limit.js';
 import type {
@@ -24,6 +24,7 @@ import { RelayAnswerHandler } from './commands/relay-answer.js';
 import { LeaveRoomHandler } from './commands/leave-room.js';
 import { SweepStaleMembersHandler } from './commands/sweep-stale-members.js';
 import { RoomQueries, type HubStats } from './queries/room-queries.js';
+import { Challenges } from './state/challenges.js';
 
 export interface HubConfig {
   askPolicy: BucketPolicy;
@@ -33,6 +34,15 @@ export interface HubConfig {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Retos de repuesto para los tests. No son impredecibles: el composition root
+ * inyecta siempre los de verdad, y aquí no se puede importar `node:crypto`.
+ */
+function counterNonces(): NoncePort {
+  let n = 0;
+  return { next: () => `reto-${++n}` };
+}
 
 export const DEFAULT_HUB_CONFIG: HubConfig = {
   askPolicy: { burst: 5, refillMs: 10_000 },
@@ -74,7 +84,7 @@ export class HubService {
   private readonly retentionMs: number;
   private readonly log: (message: string) => void;
   private readonly verifier: SignatureVerifierPort;
-  private readonly nonces?: NoncePort;
+  private readonly challenges: Challenges;
 
   constructor(deps: HubDeps, config: HubConfig = DEFAULT_HUB_CONFIG) {
     const log = deps.log ?? (() => undefined);
@@ -82,7 +92,7 @@ export class HubService {
     this.clock = deps.clock;
     this.transcripts = deps.transcripts;
     this.verifier = deps.verifier;
-    this.nonces = deps.nonces;
+    this.challenges = new Challenges(deps.nonces ?? counterNonces());
     this.roomStore = deps.rooms;
     this.retentionMs = config.retentionMs;
     this.log = log;
@@ -94,14 +104,16 @@ export class HubService {
     const shared = { registry: this.registry, notifier: this.notifier, timeouts, log };
 
     const generateCode = deps.generateCode ?? generateRoomCode;
+    const identity = { challenges: this.challenges, verifier: this.verifier };
     this.createRoom = new CreateRoomHandler({
       registry: this.registry,
       notifier: this.notifier,
       clock: deps.clock,
       generateCode,
+      ...identity,
       log,
     });
-    this.joinRoom = new JoinRoomHandler({ ...shared, clock: deps.clock });
+    this.joinRoom = new JoinRoomHandler({ ...shared, clock: deps.clock, ...identity });
     this.kickMember = new KickMemberHandler({ registry: this.registry, log });
     this.closeRoom = new CloseRoomHandler({
       registry: this.registry,
@@ -177,6 +189,15 @@ export class HubService {
     return this.queries.stats();
   }
 
+  /** El reto sale antes que nada: quien quiera firmar necesita un nonce nuestro. */
+  greet(channel: MemberChannelPort): void {
+    channel.send({
+      t: 'challenge',
+      v: PROTOCOL_VERSION,
+      nonce: this.challenges.issue(channel.id),
+    });
+  }
+
   handle(channel: MemberChannelPort, message: ClientMessage): void {
     if (message.t === 'create') {
       this.createRoom.handle({ channel, message });
@@ -184,7 +205,9 @@ export class HubService {
       return;
     }
     if (message.t === 'join') {
-      this.joinRoom.handle({ channel, message });
+      // Un join que ata una clave cambia la sala: sin esto, reiniciar el hub
+      // soltaría el vínculo y el alias volvería a estar libre.
+      if (this.joinRoom.handle({ channel, message })) this.persistRooms();
       return;
     }
 
@@ -258,6 +281,7 @@ export class HubService {
   }
 
   disconnect(channelId: string): void {
+    this.challenges.forget(channelId);
     this.leaveRoom.handle({ channelId });
     this.persistRooms();
   }

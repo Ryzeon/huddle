@@ -4,6 +4,10 @@ import { DemoRoomFeed } from '../adapters/outbound/demo-room-feed.js';
 import { DEMO_ROOMS } from '../adapters/outbound/demo-script.js';
 import { LocalRoomsStore, MemoryRoomsStore } from '../adapters/outbound/local-rooms-store.js';
 import { WsRoomFeed } from '../adapters/outbound/ws-room-feed.js';
+import {
+  loadOrCreateIdentity,
+  type PortalIdentity,
+} from '../adapters/outbound/webcrypto-identity.js';
 import { ChatView } from '../adapters/inbound/chat-view.js';
 import { HeaderView } from '../adapters/inbound/header-view.js';
 import { RoomsView, normalizeAlias } from '../adapters/inbound/rooms-view.js';
@@ -29,7 +33,7 @@ interface Setup {
   alias: string;
 }
 
-function buildFeed(params: URLSearchParams): Setup {
+function buildFeed(params: URLSearchParams, signer: PortalIdentity | null): Setup {
   const hub = params.get('hub') ?? DEFAULT_HUB;
   const alias = normalizeAlias(params.get('alias') ?? '@visita') || '@visita';
 
@@ -54,7 +58,7 @@ function buildFeed(params: URLSearchParams): Setup {
     : { mode: 'join', room: room ?? '', alias, viewer: true };
 
   return {
-    feed: new WsRoomFeed({ url: hub, identity }),
+    feed: new WsRoomFeed({ url: hub, identity, signer }),
     demo: null,
     hub,
     alias,
@@ -79,7 +83,7 @@ function navigateTo(params: Record<string, string>): void {
   window.location.assign(url.toString());
 }
 
-export function bootstrap(): void {
+export async function bootstrap(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
 
   // Apaga también las animaciones declarativas (CSS), no solo las de la mesa.
@@ -90,7 +94,11 @@ export function bootstrap(): void {
   let current = theme;
   applyTheme(current);
 
-  const { feed, demo, hub, alias } = buildFeed(params);
+  // Sin Ed25519 en el navegador se entra sin firmar: solo a salas abiertas y
+  // con el alias libre. Se dice en pantalla, no se disimula.
+  const signer = await loadOrCreateIdentity();
+
+  const { feed, demo, hub, alias } = buildFeed(params, signer);
   // En demo, las salas viven en memoria: mirar la demostración no debe
   // dejar rastro en el navegador de quien la mira.
   const rooms = demo ? new MemoryRoomsStore(DEMO_ROOMS) : new LocalRoomsStore();
@@ -233,9 +241,15 @@ export function bootstrap(): void {
   });
 
   store.start();
+  if (!signer && demo === null) {
+    store.note(
+      'este navegador no puede firmar tu alias: entras sin firmar, y solo donde el alias esté libre',
+      'failed',
+    );
+  }
   if (!document.hidden) chat.focus();
 
   window.addEventListener('beforeunload', () => store.stop());
 }
 
-bootstrap();
+void bootstrap();

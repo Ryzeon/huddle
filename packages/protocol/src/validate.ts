@@ -192,6 +192,8 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       if (tag) out.tag = normalizeTag(tag);
       const card = validateCard(msg.card);
       if (card) out.card = card;
+      const proof = validateProof(msg.proof);
+      if (proof) out.proof = proof;
       return out;
     }
 
@@ -237,6 +239,8 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       if (msg.viewer === true) out.viewer = true;
       const card = validateCard(msg.card);
       if (card) out.card = card;
+      const proof = validateProof(msg.proof);
+      if (proof) out.proof = proof;
       return out;
     }
 

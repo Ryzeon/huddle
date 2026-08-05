@@ -26,9 +26,11 @@ import {
 import {
   systemClock,
   type AuditLogPort,
+  type IdentitySigner,
   type LoggerPort,
   type RoomGatewayPort,
 } from '../application/ports/index.js';
+import { loadOrCreateIdentity } from '../identity.js';
 import { ClaudeCodeEngine } from '../adapters/outbound/claude/engine.js';
 import { ClaudeVocabularyExpander } from '../adapters/outbound/claude/vocabulary-expander.js';
 import { GitRepoInspector } from '../adapters/outbound/git-repo-inspector.js';
@@ -51,14 +53,19 @@ export function makeWorkspaceFactory(
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
+  signer: IdentitySigner,
 ): (workspace: Workspace) => WorkspaceAgent {
   return (workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue);
+    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue, signer);
 }
 
 export function buildAgent(config: Config): AgentService {
   const logger = new ConsoleLogger();
   const audit = new JsonlAuditLog();
+
+  // Una sola clave para toda la instalación: el alias es de la persona, no del
+  // repositorio, así que los N gateways firman con la misma.
+  const signer = loadOrCreateIdentity();
 
   // Un solo presupuesto para todos los repositorios: es el de tu plan.
   const quota = new Quota(config.dailyQuota, config.maxConcurrent, {
@@ -77,7 +84,7 @@ export function buildAgent(config: Config): AgentService {
   };
 
   const workspaces = config.workspaces.map((workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue),
+    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue, signer),
   );
 
   return new AgentService(
@@ -93,6 +100,7 @@ export function buildAgent(config: Config): AgentService {
         gateways,
         announceQuota,
         queue,
+        signer,
       ),
       onCodeRotated: (code) => rememberCode(config, code, logger),
     },
@@ -127,6 +135,7 @@ function buildWorkspace(
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
+  signer: IdentitySigner,
 ): WorkspaceAgent {
   // El inspector de git dice de qué trata el repositorio con sus propias
   // palabras; el decorador le añade aquellas con las que otros lo buscarían.
@@ -171,6 +180,8 @@ function buildWorkspace(
       alias: config.alias,
       tag: workspace.tag,
       token: config.token,
+      signer,
+      requireSignedJoin: config.requireSignedJoin,
     },
     { card: () => repo.snapshot(), quotaRemaining: () => quota.remaining },
     logger,

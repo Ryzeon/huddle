@@ -41,6 +41,7 @@ export function usage(): never {
       '  kick <@alias>          Expulsar a alguien (solo el anfitrión)',
       '  rotate                 Cambiar el código de la sala (solo el anfitrión)',
       '  close                  Cerrar la sala del todo (solo el anfitrión)',
+      '  key                    Tu clave pública: es la que firma tu alias',
       '  who                    Quién está en la sala',
       '  status                 Estado de tu agente',
     ].join('\n'),

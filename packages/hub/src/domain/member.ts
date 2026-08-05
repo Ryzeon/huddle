@@ -1,4 +1,4 @@
-import type { Alias, CapabilityCard, Member } from '@huddle/protocol';
+import { keyTail, type Alias, type CapabilityCard, type Member } from '@huddle/protocol';
 
 export interface RoomMember {
   readonly channelId: string;
@@ -6,6 +6,9 @@ export interface RoomMember {
   readonly tag?: string;
   card?: CapabilityCard;
   readonly viewer?: boolean;
+  /** La clave con la que firmó, si firmó. */
+  readonly pubkey?: string;
+  readonly verified?: boolean;
   readonly joinedAt: number;
   lastSeen: number;
   quotaRemaining: number | null;
@@ -19,7 +22,7 @@ export function memberKey(alias: Alias, tag?: string): string {
 }
 
 export function toWireMember(member: RoomMember): Member {
-  return {
+  const wire: Member = {
     alias: member.alias,
     viewer: member.viewer,
     joinedAt: member.joinedAt,
@@ -29,4 +32,9 @@ export function toWireMember(member: RoomMember): Member {
     lastSeen: member.lastSeen,
     quotaRemaining: member.quotaRemaining,
   };
+  // Al roster va la cola de la clave, nunca la clave entera: para comparar de
+  // viva voz sobra, y publicarla completa no aporta nada.
+  if (member.verified) wire.verified = true;
+  if (member.pubkey) wire.key = keyTail(member.pubkey);
+  return wire;
 }

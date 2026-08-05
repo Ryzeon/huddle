@@ -32,6 +32,11 @@ export type AskOutcome =
 
 const TRANSCRIPT_LIMIT = 500;
 
+/** Tope de alias firmados por sala: el vínculo no caduca, la memoria sí importa. */
+const MAX_KEYS = 200;
+
+const KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
 export class Room {
   private currentCode: string;
   readonly name: string;
@@ -44,6 +49,13 @@ export class Room {
    */
   private owner?: Alias;
   private readonly membersByKey = new Map<string, RoomMember>();
+
+  /**
+   * Alias vinculados a una clave pública. El vínculo no muere cuando el
+   * miembro se va: si muriera, bastaría con esperar a que @ana cerrara el
+   * portátil para quedarse con su nombre. Muere con la sala.
+   */
+  private readonly keysByAlias = new Map<Alias, string>();
   private readonly pendingById = new Map<string, PendingAsk>();
   private readonly entries: TranscriptEntry[] = [];
   private readonly askPolicy: BucketPolicy;
@@ -110,6 +122,35 @@ export class Room {
 
   isHost(alias: Alias): boolean {
     return this.host === alias;
+  }
+
+  keyOf(alias: Alias): string | undefined {
+    return this.keysByAlias.get(alias);
+  }
+
+  /** Nunca sobrescribe: un alias ya firmado no cambia de dueño. */
+  bindKey(alias: Alias, pubkey: string): void {
+    if (this.keysByAlias.has(alias)) return;
+    if (this.keysByAlias.size >= MAX_KEYS) return;
+    this.keysByAlias.set(alias, pubkey);
+  }
+
+  keySnapshot(): Record<string, string> {
+    return Object.fromEntries(this.keysByAlias);
+  }
+
+  restoreKeys(keys: Record<string, string>): void {
+    for (const [alias, pubkey] of Object.entries(keys)) {
+      // Un registro manipulado no debe poder atar un alias a cualquier cosa.
+      if (typeof pubkey !== 'string' || !KEY_SHAPE.test(pubkey)) continue;
+      if (this.keysByAlias.size >= MAX_KEYS) return;
+      this.keysByAlias.set(alias, pubkey);
+    }
+  }
+
+  /** Los que ocupan ese alias sin haberlo firmado. */
+  unsignedChannelsOf(alias: Alias): string[] {
+    return this.members.filter((m) => m.alias === alias && !m.pubkey).map((m) => m.channelId);
   }
 
   private oldestMember(excluding?: Alias): Alias | undefined {

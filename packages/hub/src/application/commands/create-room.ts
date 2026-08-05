@@ -1,7 +1,13 @@
 import { PROTOCOL_VERSION, normalizeAlias, type CreateRoomMessage } from '@huddle/protocol';
-import type { ClockPort, MemberChannelPort } from '../ports/member-channel.js';
+import type {
+  ClockPort,
+  MemberChannelPort,
+  SignatureVerifierPort,
+} from '../ports/member-channel.js';
 import type { RoomRegistry } from '../state/room-registry.js';
 import type { RoomNotifier } from '../state/room-notifier.js';
+import type { Challenges } from '../state/challenges.js';
+import { verifiedKey } from './verify-identity.js';
 
 export interface CreateRoomCommand {
   channel: MemberChannelPort;
@@ -12,6 +18,8 @@ export interface CreateRoomDeps {
   registry: RoomRegistry;
   notifier: RoomNotifier;
   clock: ClockPort;
+  challenges: Challenges;
+  verifier: SignatureVerifierPort;
   generateCode: () => string;
   log: (message: string) => void;
 }
@@ -44,9 +52,22 @@ export class CreateRoomHandler {
       return;
     }
 
-    const { registry, notifier, clock, log } = this.deps;
+    const { registry, notifier, clock, challenges, verifier, log } = this.deps;
     const alias = normalizeAlias(message.alias);
+
+    // La sala aún no tiene código, así que `create` firma con el campo vacío.
+    // Lo que ata la firma aquí es el `kind`: no vale como `join` en ningún lado.
+    const offered = verifiedKey(
+      { challenges, verifier },
+      {
+        channelId: channel.id,
+        proof: message.proof,
+        context: { kind: 'create', room: '', alias, tag: message.tag },
+      },
+    );
+
     const room = registry.createRoom(name, this.deps.generateCode, clock.now());
+    if (offered) room.bindKey(alias, offered);
 
     room.join(
       {
@@ -54,6 +75,8 @@ export class CreateRoomHandler {
         alias,
         tag: message.tag,
         card: message.card,
+        pubkey: offered,
+        verified: offered !== undefined,
         lastSeen: clock.now(),
         quotaRemaining: message.quotaRemaining,
       },
@@ -69,6 +92,7 @@ export class CreateRoomHandler {
       you: alias,
       host: alias,
       members: room.roster(),
+      verified: offered !== undefined,
     });
     notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });
 
