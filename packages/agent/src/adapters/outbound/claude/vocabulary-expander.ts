@@ -35,6 +35,7 @@ export class ClaudeVocabularyExpander implements VocabularyExpanderPort {
     const child = this.spawn('claude', buildVocabularyArgs(snapshot, this.config), {
       cwd: tmpdir(),
       env: { ...process.env },
+      windowsHide: true,
     });
 
     // Sin cerrar la entrada, el CLI espera datos por stdin durante segundos.

@@ -22,7 +22,7 @@ export interface ClaudeEngineConfig {
 export type SpawnFn = (
   command: string,
   args: string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv },
+  options: { cwd: string; env: NodeJS.ProcessEnv; windowsHide?: boolean },
 ) => ChildProcessWithoutNullStreams;
 
 const SIGKILL_GRACE_MS = 5_000;
@@ -43,6 +43,9 @@ export class ClaudeCodeEngine implements AnswerEnginePort {
       child = this.spawn('claude', buildArgs({ ...this.config, ...request }), {
         cwd: this.config.cwd,
         env: { ...process.env },
+        // Sin esto, en Windows parpadea una consola por cada pregunta que
+        // respondes. El daemon corre de fondo; sus hijos también deben.
+        windowsHide: true,
       });
     } catch (error) {
       return failure(
