@@ -44,6 +44,20 @@ export function serveControl(agent: Agent, alreadyStarted = false): void {
       agent.closeRoom(reason);
       return { ok: true };
     },
+    rotateCode: async (reason) => ({ room: await agent.rotateCode(reason) }),
+    pending: () => agent.pending(),
+    admit: (id, remember) => {
+      agent.admit(id, remember);
+      return { ok: true };
+    },
+    deny: (id, reason) => {
+      agent.deny(id, reason);
+      return { ok: true };
+    },
+    folderList: () => ({ dir: agent.folderDir, files: agent.folder() }),
+    folderRead: (path) => agent.readFile(path).then((text) => ({ path, text })),
+    folderWrite: (path, text) => agent.writeFile(path, text),
+    folderRemove: (path) => agent.removeFile(path),
     // Se contesta primero y se sale después: si saliéramos aquí, quien lo
     // pidió no llegaría a saber que funcionó.
     shutdown: () => {

@@ -30,6 +30,7 @@ const ERROR_TEXT: Record<string, string> = {
   agent_failed: 'el agente falló al responder',
   rate_limited: 'demasiadas preguntas seguidas',
   bad_request: 'petición inválida',
+  identity_mismatch: 'ese alias está firmado por otra clave',
 };
 
 export function errorText(reason: string): string {

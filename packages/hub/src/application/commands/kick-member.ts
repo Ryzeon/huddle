@@ -71,6 +71,10 @@ export class KickMemberHandler {
       victim?.close(4003, 'kicked by host');
     }
 
+    // Sin esto la expulsión es decorativa en una sala con aprobación: el
+    // expulsado sigue en la lista y vuelve a entrar solo, sin preguntar.
+    room.admission.revokeByAlias(target);
+
     this.deps.log(`${requester} expulsó a ${target} de #${room.code}`);
   }
 }

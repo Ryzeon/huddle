@@ -62,6 +62,9 @@ class ManualTimers implements TimerPort {
   }
 }
 
+/** Aquí nadie firma nada: si algo llegara firmado, no debería colar. */
+const rejectEverything = { verify: () => false };
+
 describe('HubService', () => {
   let clockNow: number;
   let timers: ManualTimers;
@@ -106,7 +109,9 @@ describe('HubService', () => {
         append: (code, name, entry) => transcripts.push({ code, name, entry }),
         read: () => [],
         purge: () => 0,
+        rename: () => true,
       },
+      verifier: rejectEverything,
       generateCode: () => `TEST${++codeSeq}-ROOM1`,
     });
   });

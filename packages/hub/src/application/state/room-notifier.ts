@@ -1,4 +1,4 @@
-import type { Alias, ServerMessage } from '@huddle/protocol';
+import { keyTail, type Alias, type ServerMessage } from '@huddle/protocol';
 import type { Room } from '../../domain/room.js';
 import type { RoomRegistry } from './room-registry.js';
 import type {
@@ -25,6 +25,44 @@ export class RoomNotifier {
 
   broadcastRoster(room: Room): void {
     this.broadcast(room, { t: 'room_state', members: room.roster() });
+  }
+
+  /** La carpeta entera, sin contenidos: cada uno se baja lo que le falte. */
+  broadcastFolder(room: Room): void {
+    this.broadcast(room, {
+      t: 'folder_state',
+      entries: room.folder.list(),
+      write: room.folder.write,
+    });
+  }
+
+  /** Solo al anfitrión, y a todas sus conexiones: el portero es él. */
+  toHost(room: Room, message: ServerMessage): void {
+    const host = room.hostAlias;
+    if (!host) return;
+    for (const channelId of room.channelsOf(host)) this.toChannel(channelId, message);
+  }
+
+  /**
+   * El backlog de solicitudes pendientes. Quien hereda el mando no vio las que
+   * llegaron antes, y sin esto quedarían esperando a nadie hasta caducar.
+   */
+  sendPendingRequests(room: Room, host: Alias): void {
+    for (const channelId of room.channelsOf(host)) {
+      for (const guest of room.waitingList()) {
+        const knownAlias = room.admission.aliasOwner(guest.key);
+        this.toChannel(channelId, {
+          t: 'join_request',
+          id: guest.id,
+          alias: guest.alias,
+          tag: guest.tag,
+          key: guest.key ? keyTail(guest.key) : '',
+          card: guest.card,
+          at: guest.at,
+          ...(knownAlias && { knownAlias }),
+        });
+      }
+    }
   }
 
   toAsker(room: Room, message: RelayableMessage, from?: Alias): void {

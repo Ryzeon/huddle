@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { normalizeAlias } from '@huddle/protocol';
+import { normalizeAlias, normalizeTag } from '@huddle/protocol';
 import {
   CONFIG_PATH,
   DEFAULT_CONFIG,
@@ -40,7 +40,8 @@ export function runJoin(args: string[]): void {
   }
 
   const cwd = resolve(flag(args, 'cwd') ?? process.cwd());
-  const workspace: Workspace = { cwd, tag: flag(args, 'tag') ?? assignTag(cwd, []) };
+  const tag = flag(args, 'tag');
+  const workspace: Workspace = { cwd, tag: tag ? normalizeTag(tag) : assignTag(cwd, []) };
 
   const config: Config = {
     ...DEFAULT_CONFIG,
@@ -63,6 +64,27 @@ export function runJoin(args: string[]): void {
   console.log('Ahora:');
   console.log('  1) Arranca el daemon:   huddle daemon');
   console.log('  2) Registra el MCP:     claude mcp add huddle -- huddle mcp');
+}
+
+/**
+ * Volver a entrar tras una rotación. Solo cambia el código: el alias, el hub y
+ * los repositorios ya configurados se quedan como estaban, que es justo lo que
+ * `join --force` se llevaría por delante.
+ */
+export async function runRejoin(args: string[]): Promise<void> {
+  const [room] = args;
+  if (!room) usage();
+
+  const config = loadConfig();
+  saveConfig({ ...config, room });
+
+  try {
+    await callControl({ op: 'shutdown' });
+    console.log(`Listo: ${config.alias} → sala #${room}. Arranca de nuevo: huddle daemon`);
+  } catch (error) {
+    if (!(error instanceof DaemonNotRunningError)) throw error;
+    console.log(`Listo: ${config.alias} → sala #${room}. Arranca el daemon: huddle daemon`);
+  }
 }
 
 export async function runAddRepo(args: string[]): Promise<void> {

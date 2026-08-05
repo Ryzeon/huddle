@@ -4,9 +4,13 @@ export type {
   HostChangedEvent,
   NoteEvent,
   PortalEvent,
+  JoinRequestEvent,
+  JoinRequestGoneEvent,
   ResultEvent,
   RoomClosedEvent,
+  RoomCodeEvent,
   RoomStateEvent,
+  WaitingApprovalEvent,
   TransportEvent,
   WelcomeEvent,
 } from './session/events.js';
@@ -17,7 +21,9 @@ export type {
   ConnectionStatus,
   EntryKind,
   LogEntry,
+  PendingGuest,
   SessionState,
+  WaitingInfo,
 } from './session/state.js';
 
 export {

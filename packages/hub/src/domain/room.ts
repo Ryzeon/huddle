@@ -1,7 +1,14 @@
-import type { Alias, Member, SourceRef, Target } from '@huddle/protocol';
+import type { Alias, Member, RoomPolicy, SourceRef, Target } from '@huddle/protocol';
 import { memberKey, toWireMember, type RoomMember } from './member.js';
+import {
+  Admission,
+  type AdmissionDecision,
+  type ApprovedEntry,
+  type WaitingGuest,
+} from './admission.js';
 import { consume, newBucket, type BucketPolicy } from './rate-limit.js';
 import { resolveAuto, resolveTargets } from './routing.js';
+import { Folder } from './folder.js';
 
 export interface PendingAsk {
   readonly id: string;
@@ -32,8 +39,19 @@ export type AskOutcome =
 
 const TRANSCRIPT_LIMIT = 500;
 
+/** Tope de alias firmados por sala: el vínculo no caduca, la memoria sí importa. */
+export const MAX_KEYS = 200;
+
+/**
+ * Escrituras en la carpeta: veinte de golpe y luego una cada dos segundos.
+ * Sobra para trabajar y no llega para machacar a la sala a difusiones.
+ */
+export const FOLDER_WRITE_POLICY: BucketPolicy = { burst: 20, refillMs: 2_000 };
+
+const KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
 export class Room {
-  readonly code: string;
+  private currentCode: string;
   readonly name: string;
   readonly createdAt: number;
   private host?: Alias;
@@ -44,6 +62,28 @@ export class Room {
    */
   private owner?: Alias;
   private readonly membersByKey = new Map<string, RoomMember>();
+
+  /**
+   * Alias vinculados a una clave pública. El vínculo no muere cuando el
+   * miembro se va: si muriera, bastaría con esperar a que @ana cerrara el
+   * portátil para quedarse con su nombre. Muere con la sala.
+   */
+  private readonly keysByAlias = new Map<Alias, string>();
+
+  /**
+   * Quién puede entrar. Los que esperan NO son miembros: no están en
+   * `membersByKey`, así que `roster`, `resolveTargets`, `promoteOldest`,
+   * `isEmpty` y `staleMembers` los ignoran sin tener que saber que existen.
+   */
+  readonly admission = new Admission();
+
+  /**
+   * La carpeta de la sala: lo que el equipo deja escrito y lo que el hub anota
+   * de cada respuesta. Es de la sala, no de un miembro, así que vive aquí y
+   * muere con ella.
+   */
+  readonly folder = new Folder();
+
   private readonly pendingById = new Map<string, PendingAsk>();
   private readonly entries: TranscriptEntry[] = [];
   private readonly askPolicy: BucketPolicy;
@@ -54,10 +94,40 @@ export class Room {
    * probarse moviendo el tiempo a mano.
    */
   constructor(code: string, name: string, askPolicy: BucketPolicy, createdAt: number) {
-    this.code = code;
+    this.currentCode = code;
     this.name = name;
     this.askPolicy = askPolicy;
     this.createdAt = createdAt;
+  }
+
+  get code(): string {
+    return this.currentCode;
+  }
+
+  /**
+   * Cambia el código y devuelve el anterior. No toca nada más: la sala sigue
+   * siendo la misma, con su dueño, su anfitrión y su historial.
+   */
+  rotateCode(next: string): string {
+    const previous = this.currentCode;
+    this.currentCode = next;
+    return previous;
+  }
+
+  /**
+   * Caduca todas las preguntas en vuelo y las devuelve. Al rotar, quien las
+   * respondería está a punto de quedarse fuera.
+   */
+  expireAll(): PendingAsk[] {
+    const abandoned = [...this.pendingById.values()];
+    for (const ask of abandoned) {
+      for (const alias of ask.awaiting) {
+        const member = this.members.find((m) => m.alias === alias);
+        if (member) member.inFlight = Math.max(0, member.inFlight - 1);
+      }
+    }
+    this.pendingById.clear();
+    return abandoned;
   }
 
   replaceTranscript(entries: TranscriptEntry[]): void {
@@ -80,6 +150,117 @@ export class Room {
 
   isHost(alias: Alias): boolean {
     return this.host === alias;
+  }
+
+  /**
+   * Con `write: 'host'` la carpeta es material que se reparte, no que se
+   * edita. Con `all` —lo normal— escribe cualquiera de dentro, incluidos los
+   * espectadores del portal: dejar una nota no es responder preguntas.
+   */
+  canWriteFolder(alias: Alias): boolean {
+    return this.folder.write === 'all' || this.isHost(alias);
+  }
+
+  /**
+   * Coge un hueco para escribir en la carpeta.
+   *
+   * El tope es generoso —un editor que guarda solo, o pegar diez notas de
+   * golpe, tienen que caber—, pero existe: cada escritura difunde el estado a
+   * toda la sala, así que un cliente en bucle sería N² mensajes por segundo
+   * contra todo el mundo.
+   */
+  allowFolderWrite(member: RoomMember, now: number): boolean {
+    const { bucket, allowed } = consume(
+      { tokens: member.folderTokens, updatedAt: member.folderTokensAt },
+      FOLDER_WRITE_POLICY,
+      now,
+    );
+    member.folderTokens = bucket.tokens;
+    member.folderTokensAt = bucket.updatedAt;
+    return allowed;
+  }
+
+  keyOf(alias: Alias): string | undefined {
+    return this.keysByAlias.get(alias);
+  }
+
+  /**
+   * Ata el alias a la clave y dice si quedó atado. Nunca sobrescribe: un alias
+   * ya firmado no cambia de dueño. Devolver `false` en vez de callarse es lo
+   * que impide dar la insignia por un vínculo que no se escribió.
+   */
+  bindKey(alias: Alias, pubkey: string): boolean {
+    const bound = this.keysByAlias.get(alias);
+    if (bound) return bound === pubkey;
+    if (this.keysByAlias.size >= MAX_KEYS) return false;
+    this.keysByAlias.set(alias, pubkey);
+    return true;
+  }
+
+  keySnapshot(): Record<string, string> {
+    return Object.fromEntries(this.keysByAlias);
+  }
+
+  restoreKeys(keys: Record<string, string>): void {
+    for (const [alias, pubkey] of Object.entries(keys)) {
+      // Un registro manipulado no debe poder atar un alias a cualquier cosa.
+      if (typeof pubkey !== 'string' || !KEY_SHAPE.test(pubkey)) continue;
+      if (this.keysByAlias.size >= MAX_KEYS) return;
+      this.keysByAlias.set(alias, pubkey);
+    }
+  }
+
+  /** Los que ocupan ese alias sin haberlo firmado. */
+  unsignedChannelsOf(alias: Alias): string[] {
+    return this.members.filter((m) => m.alias === alias && !m.pubkey).map((m) => m.channelId);
+  }
+
+  get policy(): RoomPolicy {
+    return this.admission.isApproved ? 'approved' : 'open';
+  }
+
+  get ownerKey(): string | undefined {
+    return this.admission.ownerPublicKey;
+  }
+
+  restorePolicy(policy: RoomPolicy): void {
+    this.admission.restorePolicy(policy);
+  }
+
+  restoreOwnerKey(key: string): void {
+    this.admission.restoreOwnerKey(key);
+  }
+
+  restoreApproved(entries: ApprovedEntry[]): void {
+    this.admission.restoreApproved(entries);
+  }
+
+  approvedSnapshot(): ApprovedEntry[] {
+    return this.admission.approvedSnapshot();
+  }
+
+  decideAdmission(key: string | undefined, alias: Alias): AdmissionDecision {
+    return this.admission.decide(key, alias);
+  }
+
+  addWaiting(guest: WaitingGuest): void {
+    this.admission.addWaiting(guest);
+  }
+
+  removeWaiting(channelId: string): WaitingGuest | undefined {
+    return this.admission.removeWaiting(channelId);
+  }
+
+  waitingBy(requestId: string): WaitingGuest | undefined {
+    return this.admission.waitingBy(requestId);
+  }
+
+  isWaiting(channelId: string): boolean {
+    return this.admission.isWaiting(channelId);
+  }
+
+  waitingList(): WaitingGuest[] {
+    return this.admission.waitingList();
   }
 
   private oldestMember(excluding?: Alias): Alias | undefined {
@@ -110,13 +291,17 @@ export class Room {
   }
 
   join(
-    member: Omit<RoomMember, 'inFlight' | 'askTokens' | 'askTokensAt' | 'joinedAt'>,
+    member: Omit<
+      RoomMember,
+      'inFlight' | 'askTokens' | 'askTokensAt' | 'folderTokens' | 'folderTokensAt' | 'joinedAt'
+    >,
     now: number,
   ): { replaced?: RoomMember; becameHost: boolean; reclaimedHost: boolean } {
     const key = memberKey(member.alias, member.tag);
     const previous = this.membersByKey.get(key);
 
     const bucket = newBucket(this.askPolicy, now);
+    const folderBucket = newBucket(FOLDER_WRITE_POLICY, now);
     this.membersByKey.set(key, {
       ...member,
       // Una reconexión conserva su antigüedad: perderla te mandaría al final
@@ -125,6 +310,8 @@ export class Room {
       inFlight: 0,
       askTokens: bucket.tokens,
       askTokensAt: bucket.updatedAt,
+      folderTokens: folderBucket.tokens,
+      folderTokensAt: folderBucket.updatedAt,
     });
 
     // Sala recién creada o que se quedó sin anfitrión: manda el que llega,

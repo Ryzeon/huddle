@@ -2,11 +2,20 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { normalizeAlias, type Alias } from '@huddle/protocol';
+import { normalizeAlias, normalizeTag, type Alias } from '@huddle/protocol';
 
 export const HUDDLE_DIR = process.env.HUDDLE_HOME ?? join(homedir(), '.huddle');
 export const CONFIG_PATH = join(HUDDLE_DIR, 'config.json');
 export const AUDIT_PATH = join(HUDDLE_DIR, 'audit.jsonl');
+
+/**
+ * La copia local de la carpeta de la sala.
+ *
+ * Una sola para toda la instalación, no una por sala: la configuración tiene
+ * un único `room`, así que solo se está en una a la vez. Al cambiar de sala,
+ * la sincronización borra lo que ya no está y la deja limpia sola.
+ */
+export const FOLDER_DIR = join(HUDDLE_DIR, 'carpeta');
 
 /**
  * `sun_path` son 104 bytes en macOS y 108 en Linux, y `listen()` falla con
@@ -84,6 +93,13 @@ export interface Config {
 
   forkFromSession: boolean;
   cacheTtlHours: number;
+
+  /**
+   * Cortar si el hub no pide firmar el alias. Por defecto `false`: sobre
+   * `ws://` sin TLS, quien esté en medio puede quitar el reto y la firma solo
+   * vale de verdad con `wss://` o con esto en `true`.
+   */
+  requireSignedJoin: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -112,8 +128,9 @@ export const DEFAULT_CONFIG: Config = {
     '**/credentials*',
   ],
   tools: ['Read', 'Grep', 'Glob'],
-  forkFromSession: true,
+  forkFromSession: false,
   cacheTtlHours: 72,
+  requireSignedJoin: false,
 };
 
 export function ensureHuddleDir(): void {
@@ -144,13 +161,24 @@ interface LegacyConfig extends Config {
 }
 
 function readWorkspaces(raw: Partial<LegacyConfig>): Workspace[] {
-  if (Array.isArray(raw.workspaces) && raw.workspaces.length > 0) return raw.workspaces;
+  if (Array.isArray(raw.workspaces) && raw.workspaces.length > 0) {
+    return raw.workspaces.map(withNormalTag);
+  }
   if (typeof raw.cwd === 'string') {
     const migrated: Workspace = { cwd: raw.cwd };
     if (raw.tag) migrated.tag = raw.tag;
-    return [migrated];
+    return [withNormalTag(migrated)];
   }
   return [];
+}
+
+/**
+ * El hub valida el tag normalizado, así que la firma del alias se calcula
+ * sobre él: guardar `API` y firmar `API` hace que el hub verifique `api` y la
+ * firma no valide.
+ */
+function withNormalTag(workspace: Workspace): Workspace {
+  return workspace.tag ? { ...workspace, tag: normalizeTag(workspace.tag) } : workspace;
 }
 
 /**

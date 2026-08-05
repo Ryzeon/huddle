@@ -38,6 +38,8 @@ function describe(seat: Seat, member: Member | undefined, state: SessionState): 
   if (state.host !== null && seat.alias === state.host) traits.push('anfitrión');
   if (seat.label === state.you) traits.push('tú');
   if (member?.viewer === true) traits.push('espectador');
+  if (member?.verified === true) traits.push(`alias firmado, clave …${member.key ?? ''}`);
+  else if (member) traits.push('alias sin firmar');
   if (state.busy.includes(seat.alias) || state.busy.includes(seat.label)) {
     traits.push('respondiendo');
   }

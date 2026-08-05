@@ -36,6 +36,7 @@ export function attachWsAdapter(
     }
 
     const channel = new WsMemberChannel(randomUUID(), socket);
+    hub.greet(channel);
 
     socket.on('message', (raw: RawData) => {
       const message = decodeFrame(raw, channel, socket);

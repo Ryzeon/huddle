@@ -8,7 +8,9 @@
  */
 
 import type {
+  AdmitGuestMessage,
   CloseRoomMessage,
+  DenyGuestMessage,
   AskMessage,
   CreateRoomMessage,
   KickMessage,
@@ -17,12 +19,18 @@ import type {
   ChunkMessage,
   ClientMessage,
   ErrorMessage,
+  IdentityProof,
   JoinMessage,
   ResultMessage,
+  RotateCodeMessage,
   SourceRef,
   TraceMessage,
+  FolderPutMessage,
+  FolderDropMessage,
+  FolderGetMessage,
+  FolderWrite,
 } from './index.js';
-import { normalizeAlias } from './index.js';
+import { normalizeAlias, normalizeFolderPath, normalizeTag } from './index.js';
 
 export class ValidationError extends Error {
   readonly field: string;
@@ -45,7 +53,19 @@ export const LIMITS = {
   keywords: 80,
   summary: 1_000,
   traceText: 500,
+  nonce: 64,
+  /** Ed25519 en base64url crudo: 32 bytes son exactamente 43 caracteres. */
+  pubkey: 43,
+  /** Firma Ed25519: 64 bytes, 86 caracteres. */
+  sig: 86,
+  /** Un archivo de la carpeta. El frame del hub corta en 1 MB; esto deja sitio al JSON. */
+  folderText: 256_000,
+  folderPath: 160,
+  /** Cuántos archivos caben en la carpeta de una sala. */
+  folderFiles: 500,
 } as const;
+
+const B64U = /^[A-Za-z0-9_-]+$/;
 
 type Obj = Record<string, unknown>;
 
@@ -124,6 +144,47 @@ function validateCard(value: unknown): CapabilityCard | undefined {
   return card;
 }
 
+/**
+ * La prueba de identidad. Las longitudes son exactas, no máximos: cualquier
+ * otra cosa no es una clave Ed25519 y no hay por qué pasársela a la
+ * criptografía para que lo descubra ella.
+ */
+export function validateProof(value: unknown): IdentityProof | undefined {
+  if (value === undefined || value === null) return undefined;
+  const obj = asObject(value, 'proof');
+
+  const pubkey = str(obj, 'pubkey', LIMITS.pubkey);
+  const sig = str(obj, 'sig', LIMITS.sig);
+  const nonce = str(obj, 'nonce', LIMITS.nonce);
+
+  if (pubkey.length !== LIMITS.pubkey || !B64U.test(pubkey)) {
+    throw new ValidationError('proof.pubkey', 'no es una clave Ed25519 en base64url');
+  }
+  if (sig.length !== LIMITS.sig || !B64U.test(sig)) {
+    throw new ValidationError('proof.sig', 'no es una firma Ed25519 en base64url');
+  }
+  if (!B64U.test(nonce)) {
+    throw new ValidationError('proof.nonce', 'no es base64url');
+  }
+  return { pubkey, sig, nonce };
+}
+
+/**
+ * La ruta de un archivo de la carpeta, ya saneada.
+ *
+ * `normalizeFolderPath` lanza `Error` a secas porque también lo usan la CLI y
+ * el portal, donde `ValidationError` no significa nada. Aquí se traduce, para
+ * que el motivo real llegue al cliente en vez de un «frame inválido».
+ */
+function folderPath(obj: Obj): string {
+  const raw = str(obj, 'path', LIMITS.folderPath);
+  try {
+    return normalizeFolderPath(raw);
+  } catch (error) {
+    throw new ValidationError('path', error instanceof Error ? error.message : 'ruta inválida');
+  }
+}
+
 function validateSources(value: unknown): SourceRef[] {
   if (!Array.isArray(value)) return [];
   const out: SourceRef[] = [];
@@ -155,9 +216,42 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       };
       if (!out.name.trim()) throw new ValidationError('name', 'la sala necesita un nombre');
       const tag = optionalStr(msg, 'tag', 64);
-      if (tag) out.tag = tag;
+      if (tag) out.tag = normalizeTag(tag);
       const card = validateCard(msg.card);
       if (card) out.card = card;
+      const proof = validateProof(msg.proof);
+      if (proof) out.proof = proof;
+
+      const policy = oneOf(msg, 'policy', ['open', 'approved'] as const, 'open');
+      // Sin firma, aprobar un alias no aprueba nada: quien vuelve podría ser
+      // cualquiera. Degradar a `open` en silencio sería el peor fallo posible,
+      // porque la sala parecería cerrada y no lo estaría.
+      if (policy === 'approved' && !proof) {
+        throw new ValidationError(
+          'policy',
+          'una sala con aprobación exige firmar el alias; este cliente no puede firmar',
+        );
+      }
+      if (policy === 'approved') out.policy = policy;
+
+      const folderWrite = oneOf(msg, 'folderWrite', ['all', 'host'] as const, 'all');
+      if (folderWrite === 'host') out.folderWrite = folderWrite satisfies FolderWrite;
+      // La memoria va encendida salvo que se pida lo contrario, así que solo
+      // viaja el `false`: una sala donde no quiere quedar rastro escrito.
+      if (msg.folderMemory === false) out.folderMemory = false;
+      return out;
+    }
+
+    case 'admit': {
+      const out: AdmitGuestMessage = { t: 'admit', id: str(msg, 'id', 64) };
+      if (msg.remember === false) out.remember = false;
+      return out;
+    }
+
+    case 'deny': {
+      const out: DenyGuestMessage = { t: 'deny', id: str(msg, 'id', 64) };
+      const reason = optionalStr(msg, 'reason', 200);
+      if (reason) out.reason = reason;
       return out;
     }
 
@@ -165,6 +259,15 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       const out: CloseRoomMessage = { t: 'close' };
       const motivo = optionalStr(msg, 'reason', 200);
       if (motivo) out.reason = motivo;
+      return out;
+    }
+
+    case 'rotate': {
+      // El id es obligatorio, al revés que en `close`: la respuesta llega
+      // asíncrona y sin id no se sabe si el error es de esta rotación.
+      const out: RotateCodeMessage = { t: 'rotate', id: str(msg, 'id', 64) };
+      const reason = optionalStr(msg, 'reason', 200);
+      if (reason) out.reason = reason;
       return out;
     }
 
@@ -190,10 +293,12 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
             : int(msg, 'quotaRemaining', 0, 1_000_000),
       };
       const tag = optionalStr(msg, 'tag', 64);
-      if (tag) out.tag = tag;
+      if (tag) out.tag = normalizeTag(tag);
       if (msg.viewer === true) out.viewer = true;
       const card = validateCard(msg.card);
       if (card) out.card = card;
+      const proof = validateProof(msg.proof);
+      if (proof) out.proof = proof;
       return out;
     }
 
@@ -266,12 +371,43 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
             'agent_failed',
             'rate_limited',
             'bad_request',
+            'identity_mismatch',
           ] as const,
           'agent_failed',
         ),
       };
       const detail = optionalStr(msg, 'detail', 500);
       if (detail) out.detail = detail;
+      return out;
+    }
+
+    case 'folder_put': {
+      const out: FolderPutMessage = {
+        t: 'folder_put',
+        id: str(msg, 'id', 64),
+        // `normalizeFolderPath` es lo que impide que un path escrito por un
+        // miembro acabe escribiendo fuera de la carpeta en el disco ajeno.
+        path: folderPath(msg),
+        text: str(msg, 'text', LIMITS.folderText),
+      };
+      return out;
+    }
+
+    case 'folder_drop': {
+      const out: FolderDropMessage = {
+        t: 'folder_drop',
+        id: str(msg, 'id', 64),
+        path: folderPath(msg),
+      };
+      return out;
+    }
+
+    case 'folder_get': {
+      const out: FolderGetMessage = {
+        t: 'folder_get',
+        id: str(msg, 'id', 64),
+        path: folderPath(msg),
+      };
       return out;
     }
 

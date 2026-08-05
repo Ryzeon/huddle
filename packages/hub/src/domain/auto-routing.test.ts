@@ -13,6 +13,8 @@ function member(alias: string, card: RoomMember['card'], inFlight = 0): RoomMemb
     inFlight,
     askTokens: 5,
     askTokensAt: 0,
+    folderTokens: 20,
+    folderTokensAt: 0,
     card,
   };
 }

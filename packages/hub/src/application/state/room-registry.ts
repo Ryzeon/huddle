@@ -15,6 +15,23 @@ export class RoomRegistry {
       if (this.rooms.has(record.code)) continue;
       const room = new Room(record.code, record.name, this.askPolicy, record.createdAt);
       if (record.owner) room.restoreOwner(record.owner);
+      if (record.keys) room.restoreKeys(record.keys);
+
+      // Fallar cerrado: si la lista de aprobados viene corrupta se descarta la
+      // lista y se conserva la política. Al revés —conservar la lista y perder
+      // la política— convertiría una sala cerrada en una abierta sin avisar.
+      if (record.policy === 'approved') {
+        room.restorePolicy('approved');
+        if (record.ownerKey) room.restoreOwnerKey(record.ownerKey);
+        if (Array.isArray(record.approved)) room.restoreApproved(record.approved);
+      }
+
+      // Reiniciar el hub no debe abrir la carpeta de una sala donde solo
+      // escribía el anfitrión, ni encender una memoria que se apagó.
+      room.folder.configure(
+        record.folderWrite === 'host' ? 'host' : 'all',
+        record.folderMemory !== false,
+      );
       this.rooms.set(record.code, room);
     }
   }
@@ -27,6 +44,16 @@ export class RoomRegistry {
         createdAt: room.createdAt,
       };
       if (room.ownerAlias) record.owner = room.ownerAlias;
+      const keys = room.keySnapshot();
+      if (Object.keys(keys).length > 0) record.keys = keys;
+      if (room.policy === 'approved') {
+        record.policy = 'approved';
+        if (room.ownerKey) record.ownerKey = room.ownerKey;
+        const approved = room.approvedSnapshot();
+        if (approved.length > 0) record.approved = approved;
+      }
+      if (room.folder.write === 'host') record.folderWrite = 'host';
+      if (!room.folder.memory) record.folderMemory = false;
       return record;
     });
   }
@@ -36,19 +63,41 @@ export class RoomRegistry {
   }
 
   /**
-   * Crea una sala con nombre y un código único. Reintenta ante una colisión
-   * improbable en vez de sobrescribir una sala viva.
+   * Un código que no esté en uso. Reintenta ante una colisión improbable en
+   * vez de sobrescribir una sala viva.
    */
-  createRoom(name: string, generateCode: () => string, now: number): Room {
+  freeCode(generateCode: () => string): string {
     let code = generateCode();
     for (let attempt = 0; attempt < 5 && this.rooms.has(code); attempt++) {
       code = generateCode();
     }
     if (this.rooms.has(code)) throw new Error('no se pudo generar un código libre');
+    return code;
+  }
 
+  createRoom(name: string, generateCode: () => string, now: number): Room {
+    const code = this.freeCode(generateCode);
     const room = new Room(code, name, this.askPolicy, now);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /**
+   * Reindexa la sala bajo un código nuevo.
+   *
+   * Hay que mover también `roomOfChannel`: si no, el propio anfitrión se queda
+   * apuntando a un código que ya no existe y el hub le contesta que mande
+   * `join` primero.
+   */
+  recode(room: Room, next: string): void {
+    const previous = room.code;
+    this.rooms.delete(previous);
+    room.rotateCode(next);
+    this.rooms.set(next, room);
+
+    for (const [channelId, code] of this.roomOfChannel) {
+      if (code === previous) this.roomOfChannel.set(channelId, next);
+    }
   }
 
   roomByCode(code: string): Room | undefined {
@@ -78,8 +127,24 @@ export class RoomRegistry {
     this.roomOfChannel.delete(channelId);
   }
 
+  /**
+   * Una sala vacía y sin memoria no vale nada y se tira.
+   *
+   * Salvo las que tienen aprobación: ahí la sala ES la lista de invitados y la
+   * clave del dueño. Tirarla al salir el último le quitaría la sala a su dueño
+   * en cuanto se fuera un rato. Esas las recoge la retención, no esto.
+   *
+   * Y salvo las que tienen carpeta: lo que el equipo dejó escrito es memoria
+   * igual que el historial, y tirarlo porque se fue el último sería perderlo
+   * por cerrar el portátil.
+   */
   dropIfExhausted(room: Room): void {
-    if (room.isEmpty && room.transcript.length === 0) {
+    if (
+      room.isEmpty &&
+      room.transcript.length === 0 &&
+      room.folder.isEmpty &&
+      room.policy !== 'approved'
+    ) {
       this.rooms.delete(room.code);
     }
   }

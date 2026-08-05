@@ -285,6 +285,10 @@ function badgesFor(member: Member | undefined, marks: NodeMarks): string[] {
   const badges: string[] = [];
   if (marks.host) badges.push('◆ anfitrión');
   if (marks.viewer) badges.push('espectador');
+  // Solo con `verified === true`. Cualquier otra cosa —ausente, falsa— es
+  // "no firmado", y pintar la insignia por defecto la volvería inútil.
+  if (member?.verified === true) badges.push(`✓ ${member.key ?? ''}`.trim());
+  else if (member) badges.push('sin firmar');
   if (member && member.quotaRemaining !== null && member.quotaRemaining <= LOW_QUOTA) {
     badges.push(`${member.quotaRemaining} de cuota`);
   }

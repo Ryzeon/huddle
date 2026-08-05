@@ -1,10 +1,17 @@
 import type {
+  AdmitGuestMessage,
   AskMessage,
   CloseRoomMessage,
+  DenyGuestMessage,
   ChatMessage,
   CreateRoomMessage,
+  FolderDropMessage,
+  FolderGetMessage,
+  FolderPutMessage,
+  FolderWrite,
   JoinMessage,
   KickMessage,
+  RotateCodeMessage,
 } from '@huddle/protocol';
 import type { PortalEvent } from '../../domain/session-state.js';
 
@@ -14,7 +21,13 @@ export type PortalClientMessage =
   | AskMessage
   | ChatMessage
   | KickMessage
-  | CloseRoomMessage;
+  | RotateCodeMessage
+  | AdmitGuestMessage
+  | DenyGuestMessage
+  | CloseRoomMessage
+  | FolderPutMessage
+  | FolderDropMessage
+  | FolderGetMessage;
 
 export interface RoomFeed {
   /** Abre el transporte. Idempotente. */
@@ -31,6 +44,12 @@ export interface FeedIdentity {
   roomName?: string;
   alias: string;
   viewer: boolean;
+  /** Solo al crear, y solo si se puede firmar. */
+  policy?: 'approved';
+  /** Solo al crear: quién escribe en la carpeta de la sala. */
+  folderWrite?: FolderWrite;
+  /** Solo al crear: si las respuestas se quedan escritas en la carpeta. */
+  folderMemory?: boolean;
 }
 
 export interface RememberedRoom {

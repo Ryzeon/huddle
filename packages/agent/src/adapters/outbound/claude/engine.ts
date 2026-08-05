@@ -17,6 +17,8 @@ export interface ClaudeEngineConfig {
   tools: readonly string[];
   denyPaths: readonly string[];
   timeoutMs: number;
+  /** La copia local de la carpeta de la sala. Ausente, se responde sin ella. */
+  folderDir?: string;
 }
 
 export type SpawnFn = (

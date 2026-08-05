@@ -148,3 +148,38 @@ describe('describeToolUse', () => {
     assert.ok(out.includes('…'));
   });
 });
+
+describe('la carpeta de la sala en el motor', () => {
+  const CON_CARPETA = { ...BASE, folderDir: '/home/yo/.huddle/carpeta' };
+
+  test('entra como directorio adicional, no como texto en el prompt', () => {
+    const args = buildArgs(CON_CARPETA);
+    assert.equal(args[args.indexOf('--add-dir') + 1], '/home/yo/.huddle/carpeta');
+  });
+
+  test('sin carpeta no se pasa --add-dir', () => {
+    assert.ok(!buildArgs(BASE).includes('--add-dir'));
+  });
+
+  test('sigue sin poder escribir en ella: las tools no cambian', () => {
+    const args = buildArgs(CON_CARPETA);
+    assert.equal(args[args.indexOf('--tools') + 1], 'Read,Grep,Glob');
+  });
+
+  test('el prompt dice dónde está y que el código manda sobre la carpeta', () => {
+    const prompt = buildGuardrails(CON_CARPETA);
+    assert.match(prompt, /\/home\/yo\/\.huddle\/carpeta/);
+    assert.match(prompt, /manda el código/);
+  });
+
+  test('sin carpeta, el prompt no habla de ninguna', () => {
+    assert.equal(buildGuardrails(BASE).includes('carpeta'), false);
+  });
+
+  test('las reglas de siempre no se pierden al añadir la carpeta', () => {
+    const prompt = buildGuardrails(CON_CARPETA);
+    assert.match(prompt, /Solo lectura/);
+    assert.match(prompt, /\.env/);
+    assert.match(prompt, /Una respuesta sin fuentes no sirve/);
+  });
+});

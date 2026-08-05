@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-14110F?style=flat-square" alt="Node >= 20">
-  <img src="https://img.shields.io/badge/tests-322-C2610A?style=flat-square" alt="322 tests">
+  <img src="https://img.shields.io/badge/tests-581-C2610A?style=flat-square" alt="581 tests">
   <img src="https://img.shields.io/badge/licencia-MIT-14110F?style=flat-square" alt="MIT">
 </p>
 
@@ -114,8 +114,9 @@ los webhooks»*, *«expón también mi repo de pagos»*, *«¿quién está en la
 
 ## Cómo funciona
 
-Tu código nunca sale de tu máquina. Lo único que viaja por la red es la
-pregunta y la respuesta con sus fuentes.
+Tu código nunca sale de tu máquina. Por la red viajan la pregunta, la respuesta
+con sus fuentes y lo que alguien deje escrito a propósito en [la carpeta de la
+sala](#la-carpeta-de-la-sala).
 
 ```mermaid
 flowchart LR
@@ -125,11 +126,11 @@ flowchart LR
     mcp -.->|socket local| dae["daemon<br/><i>vive largo</i>"]
   end
 
-  hub[("Hub<br/>salas · ruteo · historial")]
+  hub[("Hub<br/>salas · ruteo · historial<br/>carpeta de la sala")]
 
   subgraph suya["Máquina de Ryzeon"]
     direction TB
-    dae2["daemon"] --> motor["motor de IA<br/><i>solo lectura, sesión forkeada</i>"]
+    dae2["daemon"] --> motor["motor de IA<br/><i>solo lectura, sesión limpia</i>"]
     motor --> repo[("su repositorio")]
   end
 
@@ -201,11 +202,81 @@ La regla que lo sostiene: `domain/` y `application/` no importan `ws`,
 `node:net`, `node:fs` ni `node:child_process`. Si eso deja de cumplirse es que
 se ha filtrado una capa.
 
+## La carpeta de la sala
+
+En la mesa hay una carpeta. No es de nadie: es de la sala. Cualquiera escribe
+en ella, y **el agente de todos la lee** cuando responde.
+
+```bash
+huddle folder ls                          # qué hay
+huddle folder put notas/despliegue.md     # escribir (o por la entrada estándar)
+huddle folder cat notas/despliegue.md
+huddle folder rm  notas/despliegue.md     # se lo borras a todo el mundo
+```
+
+O desde tu propia sesión de IA: *«apunta en la carpeta de la sala que los
+webhooks se firman con HMAC»*. O desde [el portal](#el-portal), que la dibuja
+en el centro de la mesa: se lee, se escribe y se arrastran archivos dentro.
+
+Y al **crear** una sala desde el portal puedes dejarla ya montada: eliges quién
+entra, quién escribe en la carpeta, si las respuestas se recuerdan, y sueltas
+ahí los documentos con los que empieza. La sala nace con su material dentro.
+
+Vale un `.zip`, y se vacía conservando su estructura: `docs/adr/001.md` sigue
+estando bajo `docs/adr/`. Se lee en el propio navegador —sin subir nada a
+ningún sitio para descomprimirlo— y solo entra el texto: las imágenes y los
+binarios se quedan fuera, con el motivo dicho. Un zip que declare más de 8 MB
+al descomprimirse se corta antes de tocarlo.
+
+Se sincroniza sola en `~/.huddle/carpeta/`, y de ahí llega al motor con
+`--add-dir`. Por eso el agente que responde la lee y la busca con las mismas
+herramientas de solo lectura de siempre: no hay índice que mantener ni
+embeddings que caduquen, hay archivos y `grep`.
+
+### La memoria del equipo, como grafo
+
+Cada respuesta que se da en la sala se queda escrita ahí:
+
+```
+carpeta/
+  notas/            ← vuestro; se edita a mano y sube solo
+  respuestas/2026-08-05-ryzeon-puerto-facturacion-w3k9.md
+  temas/facturacion.md   ← todo lo que se ha preguntado del tema
+  gente/ryzeon.md        ← todo lo que ha contestado
+```
+
+Las notas se enlazan con wikilinks, así que el grafo *es* el texto:
+`grep -rl "\[\[temas/facturacion\]\]"` saca el hilo entero de un salto. Y como
+son `.md` enlazados, puedes apuntar Obsidian a esa carpeta y verlo dibujado sin
+exportar nada.
+
+Los temas salen de cruzar la pregunta con el vocabulario del repositorio que la
+contestó, que el hub ya tiene. No cuesta ni una llamada al modelo: pedírselos a
+la IA gastaría la suscripción de quien acaba de responder.
+
+### Lo que conviene saber antes de usarla
+
+- **Lo que pongas ahí sale de tu máquina.** Es la única excepción a «tu código
+  no viaja», y es explícita: viaja lo que tú escribes, cuando lo escribes.
+- **Editar a mano funciona, y borrar también.** Lo que toques en `notas/` sube
+  solo; un `rm` distraído se lo borra a todo el equipo. El resto de la carpeta
+  la genera el hub y se regenera sola.
+- **Gana quien guarda último.** Si dos editáis el mismo archivo a la vez, se
+  queda la versión de la sala y la tuya se aparta como `<archivo>.local` — no se
+  pierde, pero tampoco se fusiona.
+- **Si la carpeta contradice al código, el agente hace caso al código.** Va en
+  su prompt: la carpeta es lo que el equipo dijo, el repositorio es lo que el
+  programa hace.
+- **Caduca con la sala**, a los treinta días sin tocarla, igual que el historial.
+  Cerrar la sala se la lleva; rotar el código se la lleva con él.
+- `huddle create … --folder host` deja la escritura solo al anfitrión, y
+  `--sin-memoria` apaga el volcado automático de respuestas.
+
 ## Dónde vive el hub
 
 Los agentes y tu código se quedan siempre en tu máquina. Entre las dos
-versiones solo cambia quién aloja el hub, que se limita a rutear mensajes y
-guardar el historial de la sala.
+versiones solo cambia quién aloja el hub, que se limita a rutear mensajes,
+guardar el historial y sostener la carpeta de la sala.
 
 ### Autoalojado, hoy
 
@@ -277,7 +348,7 @@ defensa va en capas, y solo una de ellas es el prompt:
 | Permisos | `--settings` con reglas `deny` sobre rutas sensibles | No |
 | Herramientas | `Read`, `Grep`, `Glob`, sin Bash, Write ni Edit | No |
 | Aislamiento MCP | `--strict-mcp-config` con configuración vacía | No |
-| Sesión | `--fork-session`: no escribe en tu conversación | No |
+| Sesión | sesión propia por pregunta: no toca tu conversación | No |
 | Instrucciones | Rutas prohibidas en el system prompt | Sí, por eso no va sola |
 
 Comprobado: con un `.env` presente y una petición de exfiltración disfrazada de
@@ -287,21 +358,102 @@ lectura aunque el modelo quiera hacerla.
 Además: registro de auditoría en `~/.huddle/audit.jsonl`, límite de ráfaga por
 miembro y bloqueo por alias.
 
-El historial de sala se guarda 30 días y luego se purga. Una sala sin memoria
-vigente se cierra sola.
+La capa de permisos cubre también [la carpeta de la sala](#la-carpeta-de-la-sala):
+el agente la lee con las mismas tres herramientas de solo lectura y las mismas
+reglas `deny`. Lo que cambia con ella es otra cosa, y conviene tenerlo claro:
+un miembro puede dejar un archivo en el disco de todos los demás. No se ejecuta
+nada —las extensiones ejecutables se rechazan y el agente solo lee—, pero es
+escritura en máquina ajena, y por eso la carpeta es para lo que se escribe a
+propósito.
+
+El historial de sala y su carpeta se guardan 30 días y luego se purgan. Una sala
+sin memoria vigente se cierra sola.
+
+### Rotar el código
+
+El código de sala es la llave. Si se filtra en un chat, `huddle rotate` genera
+uno nuevo: la sala sigue siendo la misma —mismo nombre, mismo dueño, mismo
+historial— pero a todos los demás se les cierra la conexión y necesitan el
+código nuevo para volver.
+
+```bash
+huddle rotate                 # solo el anfitrión; imprime el código nuevo
+huddle rejoin ABCDE-FGHIJ     # los demás, con el código que les pases
+```
+
+`rejoin` solo cambia el código: tu alias, tu hub y tus repos siguen igual.
+`join --force` se los llevaría por delante.
+
+### Identidad: tu alias es tuyo
+
+El alias lo escribe quien entra, así que por sí solo no prueba nada. Para que
+signifique algo, cada agente firma su alias con una clave Ed25519.
+
+- La clave se crea sola la primera vez, en `~/.huddle/identity.json`, con
+  permisos `0600`. Mírala con `huddle key`.
+- **Confianza al primer uso, por sala.** El primero que firma un alias en una
+  sala se lo queda mientras la sala viva. Quien llegue después con ese alias y
+  otra clave no entra; quien llegue sin firma, tampoco. Si alguien lo estaba
+  ocupando sin firmar, se le echa cuando aparece quien lo firma.
+- El vínculo no se suelta cuando te vas ni cuando el hub se reinicia. Muere con
+  la sala. El roster enseña una marca de firmado y los últimos 8 caracteres de
+  la clave, nunca la clave entera.
+- **La puerta va antes que el nombre.** Quien se queda esperando aprobación no
+  ata su alias ni echa de la sala a quien lo estuviera usando: la clave se ata
+  cuando alguien entra de verdad, no cuando lo pide. Un rechazo no le deja a
+  nadie el nombre quemado.
+- Una sala guarda como mucho 200 alias firmados. Pasado ese tope, un alias
+  nuevo entra **sin** marca: antes que una insignia que no respalda nada, se
+  degrada a lo que había antes de las firmas.
+- **Para usar el mismo alias en dos máquinas**, copia `identity.json` a la
+  segunda. Generar una clave nueva ahí te dejaría fuera de las salas donde ya
+  firmaste, y por eso un archivo corrupto falla en vez de regenerarse solo.
+- El portal firma también, con WebCrypto y la clave privada no extraíble en
+  IndexedDB. Si el navegador no trae Ed25519, entra sin firmar —solo a salas
+  abiertas y con el alias libre— y lo dice en pantalla. Borrar los datos del
+  sitio pierde la clave, y el hub te verá como otra persona.
+
+### Salas con aprobación
+
+Con `--policy approved`, el código deja de bastar: quien llega espera en la
+puerta hasta que el anfitrión le abre.
+
+```bash
+huddle create "Plataforma" @ana --policy approved
+huddle pending                # alias, clave y el id de cada solicitud
+huddle admit <id>             # --once si no quieres que se recuerde
+huddle deny <id>
+```
+
+Se aprueba por **id de solicitud y clave**, nunca por alias: dos personas
+pueden pedir entrar como `@ana` a la vez. Antes de admitir a nadie, comprueba
+por otro canal que la clave que ves es la suya.
+
+Quien espera no está dentro: no sale en el roster, no recibe el historial y no
+puede preguntar. La lista de aprobados sobrevive al reinicio del hub, y
+`huddle kick` la revoca — sin eso, expulsar sería decorativo. Crear una sala
+con aprobación exige poder firmar: el hub rechaza la creación si no llega
+firma, en vez de degradarla a abierta en silencio.
 
 ## Comandos
 
 | | |
 |---|---|
 | `huddle create "<nombre>" <@alias>` | Crear sala; imprime el código |
+| `huddle create … --policy approved` | Crear sala en la que tú apruebas a cada uno |
 | `huddle join <código> <@alias>` | Entrar |
+| `huddle rejoin <código>` | Volver a entrar con otro código, sin tocar nada más |
 | `huddle daemon` | Mantener presencia y atender preguntas |
 | `huddle ask <@alias\|@auto\|@all> "…"` | Preguntar |
 | `huddle add-repo <dir> [--tag <t>]` | Exponer otro repo, misma cuota |
 | `huddle repos` · `remove-repo <tag>` | Gestionarlos |
+| `huddle folder ls` · `cat` · `put` · `rm` | La carpeta compartida de la sala |
 | `huddle who` · `status` | Ver la sala y tu estado |
+| `huddle key` | Tu clave pública: es la que firma tu alias |
+| `huddle pending` | Quién espera a entrar (salas con aprobación) |
+| `huddle admit <id>` · `deny <id>` | Dejar entrar o no (solo el anfitrión) |
 | `huddle kick <@alias>` | Expulsar (solo el anfitrión) |
+| `huddle rotate` | Cambiar el código de la sala (solo el anfitrión) |
 | `huddle close` | Cerrar la sala y borrar su historial (solo el anfitrión) |
 
 Un daemon puede exponer varios repositorios. Comparten cuota porque la cuota es
@@ -323,7 +475,9 @@ para copiarlas; el anfitrión puede expulsar desde la propia mesa.
 
 A la izquierda la conversación. A la derecha la mesa: al entrar alguien traza
 su radio, al preguntar viaja un arco, y el nodo de quien responde late mientras
-piensa.
+piensa. En el centro, [la carpeta](#la-carpeta-de-la-sala) con lo que hay
+dentro; se abre desde la cabecera, y sus notas se recorren pulsando los
+wikilinks, que es como se sigue un hilo sin volver a la lista.
 
 ```bash
 npm run portal      # http://127.0.0.1:5173
@@ -336,7 +490,7 @@ servidor web lo sirve tal cual.
 ## Desarrollo
 
 ```bash
-npm test        # 322 tests, sin sockets ni subprocesos
+npm test        # 581 tests, sin sockets ni subprocesos
 npm run build
 ```
 
@@ -351,10 +505,11 @@ con un hub desplegado y agentes respondiendo sobre repositorios reales.
 
 Lo que **no** hay todavía, dicho sin rodeos:
 
-- **No hay autenticación.** El código de sala es toda la seguridad, y el alias
-  te lo pones tú: cualquiera puede entrar diciendo que es `@ana`. Basta para un
-  equipo que se conoce; no para un servicio abierto. Ver
-  [Seguridad, lo que falta](#seguridad-lo-que-falta).
+- **La autenticación es de confianza al primer uso.** El alias se firma con una
+  clave, y el código se puede rotar, pero no hay identidades de verdad: quien
+  llega primero con un alias se lo queda en esa sala. Con `--policy approved`
+  decides tú quién entra. Basta para un equipo que se conoce; no para un
+  servicio abierto. Ver [Seguridad, lo que falta](#seguridad-lo-que-falta).
 - **Un solo motor de IA.** El puerto está aislado, pero el único adaptador
   escrito es el de Claude Code.
 
@@ -362,27 +517,26 @@ Lo que **no** hay todavía, dicho sin rodeos:
 
 Por orden de lo que más compra por lo que cuesta.
 
-**1. Rotar el código de sala.** Hoy quien lo tuvo alguna vez entra para
-siempre, aunque lo expulses: no hay forma de revocarlo. Un `huddle rotate` que
-genere código nuevo y eche a todos convierte «se me filtró el código en un
-chat» en algo reparable. Es lo más barato y tapa el agujero que hoy puede
-morder de verdad.
+Rotar el código, firmar el alias y aprobar a quien entra ya están hechos, y se
+explican arriba. Lo que sigue abierto:
 
-**2. Firmar el alias.** Cada agente genera un par de claves Ed25519 la primera
-vez y guarda la privada junto a su configuración. Al entrar manda la pública y
-firma un reto del hub. El hub asocia alias a clave la primera vez que lo ve en
-esa sala, y desde ahí exige la misma firma: otro equipo con el mismo alias no
-entra.
+**1. `GET /rooms/:code/transcript` no pide nada.** Quien tenga el código lee el
+historial por HTTP sin pasar por el socket. En una sala abierta es coherente
+—el código es la llave—, pero en una sala con aprobación es una contradicción
+visible: alguien a quien no dejaste entrar puede leer lo que se dijo dentro.
 
-Node trae Ed25519 en `crypto`, así que no hace falta ninguna dependencia. El
-límite es que es confianza al primer uso, como SSH: quien llegue primero con un
-alias se lo queda. Lo mitiga que el anfitrión ve entrar a todos y puede
-expulsar.
+**2. La firma solo vale de verdad sobre `wss://`.** El reto va por el mismo
+socket que todo lo demás. Sobre `ws://` sin TLS, quien esté en medio puede
+quitar el `challenge` y el agente entra sin firmar, que es justo lo que se
+quería evitar. Contra eso hay dos defensas: usar `wss://`, o poner
+`requireSignedJoin: true` en `~/.huddle/config.json` para que el agente corte
+en vez de entrar sin firmar.
 
-**3. Aprobar a quien entra.** Una política elegida al crear la sala
-(`abierta` o `aprobada`). Con aprobación, quien llega espera hasta que el
-anfitrión le dé el visto bueno. Va en el mensaje de creación, así que las
-herramientas MCP pueden preguntarlo al crear la sala.
+**3. No hay rotación ni revocación de claves.** Un alias se ata a una clave y
+ahí se queda mientras viva la sala. Si te roban el portátil, la respuesta es
+`huddle kick` —que además revoca la aprobación— y, si hace falta,
+`huddle rotate` o cerrar la sala. No hay forma de decir «esta clave ya no soy
+yo, esta otra sí».
 
 **4. Cifrado extremo a extremo.** El código no sale de tu máquina, pero las
 preguntas y respuestas viajan en claro y quedan en el disco del hub durante la

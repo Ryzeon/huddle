@@ -48,7 +48,17 @@ class MemoryTranscripts implements TranscriptStorePort {
     else this.byRoom.set(roomCode, kept);
     return kept.length;
   }
+  rename(from: string, to: string): boolean {
+    if (this.byRoom.has(to)) return false;
+    const entries = this.byRoom.get(from);
+    if (!entries) return true;
+    this.byRoom.delete(from);
+    this.byRoom.set(to, entries);
+    return true;
+  }
 }
+
+const rejectEverything = { verify: () => false };
 
 class MemoryRooms {
   records: RoomRecord[] = [];
@@ -69,7 +79,7 @@ describe('salas que sobreviven al reinicio', () => {
 
   const build = (): HubService =>
     new HubService(
-      { clock: { now: () => now }, timers: noTimers, transcripts, rooms },
+      { clock: { now: () => now }, timers: noTimers, transcripts, rooms, verifier: rejectEverything },
       DEFAULT_HUB_CONFIG,
     );
 
@@ -123,6 +133,38 @@ describe('salas que sobreviven al reinicio', () => {
 
     assert.equal(otro.last('welcome')?.room, code, 'la sala debería seguir existiendo');
     assert.equal(otro.last('welcome')?.roomName, 'Equipo', 'y conservar su nombre');
+  });
+
+  test('el código nuevo sobrevive al reinicio, y el viejo no vuelve', () => {
+    const primero = build();
+    const ana = new FakeChannel('a');
+    const viejo = create(primero, ana, '@ana');
+
+    primero.handle(ana, { t: 'rotate', id: 'r1' });
+    const nuevo = ana.last('room_code')!.room;
+
+    const segundo = build();
+    segundo.restore();
+
+    const beto = new FakeChannel('b');
+    segundo.handle(beto, {
+      t: 'join',
+      v: PROTOCOL_VERSION,
+      room: nuevo,
+      alias: '@beto',
+      quotaRemaining: null,
+    });
+    assert.equal(beto.last('welcome')?.room, nuevo);
+
+    const conElViejo = new FakeChannel('c');
+    segundo.handle(conElViejo, {
+      t: 'join',
+      v: PROTOCOL_VERSION,
+      room: viejo,
+      alias: '@caro',
+      quotaRemaining: null,
+    });
+    assert.equal(conElViejo.closed?.code, 4001, 'un reinicio no resucita el código filtrado');
   });
 
   test('el historial sobrevive al reinicio y se puede leer', () => {

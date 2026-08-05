@@ -1,7 +1,13 @@
 import { PROTOCOL_VERSION, normalizeAlias, type CreateRoomMessage } from '@huddle/protocol';
-import type { ClockPort, MemberChannelPort } from '../ports/member-channel.js';
+import type {
+  ClockPort,
+  MemberChannelPort,
+  SignatureVerifierPort,
+} from '../ports/member-channel.js';
 import type { RoomRegistry } from '../state/room-registry.js';
 import type { RoomNotifier } from '../state/room-notifier.js';
+import type { Challenges } from '../state/challenges.js';
+import { verifiedKey } from './verify-identity.js';
 
 export interface CreateRoomCommand {
   channel: MemberChannelPort;
@@ -12,6 +18,8 @@ export interface CreateRoomDeps {
   registry: RoomRegistry;
   notifier: RoomNotifier;
   clock: ClockPort;
+  challenges: Challenges;
+  verifier: SignatureVerifierPort;
   generateCode: () => string;
   log: (message: string) => void;
 }
@@ -44,9 +52,35 @@ export class CreateRoomHandler {
       return;
     }
 
-    const { registry, notifier, clock, log } = this.deps;
+    const { registry, notifier, clock, challenges, verifier, log } = this.deps;
     const alias = normalizeAlias(message.alias);
+
+    // La sala aún no tiene código, así que `create` firma con el campo vacío.
+    // Lo que ata la firma aquí es el `kind`: no vale como `join` en ningún lado.
+    const offered = verifiedKey(
+      { challenges, verifier },
+      {
+        channelId: channel.id,
+        proof: message.proof,
+        context: { kind: 'create', room: '', alias, tag: message.tag },
+      },
+    );
+
     const room = registry.createRoom(name, this.deps.generateCode, clock.now());
+    const verified = offered !== undefined && room.bindKey(alias, offered);
+
+    // `validate` ya garantiza que no hay `approved` sin prueba; esto es la
+    // segunda cerradura, por si algún día se entra por otra puerta.
+    if (message.policy === 'approved' && offered) {
+      room.restorePolicy('approved');
+      room.restoreOwnerKey(offered);
+    }
+
+    // Quién escribe en la carpeta y si se recuerdan las respuestas se decide
+    // al crear la sala y ya no cambia: un anfitrión que hereda el mando no
+    // debería poder abrir la carpeta que otro cerró, ni apagar una memoria
+    // sobre la que los demás ya han escrito.
+    room.folder.configure(message.folderWrite ?? 'all', message.folderMemory !== false);
 
     room.join(
       {
@@ -54,6 +88,8 @@ export class CreateRoomHandler {
         alias,
         tag: message.tag,
         card: message.card,
+        pubkey: verified ? offered : undefined,
+        verified,
         lastSeen: clock.now(),
         quotaRemaining: message.quotaRemaining,
       },
@@ -69,9 +105,10 @@ export class CreateRoomHandler {
       you: alias,
       host: alias,
       members: room.roster(),
+      verified,
     });
     notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });
 
-    log(`${alias} creó "${name}" → código ${room.code}`);
+    log(`${alias} creó "${name}" → código ${room.code} (${room.policy})`);
   }
 }

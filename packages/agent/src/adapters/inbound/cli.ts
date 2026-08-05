@@ -4,8 +4,18 @@ import { runMcpServer } from './mcp-server.js';
 import { runDaemon, runStop } from './cli/daemon.js';
 import { usage } from './cli/io.js';
 import { runAsk, runQuery } from './cli/queries.js';
-import { runAddRepo, runJoin, runListRepos, runRemoveRepo } from './cli/repos.js';
-import { runClose, runCreate, runKick } from './cli/rooms.js';
+import { runAddRepo, runJoin, runListRepos, runRejoin, runRemoveRepo } from './cli/repos.js';
+import {
+  runAdmit,
+  runClose,
+  runCreate,
+  runDeny,
+  runKick,
+  runPending,
+  runRotate,
+} from './cli/rooms.js';
+import { runKey } from './cli/identity.js';
+import { runFolder } from './cli/folder.js';
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -15,6 +25,16 @@ async function main(): Promise<void> {
       return runCreate(args);
     case 'join':
       return runJoin(args);
+    case 'rejoin':
+      return runRejoin(args);
+    case 'rotate':
+      return runRotate(args);
+    case 'pending':
+      return runPending();
+    case 'admit':
+      return runAdmit(args);
+    case 'deny':
+      return runDeny(args);
     case 'kick':
       return runKick(args);
     case 'close':
@@ -25,6 +45,8 @@ async function main(): Promise<void> {
       return runRemoveRepo(args);
     case 'repos':
       return runListRepos();
+    case 'folder':
+      return runFolder(args);
     case 'daemon':
       return runDaemon();
     case 'stop':
@@ -33,6 +55,8 @@ async function main(): Promise<void> {
       return runMcpServer();
     case 'ask':
       return runAsk(args);
+    case 'key':
+      return runKey();
     case 'who':
       return runQuery('members');
     case 'status':

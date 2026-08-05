@@ -4,6 +4,8 @@ import type { ClockPort } from '../ports/member-channel.js';
 import type { RoomNotifier, RelayableMessage } from '../state/room-notifier.js';
 import type { AskTimeouts } from '../state/ask-timeouts.js';
 import type { TranscriptStorePort } from '../ports/member-channel.js';
+import type { RoomMember } from '../../domain/member.js';
+import type { RememberAnswerHandler } from './remember-answer.js';
 
 export interface RelayCommand {
   room: Room;
@@ -13,7 +15,12 @@ export interface RelayCommand {
 
 export interface FinishAnswerCommand {
   room: Room;
-  responder: Alias;
+  /**
+   * El miembro, no solo su alias: la nota que se guarda en la carpeta sale de
+   * su tarjeta de capacidades, que es donde están el repositorio y las
+   * palabras con las que se clasifica.
+   */
+  responder: RoomMember;
   message: ResultMessage;
 }
 
@@ -22,6 +29,8 @@ export interface RelayAnswerDeps {
   timeouts: AskTimeouts;
   clock: ClockPort;
   transcripts: TranscriptStorePort;
+  /** Sin esto, la respuesta se relaya y se archiva, pero no se recuerda. */
+  remember?: RememberAnswerHandler;
 }
 
 export class RelayAnswerHandler {
@@ -31,18 +40,20 @@ export class RelayAnswerHandler {
     this.deps.notifier.toAsker(room, message, responder);
   }
 
-  finish({ room, responder, message }: FinishAnswerCommand): void {
+  /** Devuelve `true` si la carpeta cambió y hay que persistir la sala. */
+  finish({ room, responder, message }: FinishAnswerCommand): boolean {
     const { notifier, clock } = this.deps;
     const pending = room.pending(message.id);
+    let remembered = false;
 
-    notifier.toAsker(room, message, responder);
+    notifier.toAsker(room, message, responder.alias);
 
     if (pending) {
       notifier.broadcast(room, {
         t: 'activity',
         id: message.id,
         from: pending.from,
-        to: responder,
+        to: responder.alias,
         phase: 'answered',
         elapsedMs: message.elapsedMs,
         cached: message.cached,
@@ -51,7 +62,7 @@ export class RelayAnswerHandler {
       const entry = {
         id: message.id,
         from: pending.from,
-        to: responder,
+        to: responder.alias,
         question: pending.question,
         answer: message.answer,
         sources: message.sources,
@@ -66,9 +77,16 @@ export class RelayAnswerHandler {
       // A disco al vuelo: si el hub muere, no hay ventana en la que exista
       // una respuesta que no esté ya en el historial.
       this.deps.transcripts.append(room.code, room.name, entry);
+
+      // Y a la carpeta, que es donde la va a encontrar el agente del siguiente
+      // que pregunte. Una respuesta fallida no se recuerda: no hay nada que
+      // aprender de un `agent_failed`.
+      remembered =
+        this.deps.remember?.remember({ room, entry, card: responder.card }) ?? false;
     }
 
-    this.settle(room, message.id, responder);
+    this.settle(room, message.id, responder.alias);
+    return remembered;
   }
 
   fail({ room, responder, message }: RelayCommand): void {

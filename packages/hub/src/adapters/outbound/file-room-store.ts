@@ -15,7 +15,7 @@ export class FileRoomStore implements RoomStorePort {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.file, 'utf8'));
       if (!Array.isArray(parsed)) return [];
-      return parsed.filter(isRoomRecord);
+      return parsed.filter(isRoomRecord).map(sanitize);
     } catch {
       // Archivo corrupto: es mejor arrancar sin salas que no arrancar.
       return [];
@@ -38,6 +38,37 @@ export class FileRoomStore implements RoomStorePort {
       }
     }
   }
+}
+
+/**
+ * Descarta lo que no tenga forma. Una política desconocida se ignora, y con
+ * ella la sala queda abierta; una lista de aprobados con basura se tira
+ * entera, y entonces todos vuelven a pasar por la puerta. Los dos fallos van
+ * hacia el lado que no sorprende a nadie.
+ */
+function sanitize(record: RoomRecord): RoomRecord {
+  const clean: RoomRecord = { ...record };
+
+  if (clean.policy !== 'approved') {
+    delete clean.policy;
+    delete clean.ownerKey;
+    delete clean.approved;
+    return clean;
+  }
+
+  if (typeof clean.ownerKey !== 'string') delete clean.ownerKey;
+  clean.approved = Array.isArray(clean.approved)
+    ? clean.approved.filter(
+        (entry) =>
+          // La clave vacía aprobaría a cualquiera que no firme.
+          typeof entry?.key === 'string' &&
+          entry.key.length > 0 &&
+          typeof entry?.alias === 'string' &&
+          typeof entry?.at === 'number',
+      )
+    : [];
+
+  return clean;
 }
 
 function isRoomRecord(value: unknown): value is RoomRecord {

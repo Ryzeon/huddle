@@ -15,9 +15,10 @@
  * independientes contra un único plan.
  */
 
-import type { Config, Workspace } from '../config.js';
+import { FOLDER_DIR, loadConfig, saveConfig, type Config, type Workspace } from '../config.js';
 import { Quota } from '../domain/quota.js';
 import { QuestionCache } from '../domain/answer-cache.js';
+import { PendingRequests } from '../domain/pending-requests.js';
 import { AgentService, WorkspaceAgent } from '../application/agent-service.js';
 import {
   AnswerQuestionUseCase,
@@ -26,9 +27,11 @@ import {
 import {
   systemClock,
   type AuditLogPort,
+  type IdentitySigner,
   type LoggerPort,
   type RoomGatewayPort,
 } from '../application/ports/index.js';
+import { loadOrCreateIdentity } from '../identity.js';
 import { ClaudeCodeEngine } from '../adapters/outbound/claude/engine.js';
 import { ClaudeVocabularyExpander } from '../adapters/outbound/claude/vocabulary-expander.js';
 import { GitRepoInspector } from '../adapters/outbound/git-repo-inspector.js';
@@ -41,7 +44,10 @@ import {
 } from '../adapters/outbound/fs-stores.js';
 import { AskQueue } from '../application/ask-queue.js';
 import { ExpandVocabularyUseCase } from '../application/use-cases/expand-vocabulary.js';
+import { SyncFolderUseCase } from '../application/use-cases/sync-folder.js';
 import { VocabularyAwareInspector } from '../application/vocabulary-aware-inspector.js';
+import { FsFolderCache } from '../adapters/outbound/fs-folder-cache.js';
+import { FolderWatcher } from '../adapters/inbound/folder-watcher.js';
 
 export function makeWorkspaceFactory(
   config: Config,
@@ -51,14 +57,35 @@ export function makeWorkspaceFactory(
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
+  signer: IdentitySigner,
+  pending: PendingRequests,
 ): (workspace: Workspace) => WorkspaceAgent {
   return (workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue);
+    buildWorkspace(
+      config,
+      workspace,
+      quota,
+      logger,
+      audit,
+      gateways,
+      announceQuota,
+      queue,
+      signer,
+      pending,
+    );
 }
 
 export function buildAgent(config: Config): AgentService {
   const logger = new ConsoleLogger();
   const audit = new JsonlAuditLog();
+
+  // Una sola clave para toda la instalación: el alias es de la persona, no del
+  // repositorio, así que los N gateways firman con la misma.
+  const signer = loadOrCreateIdentity();
+
+  // Una sola lista para todos los repositorios: la misma solicitud llega por
+  // cada conexión, y verla N veces no es verla N veces.
+  const pending = new PendingRequests();
 
   // Un solo presupuesto para todos los repositorios: es el de tu plan.
   const quota = new Quota(config.dailyQuota, config.maxConcurrent, {
@@ -76,15 +103,37 @@ export function buildAgent(config: Config): AgentService {
     for (const gateway of gateways) gateway.announcePresence(remaining);
   };
 
-  const workspaces = config.workspaces.map((workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue),
+  // La copia local de la carpeta es una sola, y la sincroniza un único
+  // repositorio: el primero. Los demás la leen —el motor la recibe con
+  // `--add-dir`—, pero escribir en ella desde N conexiones sería N daemons
+  // peleándose por los mismos archivos.
+  const folderCache = new FsFolderCache(FOLDER_DIR);
+
+  const workspaces = config.workspaces.map((workspace, index) =>
+    buildWorkspace(
+      config,
+      workspace,
+      quota,
+      logger,
+      audit,
+      gateways,
+      announceQuota,
+      queue,
+      signer,
+      pending,
+      index === 0 ? folderCache : undefined,
+    ),
   );
+
+  const folderSync = workspaces[0]?.folderSync;
 
   return new AgentService(
     {
       workspaces,
       quota,
       logger,
+      pending,
+      ...(folderSync && { folderWatcher: new FolderWatcher({ sync: folderSync, logger }) }),
       makeWorkspace: makeWorkspaceFactory(
         config,
         quota,
@@ -93,10 +142,31 @@ export function buildAgent(config: Config): AgentService {
         gateways,
         announceQuota,
         queue,
+        signer,
+        pending,
       ),
+      onCodeRotated: (code) => rememberCode(config, code, logger),
     },
     { room: config.room, alias: config.alias, hub: config.hub },
   );
+}
+
+/**
+ * Guarda el código nuevo. Se relee el archivo antes de escribir porque entre
+ * medias pueden haberse añadido repositorios, y escribir la configuración con
+ * la que arrancó el daemon se los llevaría por delante.
+ */
+function rememberCode(config: Config, code: string, logger: LoggerPort): void {
+  config.room = code;
+  try {
+    saveConfig({ ...loadConfig(), room: code });
+  } catch (error) {
+    logger.warn(
+      `el código nuevo es ${code}, pero no se pudo guardar: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 function buildWorkspace(
@@ -108,6 +178,10 @@ function buildWorkspace(
   gateways: RoomGatewayPort[],
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
+  signer: IdentitySigner,
+  pending: PendingRequests,
+  /** Solo el repositorio que sincroniza la carpeta lo recibe. */
+  folderCache?: FsFolderCache,
 ): WorkspaceAgent {
   // El inspector de git dice de qué trata el repositorio con sus propias
   // palabras; el decorador le añade aquellas con las que otros lo buscarían.
@@ -132,6 +206,8 @@ function buildWorkspace(
     store: createCacheStore(cacheFileFor(workspace)),
   });
 
+  // La carpeta se le pasa a TODOS los motores, aunque solo uno la sincronice:
+  // el contexto de la sala vale para responder sobre cualquier repositorio.
   const engine = new ClaudeCodeEngine({
     cwd: workspace.cwd,
     model: config.model,
@@ -139,6 +215,7 @@ function buildWorkspace(
     tools: config.tools,
     denyPaths: config.denyPaths,
     timeoutMs: config.timeoutSeconds * 1000,
+    folderDir: FOLDER_DIR,
   });
 
   // Estado que sobrevive entre preguntas de *este* repositorio: la sesión del
@@ -152,6 +229,8 @@ function buildWorkspace(
       alias: config.alias,
       tag: workspace.tag,
       token: config.token,
+      signer,
+      requireSignedJoin: config.requireSignedJoin,
     },
     { card: () => repo.snapshot(), quotaRemaining: () => quota.remaining },
     logger,
@@ -172,11 +251,15 @@ function buildWorkspace(
   return new WorkspaceAgent({
     tag: workspace.tag,
     room,
+    pending,
     repo,
     cache,
     answerQuestion,
     state,
     logger,
+    ...(folderCache && {
+      folderSync: new SyncFolderUseCase({ cache: folderCache, gateway: room, logger }),
+    }),
   });
 }
 

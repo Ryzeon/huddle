@@ -26,4 +26,12 @@ await cp(new URL('dist/', PORTAL), new URL('dist/', SITE), {
 // desde la raíz del repositorio. Sin esto, en producción da 404.
 await cp(new URL('brand/', ROOT), new URL('brand/', SITE), { recursive: true });
 
+// Y `@huddle/protocol` en `/protocol/`, que es a donde apunta el import map
+// del HTML. Sin esto el portal no arranca: el navegador no resuelve
+// especificadores de paquete y `main.js` se cae en el primer import.
+await cp(new URL('packages/protocol/dist/', ROOT), new URL('protocol/', SITE), {
+  recursive: true,
+  filter: (source) => !source.endsWith('.tsbuildinfo'),
+});
+
 console.log('sitio listo en site/');

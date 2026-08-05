@@ -1,4 +1,7 @@
 import { randomInt } from 'node:crypto';
+import { normalizeRoomCode } from '@huddle/protocol';
+
+export { normalizeRoomCode };
 
 const ALPHABET = 'BCDFGHJKMNPQRSTVWXYZ23456789';
 const GROUP = 5;
@@ -12,10 +15,6 @@ export function generateRoomCode(random: (max: number) => number = randomInt): s
     groups.push(group);
   }
   return groups.join('-');
-}
-
-export function normalizeRoomCode(raw: string): string {
-  return raw.trim().toUpperCase().replace(/\s+/g, '');
 }
 
 export function isValidRoomCode(raw: string): boolean {

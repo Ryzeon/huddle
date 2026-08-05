@@ -1,11 +1,26 @@
 import type { RememberedRoom, RoomsStore } from '../../application/ports/room-feed.js';
 import type { SessionState } from '../../domain/session-state.js';
+import { readUploads, type Upload } from '../../domain/uploads.js';
 import { clear, el, need } from './dom.js';
 import { isotypeElement } from './brand.js';
 
+/** Lo que se decide al crear una sala y ya no cambia. */
+export interface NewRoom {
+  name: string;
+  alias: string;
+  hub: string;
+  approved: boolean;
+  folderHost: boolean;
+  folderMemory: boolean;
+  /** Con lo que empieza la carpeta. Se sube en cuanto la sala existe. */
+  uploads: Upload[];
+  /** Lo que no se pudo leer, para contarlo cuando ya haya sala. */
+  rechazados: string[];
+}
+
 export interface RoomsHandlers {
   onOpen(room: { code: string; alias: string; hub: string }): void;
-  onCreate(room: { name: string; alias: string; hub: string }): void;
+  onCreate(room: NewRoom): void;
   onForget(code: string): void;
 }
 
@@ -19,7 +34,12 @@ export class RoomsView {
     private readonly root: HTMLElement,
     private readonly store: RoomsStore,
     private readonly handlers: RoomsHandlers,
-    private readonly defaults: { hub: string; alias: string },
+    /**
+     * `canSign` decide si se puede ofrecer la aprobación: el hub rechaza crear
+     * una sala con puerta si el cliente no puede firmar, y ofrecerla igual
+     * sería prometer una cerradura que no se va a poner.
+     */
+    private readonly defaults: { hub: string; alias: string; canSign: boolean },
   ) {
     this.list = need('[data-salas-lista]', root);
     this.dialog = need<HTMLDialogElement>('[data-dialogo]', document.body);
@@ -40,7 +60,7 @@ export class RoomsView {
 
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
-      this.submit();
+      void this.submit();
     });
     need<HTMLButtonElement>('[data-cancelar]', this.dialog).addEventListener('click', () =>
       this.dialog.close(),
@@ -110,6 +130,18 @@ export class RoomsView {
     }
     need<HTMLElement>('[data-campo-nombre]', this.dialog).hidden = mode !== 'crear';
     need<HTMLElement>('[data-campo-codigo]', this.dialog).hidden = mode !== 'entrar';
+
+    const ajustes = this.dialog.querySelector<HTMLElement>('[data-ajustes-sala]');
+    if (ajustes) ajustes.hidden = mode !== 'crear';
+
+    const aprobacion = this.dialog.querySelector<HTMLInputElement>('[data-campo-aprobacion]');
+    if (aprobacion) {
+      aprobacion.disabled = !this.defaults.canSign;
+      if (!this.defaults.canSign) {
+        aprobacion.checked = false;
+        aprobacion.title = 'este navegador no puede firmar tu alias, y sin firma la puerta no cierra';
+      }
+    }
     need<HTMLButtonElement>('[data-aceptar]', this.dialog).textContent =
       mode === 'crear' ? 'crear sala' : 'entrar';
 
@@ -125,7 +157,7 @@ export class RoomsView {
     }, 0);
   }
 
-  private submit(): void {
+  private async submit(): Promise<void> {
     const mode = this.dialog.dataset['modoActual'] === 'crear' ? 'crear' : 'entrar';
     const data = new FormData(this.form);
     const hub = String(data.get('hub') ?? '').trim();
@@ -135,7 +167,25 @@ export class RoomsView {
     if (mode === 'crear') {
       const name = String(data.get('nombre') ?? '').trim();
       if (!name) return;
-      this.handlers.onCreate({ name, alias, hub });
+
+      // Se leen aquí, antes de navegar: los `File` no sobreviven a la recarga
+      // que abre la sala nueva, pero su texto sí.
+      const elegidos = this.dialog.querySelector<HTMLInputElement>('[name=archivos]')?.files;
+      const { ok, rechazados } = elegidos
+        ? await readUploads(elegidos)
+        : { ok: [], rechazados: [] };
+
+      this.handlers.onCreate({
+        uploads: ok,
+        rechazados,
+        name,
+        alias,
+        hub,
+        approved: data.get('aprobacion') !== null && this.defaults.canSign,
+        folderHost: data.get('carpeta-host') !== null,
+        // La casilla dice «no dejar escritas», así que va al revés que el dato.
+        folderMemory: data.get('sin-memoria') === null,
+      });
     } else {
       const code = String(data.get('codigo') ?? '').trim().toUpperCase();
       if (!code) return;

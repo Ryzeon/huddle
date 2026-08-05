@@ -243,6 +243,126 @@ describe('cierre y transporte', () => {
   });
 });
 
+describe('cambiar el código de la sala', () => {
+  it('el anfitrión ve el código nuevo en la cabecera', () => {
+    const state = run([
+      WELCOME,
+      { t: 'room_code', id: 'r1', room: 'NUEVO-CODIG', previous: 'MPP8V-7HZS5', by: '@ana' },
+    ]);
+    assert.equal(state.room, 'NUEVO-CODIG');
+    assert.equal(state.status, 'online', 'a él no lo echan de ningún lado');
+  });
+
+  it('el cambio queda anotado en el hilo con quién lo hizo', () => {
+    const state = run([
+      WELCOME,
+      { t: 'room_code', id: 'r1', room: 'NUEVO-CODIG', previous: 'MPP8V-7HZS5', by: '@ana' },
+    ]);
+    const ultima = state.entries.at(-1);
+    assert.match(ultima?.text ?? '', /@ana/);
+    assert.equal(ultima?.meta, 'NUEVO-CODIG');
+  });
+
+  it('a quien echan no se le dice que la sala se cerró, porque sigue abierta', () => {
+    const state = run([WELCOME, { t: 'room_closed', reason: 'code_rotated' }]);
+    assert.equal(state.closed, true);
+    assert.doesNotMatch(state.entries.at(-1)?.text ?? '', /se cerró/);
+    assert.match(state.entries.at(-1)?.text ?? '', /código/);
+  });
+});
+
+describe('alias firmado', () => {
+  it('te echan porque el alias era de otro, y no se dice que la sala se cerró', () => {
+    const state = run([WELCOME, { t: 'room_closed', reason: 'identity_taken' }]);
+    assert.equal(state.closed, true);
+    assert.doesNotMatch(state.entries.at(-1)?.text ?? '', /se cerró/);
+  });
+
+  it('el motivo de identidad se traduce en el hilo', () => {
+    const state = run([
+      WELCOME,
+      { t: 'error', id: 'x', reason: 'identity_mismatch', detail: '…abc12345' },
+    ]);
+    assert.match(state.entries.at(-1)?.text ?? '', /firmado por otra clave/);
+    assert.equal(state.entries.at(-1)?.meta, '…abc12345');
+  });
+});
+
+describe('la puerta', () => {
+  const ESPERA: PortalEvent = {
+    t: 'waiting_approval',
+    id: 'w1',
+    room: 'MPP8V-7HZS5',
+    roomName: 'plataforma',
+    you: '@visita',
+    host: '@ana',
+    key: 'abc12345',
+  };
+
+  const SOLICITUD: PortalEvent = {
+    t: 'join_request',
+    id: 'r1',
+    alias: '@beto',
+    key: 'def67890',
+    at: 1_000,
+  };
+
+  it('esperar no es estar dentro', () => {
+    const state = run([ESPERA]);
+    assert.equal(state.status, 'waiting');
+    assert.deepEqual(state.members, [], 'todavía no ve a nadie');
+    assert.equal(state.waitingInfo?.host, '@ana');
+    assert.equal(state.waitingInfo?.key, 'abc12345');
+  });
+
+  it('al entrar por fin, la pantalla de espera desaparece', () => {
+    const state = run([ESPERA, WELCOME]);
+    assert.equal(state.waitingInfo, null);
+    assert.equal(state.status, 'online');
+  });
+
+  it('el anfitrión ve quién pide entrar, con su clave', () => {
+    const state = run([WELCOME, SOLICITUD]);
+    assert.equal(state.pending.length, 1);
+    assert.equal(state.pending[0]?.alias, '@beto');
+    assert.equal(state.pending[0]?.key, 'def67890');
+  });
+
+  it('la misma solicitud por varios repos se cuenta una vez', () => {
+    const state = run([WELCOME, SOLICITUD, SOLICITUD, SOLICITUD]);
+    assert.equal(state.pending.length, 1, 'un repo por conexión, una sola persona');
+    assert.equal(
+      state.entries.filter((e) => e.text?.includes('pide entrar')).length,
+      1,
+      'y un solo aviso en el hilo',
+    );
+  });
+
+  it('resolver una solicitud la quita de la lista', () => {
+    const state = run([
+      WELCOME,
+      SOLICITUD,
+      { t: 'join_request_gone', id: 'r1', reason: 'resolved' },
+    ]);
+    assert.equal(state.pending.length, 0);
+  });
+
+  it('retirar una solicitud que no está no cambia el estado', () => {
+    const antes = run([WELCOME, SOLICITUD]);
+    const despues = reduce(antes, { t: 'join_request_gone', id: 'otra', reason: 'left' }, 9_000);
+    assert.equal(despues, antes, 'sin cambios no hay que repintar');
+  });
+
+  it('dos personas distintas esperan las dos', () => {
+    const state = run([
+      WELCOME,
+      SOLICITUD,
+      { t: 'join_request', id: 'r2', alias: '@caro', key: 'xyz11111', at: 2_000 },
+    ]);
+    assert.equal(state.pending.length, 2);
+  });
+});
+
 describe('varios', () => {
   it('los ids de entrada son únicos y crecientes', () => {
     const state = run([WELCOME, { t: 'msg', from: '@ana', text: 'a' }, { t: 'msg', from: '@ana', text: 'b' }]);
@@ -266,5 +386,96 @@ describe('varios', () => {
       { t: 'room_state', members: [member('@ana'), member('@ana', { tag: 'api' })] },
     ]);
     assert.deepEqual(mentionables(state), ['@ana', '@ana:api', '@all', '@auto']);
+  });
+});
+
+describe('la carpeta de la sala', () => {
+  const entry = (path: string, at = 10) => ({ path, size: 12, by: '@ana', at });
+
+  it('el estado de la carpeta se reemplaza entero', () => {
+    const state = run([
+      WELCOME,
+      { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' },
+      { t: 'folder_state', entries: [entry('notas/b.md')], write: 'all' },
+    ]);
+
+    assert.deepEqual(
+      state.folder.map((f) => f.path),
+      ['notas/b.md'],
+    );
+  });
+
+  it('recuerda quién puede escribir', () => {
+    const state = run([WELCOME, { t: 'folder_state', entries: [], write: 'host' }]);
+    assert.equal(state.folderWrite, 'host');
+  });
+
+  it('el archivo pedido se queda cargando hasta que llega', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md' } };
+
+    assert.equal(state.folderOpen?.text, undefined);
+
+    state = reduce(
+      state,
+      { t: 'folder_file', id: 'g1', path: 'notas/a.md', text: '# hola', at: 10 },
+      99,
+    );
+    assert.equal(state.folderOpen?.text, '# hola');
+  });
+
+  it('un archivo que llega tarde no pisa al que se está mirando', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/b.md' } };
+
+    state = reduce(
+      state,
+      { t: 'folder_file', id: 'g1', path: 'notas/a.md', text: 'la vieja', at: 10 },
+      99,
+    );
+
+    assert.equal(state.folderOpen?.path, 'notas/b.md');
+    assert.equal(state.folderOpen?.text, undefined);
+  });
+
+  it('si borran lo que estabas leyendo, se cierra el visor', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(state, { t: 'folder_state', entries: [], write: 'all' }, 99);
+
+    assert.equal(state.folderOpen, null);
+  });
+
+  it('un cambio en otro archivo no cierra el que estás leyendo', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(
+      state,
+      { t: 'folder_state', entries: [entry('notas/a.md'), entry('notas/b.md')], write: 'all' },
+      99,
+    );
+
+    assert.equal(state.folderOpen?.text, 'x');
+  });
+
+  it('un error mientras se espera un archivo no deja el visor colgado', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/a.md' } };
+
+    state = reduce(state, { t: 'error', id: 'g1', reason: 'bad_request', detail: 'no existe' }, 99);
+
+    assert.equal(state.folderOpen, null);
+    assert.equal(state.entries.at(-1)?.kind, 'failed');
+  });
+
+  it('un error de otra cosa no cierra un archivo ya cargado', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(state, { t: 'error', id: 'q1', reason: 'timeout' }, 99);
+
+    assert.equal(state.folderOpen?.text, 'x');
   });
 });

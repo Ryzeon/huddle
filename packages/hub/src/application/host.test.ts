@@ -28,7 +28,13 @@ class FakeChannel implements MemberChannelPort {
 }
 
 const noTimers: TimerPort = { schedule: () => () => undefined };
-const noTranscripts = { append: () => undefined, read: () => [], purge: () => 0 };
+const noTranscripts = {
+  append: () => undefined,
+  read: () => [],
+  purge: () => 0,
+  rename: () => true,
+};
+const rejectEverything = { verify: () => false };
 
 describe('sala con anfitrión', () => {
   let now: number;
@@ -65,6 +71,7 @@ describe('sala con anfitrión', () => {
       clock: { now: () => now },
       timers: noTimers,
       transcripts: noTranscripts,
+      verifier: rejectEverything,
     });
     const host = new FakeChannel('host-init');
     code = create(host, '@ana');
@@ -286,6 +293,7 @@ describe('la sala es de quien la creó', () => {
       clock: { now: () => now },
       timers: noTimers,
       transcripts: noTranscripts,
+      verifier: rejectEverything,
     });
     code = create(new FakeChannel('ana-1'), '@ana');
   });
@@ -349,6 +357,7 @@ describe('cerrar la sala', () => {
     now = 1_000_000;
     hub = new HubService({
       clock: { now: () => now }, timers: noTimers, transcripts: noTranscripts,
+      verifier: rejectEverything,
     });
     code = create(new FakeChannel('ana'), '@ana');
   });
@@ -392,6 +401,7 @@ describe('el dueño que mira', () => {
     let now = 1_000_000;
     const hub = new HubService({
       clock: { now: () => now }, timers: noTimers, transcripts: noTranscripts,
+      verifier: rejectEverything,
     });
 
     // Crear desde el portal: el creador es dueño aunque luego entre mirando.

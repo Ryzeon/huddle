@@ -21,6 +21,18 @@
     <meta name="twitter:image" content="/brand/og.png" />
     <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+
+    <!--
+      El portal no lleva bundler: el navegador carga el ESM que emite tsc tal
+      cual. Casi todo lo que usa de `@huddle/protocol` son tipos, que
+      desaparecen al compilar, pero la firma del alias necesita el código de
+      verdad — y ese especificador el navegador no sabe resolverlo solo.
+      Reimplementarlo aquí duplicaría el texto que se firma en dos sitios, que
+      es la última cosa que conviene duplicar.
+    -->
+    <script type="importmap">
+      { "imports": { "@huddle/protocol": "/protocol/index.js" } }
+    </script>
     <script type="module" src="/dist/composition/main.js"></script>
   </head>
   <body>
@@ -44,7 +56,12 @@
         </dl>
 
         <p class="estado" data-estado data-tono="apagado" role="status">sin conectar</p>
+        <button class="boton boton--fino" type="button" data-carpeta-abrir hidden aria-expanded="false">
+          carpeta
+        </button>
         <button class="boton boton--fino" type="button" data-salir hidden>salir</button>
+        <button class="boton boton--fino" type="button" data-rotar-codigo hidden>cambiar código</button>
+        <section class="puerta" data-puerta hidden></section>
         <button class="boton boton--fino" type="button" data-cerrar-sala hidden>cerrar sala</button>
 
         <button class="boton boton--fino" type="button" data-tema title="cambiar entre tema claro y oscuro">
@@ -109,6 +126,26 @@
         <button class="boton boton--fino escenario__repetir" type="button" data-repetir hidden>
           repetir demo
         </button>
+
+        <section class="carpeta" data-carpeta hidden aria-label="carpeta de la sala">
+          <header class="carpeta__cabeza">
+            <h2 class="carpeta__titulo" data-carpeta-titulo>carpeta</h2>
+            <div class="panel__acciones">
+              <label class="boton boton--fino carpeta__subir" data-carpeta-subir-etiqueta hidden>
+                subir archivos
+                <input type="file" multiple accept=".md,.txt,.json,.yml,.yaml,.csv,.sql,.toml,.ini,.zip,text/*,application/zip" data-carpeta-subir />
+              </label>
+              <button class="boton boton--realce boton--fino" type="button" data-carpeta-nueva hidden>
+                + nota
+              </button>
+              <button class="boton boton--fino" type="button" data-carpeta-cerrar>cerrar</button>
+            </div>
+          </header>
+          <div class="carpeta__cuerpo">
+            <nav class="carpeta__lista" data-carpeta-lista aria-label="archivos"></nav>
+            <div class="carpeta__visor" data-carpeta-visor></div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -142,6 +179,51 @@
           <span>hub</span>
           <input name="hub" type="text" placeholder="ws://localhost:8787" autocomplete="off" spellcheck="false" />
         </label>
+
+        <!--
+          Solo al crear: son decisiones de la sala, y se toman una vez. Quien
+          entra no las elige, las hereda.
+        -->
+        <fieldset class="ajustes" data-ajustes-sala hidden>
+          <legend>cómo será la sala</legend>
+
+          <label class="ajuste">
+            <input type="checkbox" name="aprobacion" data-campo-aprobacion />
+            <span>
+              <b>apruebas a cada uno al entrar</b>
+              <small>el código deja de bastar: esperan en la puerta hasta que abras</small>
+            </span>
+          </label>
+
+          <label class="ajuste">
+            <input type="checkbox" name="carpeta-host" />
+            <span>
+              <b>solo tú escribes en la carpeta</b>
+              <small>por defecto escribe cualquiera: es el cuaderno común del equipo</small>
+            </span>
+          </label>
+
+          <!--
+            Este no es una casilla: el control ocupa toda la fila, así que va
+            en bloque y no en la rejilla de dos columnas de los demás, donde el
+            texto acababa en una columna de cuatro palabras.
+          -->
+          <label class="ajuste ajuste--archivos">
+            <span>
+              <b>con qué empieza la carpeta</b>
+              <small>documentos, decisiones, convenciones — o un .zip entero: lo que el agente de todos leerá desde el primer día</small>
+            </span>
+            <input type="file" multiple name="archivos" accept=".md,.txt,.json,.yml,.yaml,.csv,.sql,.toml,.ini,.zip,text/*,application/zip" />
+          </label>
+
+          <label class="ajuste">
+            <input type="checkbox" name="sin-memoria" />
+            <span>
+              <b>no dejar las respuestas escritas</b>
+              <small>por defecto, cada respuesta queda en la carpeta y la leen los demás agentes</small>
+            </span>
+          </label>
+        </fieldset>
 
         <p class="dialogo__nota">
           el código de sala <b>es</b> la llave: quien lo tiene, entra. el portal entra siempre como

@@ -2,17 +2,24 @@ import type { ActivityMessage, Member } from '@huddle/protocol';
 import { memberLabel } from '../table-layout.js';
 import { describeAnswer, describeFailure, errorText } from './format.js';
 import type {
+  ErrorEvent,
+  FolderStateEvent,
   HostChangedEvent,
+  JoinRequestEvent,
+  JoinRequestGoneEvent,
   PortalEvent,
   RoomClosedEvent,
+  RoomCodeEvent,
   RoomStateEvent,
   TransportEvent,
+  WaitingApprovalEvent,
   WelcomeEvent,
 } from './events.js';
 import {
   ACTIVITY_TTL_MS,
   appendEntry,
   type Activity,
+  type PendingGuest,
   type SessionState,
 } from './state.js';
 
@@ -33,6 +40,14 @@ export function reduce(state: SessionState, event: PortalEvent, now: number): Se
       return onHostChanged(state, event, now);
     case 'room_closed':
       return onRoomClosed(state, event, now);
+    case 'room_code':
+      return onRoomCode(state, event, now);
+    case 'waiting_approval':
+      return onWaitingApproval(state, event, now);
+    case 'join_request':
+      return onJoinRequest(state, event, now);
+    case 'join_request_gone':
+      return onJoinRequestGone(state, event);
     case 'msg':
       return appendEntry(state, now, { kind: 'message', alias: event.from, text: event.text });
     case 'activity':
@@ -46,15 +61,55 @@ export function reduce(state: SessionState, event: PortalEvent, now: number): Se
         sources: event.sources,
       });
     case 'error':
-      return appendEntry(state, now, {
-        kind: 'failed',
-        alias: event.from ?? undefined,
-        text: errorText(event.reason),
-        meta: event.detail ?? undefined,
-      });
+      return onError(state, event, now);
+    case 'folder_state':
+      return onFolderState(state, event);
+    case 'folder_file':
+      // Llega la respuesta a un `folder_get`. Si mientras tanto se abrió otro
+      // archivo, esta ya no interesa: pintarla sería reemplazar lo que se está
+      // mirando por lo que se dejó de mirar.
+      return state.folderOpen?.path === event.path
+        ? { ...state, folderOpen: { path: event.path, text: event.text } }
+        : state;
+    case 'folder_ok':
+      return state;
     default:
       return state;
   }
+}
+
+function onError(state: SessionState, event: ErrorEvent, now: number): SessionState {
+  const next = appendEntry(state, now, {
+    kind: 'failed',
+    alias: event.from ?? undefined,
+    text: errorText(event.reason),
+    meta: event.detail ?? undefined,
+  });
+
+  // Un error mientras se esperaba un archivo deja el visor cargando para
+  // siempre. Se cierra: el motivo ya se ve en el registro de la sesión.
+  return state.folderOpen && state.folderOpen.text === undefined
+    ? { ...next, folderOpen: null }
+    : next;
+}
+
+/**
+ * La carpeta llega entera en cada cambio, así que se reemplaza sin comparar.
+ *
+ * Lo que sí se mira es el archivo abierto: si ya no está en la carpeta, se lo
+ * han borrado a todo el mundo mientras alguien lo leía, y dejarlo en pantalla
+ * sería enseñar algo que ya no existe.
+ */
+function onFolderState(state: SessionState, event: FolderStateEvent): SessionState {
+  const open = state.folderOpen;
+  const sigue = open && event.entries.some((entry) => entry.path === open.path);
+
+  return {
+    ...state,
+    folder: event.entries,
+    folderWrite: event.write,
+    folderOpen: sigue ? open : null,
+  };
 }
 
 export function pruneActivities(state: SessionState, now: number): SessionState {
@@ -92,6 +147,8 @@ function onWelcome(state: SessionState, event: WelcomeEvent, now: number): Sessi
     host: event.host,
     members: [...event.members],
     closed: false,
+    // Si venías de la puerta, ya estás dentro.
+    waitingInfo: null,
   };
   delete next.detail;
 
@@ -136,6 +193,84 @@ function onHostChanged(state: SessionState, event: HostChangedEvent, now: number
   });
 }
 
+function onRoomCode(state: SessionState, event: RoomCodeEvent, now: number): SessionState {
+  const next: SessionState = { ...state, room: event.room };
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `${event.by} cambió el código de la sala`,
+    meta: event.room,
+  });
+}
+
+function onWaitingApproval(
+  state: SessionState,
+  event: WaitingApprovalEvent,
+  now: number,
+): SessionState {
+  const next: SessionState = {
+    ...state,
+    status: 'waiting',
+    room: event.room,
+    roomName: event.roomName,
+    you: event.you,
+    host: event.host,
+    members: [],
+    closed: false,
+    waitingInfo: {
+      id: event.id,
+      roomName: event.roomName,
+      host: event.host,
+      key: event.key,
+    },
+  };
+  delete next.detail;
+
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `esperando a que ${event.host} te deje entrar en «${event.roomName}»`,
+    meta: event.key ? `tu clave: …${event.key}` : 'entras sin firmar',
+  });
+}
+
+function onJoinRequest(state: SessionState, event: JoinRequestEvent, now: number): SessionState {
+  const guest: PendingGuest = {
+    id: event.id,
+    alias: event.alias,
+    tag: event.tag,
+    key: event.key,
+    repo: event.card?.repo,
+    at: event.at,
+    knownAlias: event.knownAlias,
+  };
+
+  // Dedupe por id: con varios repos, la misma solicitud llega varias veces.
+  const pending = [...state.pending.filter((p) => p.id !== event.id), guest];
+  const yaEstaba = state.pending.some((p) => p.id === event.id);
+  const next: SessionState = { ...state, pending };
+  if (yaEstaba) return next;
+
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `${event.alias} pide entrar`,
+    meta: `clave …${event.key}`,
+  });
+}
+
+function onJoinRequestGone(state: SessionState, event: JoinRequestGoneEvent): SessionState {
+  const pending = state.pending.filter((p) => p.id !== event.id);
+  return pending.length === state.pending.length ? state : { ...state, pending };
+}
+
+const CLOSED_TEXT: Record<RoomClosedEvent['reason'], string> = {
+  kicked: 'te expulsaron de la sala',
+  // La sala sigue en pie: decir que se cerró mandaría a buscar una sala que
+  // existe, con un código que ya no es el suyo.
+  code_rotated: 'el anfitrión cambió el código; pídele el nuevo para volver',
+  identity_taken: 'ese alias lo reclamó quien lo tenía firmado',
+  empty: 'la sala se cerró',
+  closed_by_host: 'la sala se cerró',
+};
+
 function onRoomClosed(state: SessionState, event: RoomClosedEvent, now: number): SessionState {
   const kicked = event.reason === 'kicked';
   const next: SessionState = { ...state, status: 'closed', closed: true, members: [] };
@@ -144,7 +279,7 @@ function onRoomClosed(state: SessionState, event: RoomClosedEvent, now: number):
   return appendEntry(next, now, {
     kind: kicked ? 'kicked' : 'system',
     alias: state.you ?? undefined,
-    text: kicked ? 'te expulsaron de la sala' : 'la sala se cerró',
+    text: CLOSED_TEXT[event.reason] ?? 'la sala se cerró',
     meta: event.detail ?? undefined,
   });
 }
