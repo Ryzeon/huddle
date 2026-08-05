@@ -20,6 +20,7 @@ import type {
   IdentityProof,
   JoinMessage,
   ResultMessage,
+  RotateCodeMessage,
   SourceRef,
   TraceMessage,
 } from './index.js';
@@ -198,6 +199,15 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       const out: CloseRoomMessage = { t: 'close' };
       const motivo = optionalStr(msg, 'reason', 200);
       if (motivo) out.reason = motivo;
+      return out;
+    }
+
+    case 'rotate': {
+      // El id es obligatorio, al revés que en `close`: la respuesta llega
+      // asíncrona y sin id no se sabe si el error es de esta rotación.
+      const out: RotateCodeMessage = { t: 'rotate', id: str(msg, 'id', 64) };
+      const reason = optionalStr(msg, 'reason', 200);
+      if (reason) out.reason = reason;
       return out;
     }
 

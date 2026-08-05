@@ -175,6 +175,13 @@ export interface KickMessage {
   reason?: string;
 }
 
+/** Cambia el código de la sala sin recrearla. Solo el anfitrión. */
+export interface RotateCodeMessage {
+  t: 'rotate';
+  id: string;
+  reason?: string;
+}
+
 export interface JoinMessage {
   t: 'join';
   v: number;
@@ -254,6 +261,7 @@ export type ClientMessage =
   | CreateRoomMessage
   | CloseRoomMessage
   | KickMessage
+  | RotateCodeMessage
   | JoinMessage
   | AskMessage
   | ChatMessage
@@ -300,6 +308,15 @@ export interface RoomStateMessage {
   members: Member[];
 }
 
+/** El código nuevo. Solo lo reciben las conexiones del anfitrión. */
+export interface RoomCodeMessage {
+  t: 'room_code';
+  id: string;
+  room: string;
+  previous: string;
+  by: Alias;
+}
+
 export interface RequestMessage {
   t: 'request';
   id: string;
@@ -314,6 +331,7 @@ export type ServerMessage =
   | HostChangedMessage
   | RoomClosedMessage
   | RoomStateMessage
+  | RoomCodeMessage
   | RequestMessage
   | ChunkMessage
   | TraceMessage

@@ -17,6 +17,7 @@ import { JoinRoomHandler } from './commands/join-room.js';
 import { CreateRoomHandler } from './commands/create-room.js';
 import { CloseRoomHandler } from './commands/close-room.js';
 import { KickMemberHandler } from './commands/kick-member.js';
+import { RotateCodeHandler } from './commands/rotate-code.js';
 import { generateRoomCode, normalizeRoomCode } from '../domain/room-code.js';
 import { AskQuestionHandler } from './commands/ask-question.js';
 import { RelayAnswerHandler } from './commands/relay-answer.js';
@@ -64,6 +65,7 @@ export class HubService {
   private readonly askQuestion: AskQuestionHandler;
   private readonly relayAnswer: RelayAnswerHandler;
   private readonly leaveRoom: LeaveRoomHandler;
+  private readonly rotateCode: RotateCodeHandler;
   private readonly sweepStale: SweepStaleMembersHandler;
 
   private readonly clock: ClockPort;
@@ -120,6 +122,12 @@ export class HubService {
       transcripts: deps.transcripts,
     });
     this.leaveRoom = new LeaveRoomHandler({ ...shared, notifier: this.notifier });
+    this.rotateCode = new RotateCodeHandler({
+      ...shared,
+      transcripts: this.transcripts,
+      leaveRoom: this.leaveRoom,
+      generateCode,
+    });
     this.sweepStale = new SweepStaleMembersHandler({
       registry: this.registry,
       leaveRoom: this.leaveRoom,
@@ -217,6 +225,12 @@ export class HubService {
       case 'kick':
         room.touch(channel.id, now);
         this.kickMember.handle({ room, requester: member.alias, channel, message });
+        return;
+
+      case 'rotate':
+        room.touch(channel.id, now);
+        this.rotateCode.handle({ room, requester: member.alias, channel, message });
+        this.persistRooms();
         return;
 
       case 'close':

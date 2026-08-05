@@ -64,6 +64,14 @@ export class WorkspaceAgent {
     this.deps.room.kick(alias, reason);
   }
 
+  rotateCode(reason?: string): Promise<string> {
+    return this.deps.room.rotateCode(reason);
+  }
+
+  useRoomCode(code: string): void {
+    this.deps.room.useRoomCode(code);
+  }
+
   stop(): void {
     this.deps.room.disconnect();
   }
@@ -106,6 +114,8 @@ export interface AgentServiceDeps {
   quota: Quota;
   logger: LoggerPort;
   makeWorkspace?: (workspace: { cwd: string; tag?: string }) => WorkspaceAgent;
+  /** Deja el código nuevo escrito, para que el daemon reconecte con él. */
+  onCodeRotated?: (code: string) => void;
 }
 
 export interface AgentIdentity {
@@ -151,6 +161,24 @@ export class AgentService {
     const primary = this.deps.workspaces[0];
     if (!primary) throw new Error('no hay ningún repositorio configurado');
     primary.closeRoom(reason);
+  }
+
+  /**
+   * Cambia el código de la sala. Va siempre por el repositorio principal: es
+   * el que creó la sala, y el hub solo acepta rotar al anfitrión.
+   *
+   * El código nuevo se reparte a TODOS los repositorios: los demás acaban de
+   * quedarse fuera con un 4006, y sin esto reconectarían con el código muerto.
+   */
+  async rotateCode(reason?: string): Promise<string> {
+    const [primary, ...rest] = this.deps.workspaces;
+    if (!primary) throw new Error('no hay ningún repositorio configurado');
+
+    const code = await primary.rotateCode(reason);
+    this.identity.room = code;
+    for (const workspace of rest) workspace.useRoomCode(code);
+    this.deps.onCodeRotated?.(code);
+    return code;
   }
 
   async createRoom(name: string): Promise<string> {

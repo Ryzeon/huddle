@@ -89,7 +89,10 @@ export class WsRoomFeed implements RoomFeed {
       if (typeof raw.data !== 'string') return;
       const event = toPortalEvent(raw.data);
       if (!event) return;
-      if (event.t === 'welcome') this.createdRoom = event.room;
+      // Tras una rotación hay que reconectar con el código nuevo: guardar solo
+      // el del `welcome` dejaría al anfitrión reentrando en una sala que ya no
+      // responde a ese código.
+      if (event.t === 'welcome' || event.t === 'room_code') this.createdRoom = event.room;
       this.emit(event);
     });
 
@@ -179,6 +182,7 @@ export function toPortalEvent(raw: string): PortalEvent | null {
     case 'room_state':
     case 'host_changed':
     case 'room_closed':
+    case 'room_code':
     case 'msg':
     case 'activity':
     case 'result':

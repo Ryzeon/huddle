@@ -243,6 +243,34 @@ describe('cierre y transporte', () => {
   });
 });
 
+describe('cambiar el código de la sala', () => {
+  it('el anfitrión ve el código nuevo en la cabecera', () => {
+    const state = run([
+      WELCOME,
+      { t: 'room_code', id: 'r1', room: 'NUEVO-CODIG', previous: 'MPP8V-7HZS5', by: '@ana' },
+    ]);
+    assert.equal(state.room, 'NUEVO-CODIG');
+    assert.equal(state.status, 'online', 'a él no lo echan de ningún lado');
+  });
+
+  it('el cambio queda anotado en el hilo con quién lo hizo', () => {
+    const state = run([
+      WELCOME,
+      { t: 'room_code', id: 'r1', room: 'NUEVO-CODIG', previous: 'MPP8V-7HZS5', by: '@ana' },
+    ]);
+    const ultima = state.entries.at(-1);
+    assert.match(ultima?.text ?? '', /@ana/);
+    assert.equal(ultima?.meta, 'NUEVO-CODIG');
+  });
+
+  it('a quien echan no se le dice que la sala se cerró, porque sigue abierta', () => {
+    const state = run([WELCOME, { t: 'room_closed', reason: 'code_rotated' }]);
+    assert.equal(state.closed, true);
+    assert.doesNotMatch(state.entries.at(-1)?.text ?? '', /se cerró/);
+    assert.match(state.entries.at(-1)?.text ?? '', /código/);
+  });
+});
+
 describe('varios', () => {
   it('los ids de entrada son únicos y crecientes', () => {
     const state = run([WELCOME, { t: 'msg', from: '@ana', text: 'a' }, { t: 'msg', from: '@ana', text: 'b' }]);

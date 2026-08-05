@@ -71,6 +71,12 @@ export class SessionStore {
     this.send({ t: 'close' });
   }
 
+  /** Cambia el código de la sala. El hub solo lo acepta del anfitrión. */
+  rotateCode(reason?: string): void {
+    const id = newLocalId();
+    this.send(reason ? { t: 'rotate', id, reason } : { t: 'rotate', id });
+  }
+
   note(text: string, tone: 'system' | 'failed' = 'system'): void {
     this.ingest({ t: 'note', text, tone });
   }

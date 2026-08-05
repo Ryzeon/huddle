@@ -136,6 +136,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'room_rotate',
+    description:
+      'Cambia el código de la sala. Solo el anfitrión. La sala, su historial y ' +
+      'su dueño siguen igual, pero a todos los demás se les cierra la conexión ' +
+      'y necesitan el código nuevo para volver. Es la respuesta a un código ' +
+      'filtrado. Enséñale el código nuevo a quien te lo pidió: nadie más lo recibe.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: 'Motivo, que se le muestra a los demás.' },
+      },
+    },
+  },
+  {
     name: 'room_who',
     description:
       'Lista quién está en la sala ahora mismo, con el repositorio que expone ' +
@@ -319,6 +333,19 @@ export async function runMcpServer(): Promise<void> {
           );
           if (!res.ok) return textResult(res.error, true);
           return textResult({ cerrada: true });
+        }
+
+        case 'room_rotate': {
+          const motivo = (args ?? {})['reason'];
+          const res = await withDaemon(() =>
+            callControl(
+              typeof motivo === 'string' && motivo
+                ? { op: 'rotate', reason: motivo }
+                : { op: 'rotate' },
+            ),
+          );
+          if (!res.ok) return textResult(res.error, true);
+          return textResult(res.data);
         }
 
         case 'room_who': {

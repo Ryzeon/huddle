@@ -135,6 +135,38 @@ describe('salas que sobreviven al reinicio', () => {
     assert.equal(otro.last('welcome')?.roomName, 'Equipo', 'y conservar su nombre');
   });
 
+  test('el código nuevo sobrevive al reinicio, y el viejo no vuelve', () => {
+    const primero = build();
+    const ana = new FakeChannel('a');
+    const viejo = create(primero, ana, '@ana');
+
+    primero.handle(ana, { t: 'rotate', id: 'r1' });
+    const nuevo = ana.last('room_code')!.room;
+
+    const segundo = build();
+    segundo.restore();
+
+    const beto = new FakeChannel('b');
+    segundo.handle(beto, {
+      t: 'join',
+      v: PROTOCOL_VERSION,
+      room: nuevo,
+      alias: '@beto',
+      quotaRemaining: null,
+    });
+    assert.equal(beto.last('welcome')?.room, nuevo);
+
+    const conElViejo = new FakeChannel('c');
+    segundo.handle(conElViejo, {
+      t: 'join',
+      v: PROTOCOL_VERSION,
+      room: viejo,
+      alias: '@caro',
+      quotaRemaining: null,
+    });
+    assert.equal(conElViejo.closed?.code, 4001, 'un reinicio no resucita el código filtrado');
+  });
+
   test('el historial sobrevive al reinicio y se puede leer', () => {
     const hub = build();
     const ana = new FakeChannel('a');

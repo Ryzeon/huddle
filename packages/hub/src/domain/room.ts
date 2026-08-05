@@ -33,7 +33,7 @@ export type AskOutcome =
 const TRANSCRIPT_LIMIT = 500;
 
 export class Room {
-  readonly code: string;
+  private currentCode: string;
   readonly name: string;
   readonly createdAt: number;
   private host?: Alias;
@@ -54,10 +54,40 @@ export class Room {
    * probarse moviendo el tiempo a mano.
    */
   constructor(code: string, name: string, askPolicy: BucketPolicy, createdAt: number) {
-    this.code = code;
+    this.currentCode = code;
     this.name = name;
     this.askPolicy = askPolicy;
     this.createdAt = createdAt;
+  }
+
+  get code(): string {
+    return this.currentCode;
+  }
+
+  /**
+   * Cambia el código y devuelve el anterior. No toca nada más: la sala sigue
+   * siendo la misma, con su dueño, su anfitrión y su historial.
+   */
+  rotateCode(next: string): string {
+    const previous = this.currentCode;
+    this.currentCode = next;
+    return previous;
+  }
+
+  /**
+   * Caduca todas las preguntas en vuelo y las devuelve. Al rotar, quien las
+   * respondería está a punto de quedarse fuera.
+   */
+  expireAll(): PendingAsk[] {
+    const abandoned = [...this.pendingById.values()];
+    for (const ask of abandoned) {
+      for (const alias of ask.awaiting) {
+        const member = this.members.find((m) => m.alias === alias);
+        if (member) member.inFlight = Math.max(0, member.inFlight - 1);
+      }
+    }
+    this.pendingById.clear();
+    return abandoned;
   }
 
   replaceTranscript(entries: TranscriptEntry[]): void {

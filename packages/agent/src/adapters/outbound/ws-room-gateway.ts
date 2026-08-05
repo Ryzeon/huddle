@@ -56,6 +56,15 @@ interface PendingOutbound {
   cancelTimeout: () => void;
 }
 
+interface PendingRotation {
+  id: string;
+  resolve: (code: string) => void;
+  reject: (error: Error) => void;
+  cancel: () => void;
+}
+
+const ROTATION_TIMEOUT_MS = 15_000;
+
 export class WsRoomGateway implements RoomGatewayPort {
   private socket?: WebSocket;
   private heartbeat?: NodeJS.Timeout;
@@ -73,12 +82,21 @@ export class WsRoomGateway implements RoomGatewayPort {
   private createResolve?: (code: string) => void;
 
   private info?: RoomInfo;
+  private rotation?: PendingRotation;
+
+  /**
+   * El código vigente de la sala. No es `config.room`: tras una rotación
+   * aquello es un código muerto, y reconectar con él —o firmarlo— falla.
+   */
+  private code: string;
 
   constructor(
     private readonly config: RoomGatewayConfig,
     private readonly presence: PresenceProvider,
     private readonly logger: LoggerPort,
-  ) {}
+  ) {
+    this.code = config.room;
+  }
 
   connect(handlers: RoomEventHandlers): void {
     this.handlers = handlers;
@@ -103,7 +121,7 @@ export class WsRoomGateway implements RoomGatewayPort {
       this.send(
         this.createName && !this.info
           ? { t: 'create', name: this.createName, ...common }
-          : { t: 'join', room: this.info?.code ?? this.config.room, ...common },
+          : { t: 'join', room: this.code, ...common },
       );
       this.heartbeat = setInterval(
         () => this.send({ t: 'ping', quotaRemaining: this.presence.quotaRemaining() }),
@@ -177,6 +195,36 @@ export class WsRoomGateway implements RoomGatewayPort {
     this.send(reason ? { t: 'close', reason } : { t: 'close' });
   }
 
+  useRoomCode(code: string): void {
+    this.code = code;
+    if (this.info) this.info.code = code;
+  }
+
+  rotateCode(reason?: string): Promise<string> {
+    if (!this.isConnected()) {
+      return Promise.reject(new Error('el daemon no está conectado al hub'));
+    }
+    if (this.rotation) {
+      return Promise.reject(new Error('ya hay un cambio de código en marcha'));
+    }
+
+    const id = newId();
+    return new Promise<string>((resolve, reject) => {
+      const handle = setTimeout(() => {
+        this.rotation = undefined;
+        reject(new Error('el hub no respondió al cambiar el código'));
+      }, ROTATION_TIMEOUT_MS);
+
+      this.rotation = {
+        id,
+        resolve,
+        reject,
+        cancel: () => clearTimeout(handle),
+      };
+      this.send(reason ? { t: 'rotate', id, reason } : { t: 'rotate', id });
+    });
+  }
+
   kick(alias: Alias, reason?: string): void {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
   }
@@ -226,6 +274,7 @@ export class WsRoomGateway implements RoomGatewayPort {
   private receive(message: ServerMessage): void {
     switch (message.t) {
       case 'welcome': {
+        this.code = message.room;
         this.info = {
           code: message.room,
           name: message.roomName,
@@ -254,11 +303,23 @@ export class WsRoomGateway implements RoomGatewayPort {
         );
         return;
 
+      case 'room_code': {
+        this.useRoomCode(message.room);
+        this.logger.info(`el código de la sala es ahora ${message.room}`);
+        const rotation = this.rotation;
+        if (rotation && rotation.id === message.id) {
+          this.rotation = undefined;
+          rotation.cancel();
+          rotation.resolve(message.room);
+        }
+        return;
+      }
+
       case 'room_closed':
         // Ni expulsado ni con la sala cerrada tiene sentido reconectar.
         this.stopping = true;
         this.logger.warn(message.detail ?? `la sala se cerró (${message.reason})`);
-        this.onTerminal?.(4003, message.reason);
+        this.onTerminal?.(message.reason === 'code_rotated' ? 4006 : 4003, message.reason);
         return;
 
       case 'room_state':
@@ -289,6 +350,17 @@ export class WsRoomGateway implements RoomGatewayPort {
         return;
 
       case 'error':
+        // Una rotación denegada no es una respuesta pendiente: si pasara por
+        // `settle` se perdería, porque su id no está en `outbound`.
+        if (this.rotation && this.rotation.id === message.id) {
+          const rotation = this.rotation;
+          this.rotation = undefined;
+          rotation.cancel();
+          rotation.reject(
+            new Error(`${message.reason}${message.detail ? `: ${message.detail}` : ''}`),
+          );
+          return;
+        }
         this.settle(message.id, {
           ok: false,
           from: message.from,

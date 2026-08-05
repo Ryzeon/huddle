@@ -55,6 +55,10 @@ export interface RoomGatewayPort {
   kick(alias: Alias, reason?: string): void;
   /** Cierra la sala para todos. El hub solo lo acepta del anfitrión. */
   closeRoom(reason?: string): void;
+  /** Pide un código nuevo. Resuelve con el que devuelva el hub. */
+  rotateCode(reason?: string): Promise<string>;
+  /** Fija el código con el que reconectar. */
+  useRoomCode(code: string): void;
   room(): RoomInfo | undefined;
   disconnect(): void;
   isConnected(): boolean;

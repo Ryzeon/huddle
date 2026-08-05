@@ -5,6 +5,7 @@ import type {
   CreateRoomMessage,
   JoinMessage,
   KickMessage,
+  RotateCodeMessage,
 } from '@huddle/protocol';
 import type { PortalEvent } from '../../domain/session-state.js';
 
@@ -14,6 +15,7 @@ export type PortalClientMessage =
   | AskMessage
   | ChatMessage
   | KickMessage
+  | RotateCodeMessage
   | CloseRoomMessage;
 
 export interface RoomFeed {

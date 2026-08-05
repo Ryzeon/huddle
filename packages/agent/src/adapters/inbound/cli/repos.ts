@@ -65,6 +65,27 @@ export function runJoin(args: string[]): void {
   console.log('  2) Registra el MCP:     claude mcp add huddle -- huddle mcp');
 }
 
+/**
+ * Volver a entrar tras una rotación. Solo cambia el código: el alias, el hub y
+ * los repositorios ya configurados se quedan como estaban, que es justo lo que
+ * `join --force` se llevaría por delante.
+ */
+export async function runRejoin(args: string[]): Promise<void> {
+  const [room] = args;
+  if (!room) usage();
+
+  const config = loadConfig();
+  saveConfig({ ...config, room });
+
+  try {
+    await callControl({ op: 'shutdown' });
+    console.log(`Listo: ${config.alias} → sala #${room}. Arranca de nuevo: huddle daemon`);
+  } catch (error) {
+    if (!(error instanceof DaemonNotRunningError)) throw error;
+    console.log(`Listo: ${config.alias} → sala #${room}. Arranca el daemon: huddle daemon`);
+  }
+}
+
 export async function runAddRepo(args: string[]): Promise<void> {
   const [dir] = args;
   if (!dir) usage();

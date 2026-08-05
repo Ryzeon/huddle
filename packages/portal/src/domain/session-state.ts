@@ -6,6 +6,7 @@ export type {
   PortalEvent,
   ResultEvent,
   RoomClosedEvent,
+  RoomCodeEvent,
   RoomStateEvent,
   TransportEvent,
   WelcomeEvent,

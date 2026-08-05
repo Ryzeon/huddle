@@ -36,19 +36,41 @@ export class RoomRegistry {
   }
 
   /**
-   * Crea una sala con nombre y un código único. Reintenta ante una colisión
-   * improbable en vez de sobrescribir una sala viva.
+   * Un código que no esté en uso. Reintenta ante una colisión improbable en
+   * vez de sobrescribir una sala viva.
    */
-  createRoom(name: string, generateCode: () => string, now: number): Room {
+  freeCode(generateCode: () => string): string {
     let code = generateCode();
     for (let attempt = 0; attempt < 5 && this.rooms.has(code); attempt++) {
       code = generateCode();
     }
     if (this.rooms.has(code)) throw new Error('no se pudo generar un código libre');
+    return code;
+  }
 
+  createRoom(name: string, generateCode: () => string, now: number): Room {
+    const code = this.freeCode(generateCode);
     const room = new Room(code, name, this.askPolicy, now);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /**
+   * Reindexa la sala bajo un código nuevo.
+   *
+   * Hay que mover también `roomOfChannel`: si no, el propio anfitrión se queda
+   * apuntando a un código que ya no existe y el hub le contesta que mande
+   * `join` primero.
+   */
+  recode(room: Room, next: string): void {
+    const previous = room.code;
+    this.rooms.delete(previous);
+    room.rotateCode(next);
+    this.rooms.set(next, room);
+
+    for (const [channelId, code] of this.roomOfChannel) {
+      if (code === previous) this.roomOfChannel.set(channelId, next);
+    }
   }
 
   roomByCode(code: string): Room | undefined {

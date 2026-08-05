@@ -1,0 +1,108 @@
+import type { Alias, RotateCodeMessage } from '@huddle/protocol';
+import type { Room } from '../../domain/room.js';
+import type { MemberChannelPort, TranscriptStorePort } from '../ports/member-channel.js';
+import type { RoomRegistry } from '../state/room-registry.js';
+import type { RoomNotifier } from '../state/room-notifier.js';
+import type { AskTimeouts } from '../state/ask-timeouts.js';
+import type { LeaveRoomHandler } from './leave-room.js';
+
+export interface RotateCodeCommand {
+  room: Room;
+  requester: Alias;
+  channel: MemberChannelPort;
+  message: RotateCodeMessage;
+}
+
+export interface RotateCodeDeps {
+  registry: RoomRegistry;
+  notifier: RoomNotifier;
+  timeouts: AskTimeouts;
+  transcripts: TranscriptStorePort;
+  leaveRoom: LeaveRoomHandler;
+  generateCode: () => string;
+  log: (message: string) => void;
+}
+
+/** Cierre por rotación: reconectar con el código viejo no llevaría a ningún lado. */
+export const ROOM_ROTATED_CODE = 4006;
+
+/**
+ * Cambia el código de la sala sin recrearla. Solo el anfitrión.
+ *
+ * La sala sobrevive entera —dueño, anfitrión, historial— y quien no sea el
+ * anfitrión se queda fuera hasta que le pasen el código nuevo. Es la respuesta
+ * a un código filtrado sin perder lo que hay dentro.
+ */
+export class RotateCodeHandler {
+  constructor(private readonly deps: RotateCodeDeps) {}
+
+  handle({ room, requester, channel, message }: RotateCodeCommand): void {
+    const { registry, notifier, timeouts, transcripts, leaveRoom, log } = this.deps;
+
+    if (!room.isHost(requester)) {
+      channel.send({
+        t: 'error',
+        id: message.id,
+        reason: 'denied_by_owner',
+        detail: `solo el anfitrión (${room.hostAlias ?? '—'}) puede cambiar el código`,
+      });
+      return;
+    }
+
+    const previous = room.code;
+    const next = registry.freeCode(this.deps.generateCode);
+
+    // El historial se mueve ANTES de reindexar: si fallara después, el código
+    // viejo seguiría sirviendo el transcript por el camino del store.
+    if (!transcripts.rename(previous, next)) {
+      channel.send({
+        t: 'error',
+        id: message.id,
+        reason: 'bad_request',
+        detail: 'no se pudo mover el historial de la sala; el código no ha cambiado',
+      });
+      return;
+    }
+
+    // Quien iba a responder está a punto de quedarse fuera: mejor un fallo
+    // inmediato que un timeout de dos minutos contra nadie.
+    for (const ask of room.expireAll()) {
+      timeouts.cancel(ask.id);
+      for (const channelId of room.channelsOf(ask.from)) {
+        notifier.toChannel(channelId, {
+          t: 'error',
+          id: ask.id,
+          reason: 'target_offline',
+          detail: 'el código de la sala cambió a mitad de la pregunta',
+        });
+      }
+    }
+
+    const echados = room.members.filter((member) => member.alias !== requester);
+
+    registry.recode(room, next);
+
+    for (const channelId of room.channelsOf(requester)) {
+      notifier.toChannel(channelId, {
+        t: 'room_code',
+        id: message.id,
+        room: next,
+        previous,
+        by: requester,
+      });
+    }
+
+    for (const member of echados) {
+      const suyo = registry.channel(member.channelId);
+      suyo?.send({
+        t: 'room_closed',
+        reason: 'code_rotated',
+        detail: message.reason ?? `${requester} cambió el código de la sala`,
+      });
+      suyo?.close(ROOM_ROTATED_CODE, 'room code rotated');
+      leaveRoom.handle({ channelId: member.channelId });
+    }
+
+    log(`${requester} cambió el código de #${previous} a #${next}`);
+  }
+}

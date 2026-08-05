@@ -15,7 +15,7 @@
  * independientes contra un único plan.
  */
 
-import type { Config, Workspace } from '../config.js';
+import { loadConfig, saveConfig, type Config, type Workspace } from '../config.js';
 import { Quota } from '../domain/quota.js';
 import { QuestionCache } from '../domain/answer-cache.js';
 import { AgentService, WorkspaceAgent } from '../application/agent-service.js';
@@ -94,9 +94,28 @@ export function buildAgent(config: Config): AgentService {
         announceQuota,
         queue,
       ),
+      onCodeRotated: (code) => rememberCode(config, code, logger),
     },
     { room: config.room, alias: config.alias, hub: config.hub },
   );
+}
+
+/**
+ * Guarda el código nuevo. Se relee el archivo antes de escribir porque entre
+ * medias pueden haberse añadido repositorios, y escribir la configuración con
+ * la que arrancó el daemon se los llevaría por delante.
+ */
+function rememberCode(config: Config, code: string, logger: LoggerPort): void {
+  config.room = code;
+  try {
+    saveConfig({ ...loadConfig(), room: code });
+  } catch (error) {
+    logger.warn(
+      `el código nuevo es ${code}, pero no se pudo guardar: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 function buildWorkspace(

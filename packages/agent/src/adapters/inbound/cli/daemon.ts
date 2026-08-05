@@ -44,6 +44,7 @@ export function serveControl(agent: Agent, alreadyStarted = false): void {
       agent.closeRoom(reason);
       return { ok: true };
     },
+    rotateCode: async (reason) => ({ room: await agent.rotateCode(reason) }),
     // Se contesta primero y se sale después: si saliéramos aquí, quien lo
     // pidió no llegaría a saber que funcionó.
     shutdown: () => {

@@ -40,6 +40,14 @@ export interface RoomClosedEvent {
   detail?: string;
 }
 
+export interface RoomCodeEvent {
+  t: 'room_code';
+  id: string;
+  room: string;
+  previous: string;
+  by: Alias;
+}
+
 export interface ChatEvent {
   t: 'msg';
   from: Alias;
@@ -72,6 +80,7 @@ export type PortalEvent =
   | RoomStateEvent
   | HostChangedEvent
   | RoomClosedEvent
+  | RoomCodeEvent
   | ChatEvent
   | ActivityMessage
   | ResultEvent

@@ -5,6 +5,7 @@ import type {
   HostChangedEvent,
   PortalEvent,
   RoomClosedEvent,
+  RoomCodeEvent,
   RoomStateEvent,
   TransportEvent,
   WelcomeEvent,
@@ -33,6 +34,8 @@ export function reduce(state: SessionState, event: PortalEvent, now: number): Se
       return onHostChanged(state, event, now);
     case 'room_closed':
       return onRoomClosed(state, event, now);
+    case 'room_code':
+      return onRoomCode(state, event, now);
     case 'msg':
       return appendEntry(state, now, { kind: 'message', alias: event.from, text: event.text });
     case 'activity':
@@ -136,6 +139,25 @@ function onHostChanged(state: SessionState, event: HostChangedEvent, now: number
   });
 }
 
+function onRoomCode(state: SessionState, event: RoomCodeEvent, now: number): SessionState {
+  const next: SessionState = { ...state, room: event.room };
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `${event.by} cambió el código de la sala`,
+    meta: event.room,
+  });
+}
+
+const CLOSED_TEXT: Record<RoomClosedEvent['reason'], string> = {
+  kicked: 'te expulsaron de la sala',
+  // La sala sigue en pie: decir que se cerró mandaría a buscar una sala que
+  // existe, con un código que ya no es el suyo.
+  code_rotated: 'el anfitrión cambió el código; pídele el nuevo para volver',
+  identity_taken: 'ese alias lo reclamó quien lo tenía firmado',
+  empty: 'la sala se cerró',
+  closed_by_host: 'la sala se cerró',
+};
+
 function onRoomClosed(state: SessionState, event: RoomClosedEvent, now: number): SessionState {
   const kicked = event.reason === 'kicked';
   const next: SessionState = { ...state, status: 'closed', closed: true, members: [] };
@@ -144,7 +166,7 @@ function onRoomClosed(state: SessionState, event: RoomClosedEvent, now: number):
   return appendEntry(next, now, {
     kind: kicked ? 'kicked' : 'system',
     alias: state.you ?? undefined,
-    text: kicked ? 'te expulsaron de la sala' : 'la sala se cerró',
+    text: CLOSED_TEXT[event.reason] ?? 'la sala se cerró',
     meta: event.detail ?? undefined,
   });
 }

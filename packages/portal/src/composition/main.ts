@@ -61,6 +61,17 @@ function buildFeed(params: URLSearchParams): Setup {
   };
 }
 
+/**
+ * La misma URL con otro código de sala. Tras rotar, recargar con `?crear=` o
+ * con el código viejo llevaría a una sala que ya no existe.
+ */
+function urlFor(room: string): string {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('crear');
+  url.searchParams.set('sala', room);
+  return url.toString();
+}
+
 function navigateTo(params: Record<string, string>): void {
   const url = new URL(window.location.href);
   url.search = '';
@@ -165,6 +176,29 @@ export function bootstrap(): void {
     }, 4_000);
   });
 
+  // Rotar también echa a todo el mundo, así que también va en dos toques.
+  const rotar = document.querySelector<HTMLButtonElement>('[data-rotar-codigo]');
+  let rotarArmado = false;
+  let desarmarRotar: ReturnType<typeof setTimeout> | undefined;
+  rotar?.addEventListener('click', () => {
+    if (rotarArmado) {
+      clearTimeout(desarmarRotar);
+      rotarArmado = false;
+      rotar.textContent = 'cambiar código';
+      rotar.classList.remove('boton--peligro');
+      store.rotateCode();
+      return;
+    }
+    rotarArmado = true;
+    rotar.textContent = '¿seguro? echa a todos';
+    rotar.classList.add('boton--peligro');
+    desarmarRotar = setTimeout(() => {
+      rotarArmado = false;
+      rotar.textContent = 'cambiar código';
+      rotar.classList.remove('boton--peligro');
+    }, 4_000);
+  });
+
   let remembered: string | null = null;
   store.subscribe((state) => {
     header.render(state);
@@ -178,11 +212,16 @@ export function bootstrap(): void {
       cerrar.hidden =
         state.room === null || state.host === null || state.host !== state.you?.split(':')[0];
     }
+    if (rotar) rotar.hidden = cerrar ? cerrar.hidden : true;
 
     // Se recuerda una sola vez por sala: escribir en cada `room_state` sería
     // tocar `localStorage` decenas de veces por sesión sin ganar nada.
     if (state.room && state.room !== remembered && demo === null) {
+      // Tras rotar, el código viejo en el lateral no abre nada: se olvida antes
+      // de recordar el nuevo, o la lista se llena de puertas muertas.
+      if (remembered) rooms.forget(remembered);
       remembered = state.room;
+      history.replaceState(null, '', urlFor(state.room));
       rooms.remember({
         code: state.room,
         name: state.roomName ?? state.room,

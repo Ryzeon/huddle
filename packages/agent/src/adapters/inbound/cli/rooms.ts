@@ -56,6 +56,14 @@ export async function runClose(args: string[]): Promise<void> {
   console.log('Sala cerrada. Su código ya no sirve y su historial se ha borrado.');
 }
 
+export async function runRotate(args: string[]): Promise<void> {
+  const response = await callControl({ op: 'rotate', reason: flag(args, 'reason') });
+  if (!response.ok) fail(response.error);
+
+  const { room } = response.data as { room: string };
+  printCodeRotated(room);
+}
+
 export async function runKick(args: string[]): Promise<void> {
   const [alias] = args;
   if (!alias) usage();
@@ -75,6 +83,17 @@ export async function runKick(args: string[]): Promise<void> {
     fail(`${target} sigue en la sala. ¿Seguro que eres el anfitrión? Míralo con \`huddle status\`.`);
   }
   console.log(`Expulsado ${target}.`);
+}
+
+function printCodeRotated(code: string): void {
+  console.log('');
+  console.log('  Código cambiado. El anterior ya no sirve.');
+  console.log('');
+  console.log(`  CÓDIGO:  ${code}`);
+  console.log('');
+  console.log('  A todos los demás se les ha cerrado la conexión. Pásales el nuevo:');
+  console.log(`  Ellos:   huddle rejoin ${code}`);
+  console.log('');
 }
 
 function printRoomCreated(name: string, code: string): void {
