@@ -160,9 +160,13 @@ fi
 ln -sf "$APP/huddle" "$destino/huddle"
 
 # Un atajo para actualizar sin recordar la URL del instalador.
-cat > "$destino/huddle-update" <<ACTUALIZADOR
+cat > "$destino/huddle-update" <<'ACTUALIZADOR'
 #!/usr/bin/env bash
-exec "$APP/scripts/install.sh" --update "\$@"
+# Se baja el instalador de la red en vez de usar el que vino con la release:
+# si el actualizador viviera solo dentro de la versión instalada, un fallo suyo
+# no se podría arreglar nunca desde fuera.
+exec curl -fsSL https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.sh \
+  | bash -s -- --update "$@"
 ACTUALIZADOR
 chmod +x "$destino/huddle-update"
 

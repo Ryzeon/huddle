@@ -116,8 +116,16 @@ $huddle = Join-Path $app "huddle.cmd"
 # Un .cmd que delega, en vez de un enlace simbolico: crearlos pide permisos de
 # administrador o modo desarrollador, y esto funciona siempre.
 Set-Content -Path (Join-Path $binDir "huddle.cmd") -Value "@echo off`r`n`"$huddle`" %*"
-Set-Content -Path (Join-Path $binDir "huddle-update.cmd") `
-  -Value "@echo off`r`npowershell -ExecutionPolicy Bypass -File `"$app\scripts\install.ps1`" -Update %*"
+# Se baja el instalador de la red en vez de usar el que vino con la release:
+# si el actualizador viviera solo dentro de la version instalada, un fallo suyo
+# no se podria arreglar nunca desde fuera.
+$lineaUpdate = '@echo off' + "`r`n" +
+  'powershell -ExecutionPolicy Bypass -Command "' +
+  '$t = Join-Path $env:TEMP (''huddle-install.ps1''); ' +
+  'irm https://raw.githubusercontent.com/Ryzeon/huddle/main/scripts/install.ps1 -OutFile $t; ' +
+  '& $t -Update' +
+  '"'
+Set-Content -Path (Join-Path $binDir "huddle-update.cmd") -Value $lineaUpdate
 
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$binDir*") {
