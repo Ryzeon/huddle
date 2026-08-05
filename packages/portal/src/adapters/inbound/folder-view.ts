@@ -190,22 +190,50 @@ export class FolderView {
       return;
     }
 
-    for (const [group, entries] of groupByFolder(state.folder)) {
-      this.list.appendChild(el('h3', { class: 'carpeta__grupo', text: group }));
-      const ul = el('ul', { class: 'carpeta__items' });
-      for (const entry of entries) ul.appendChild(this.item(entry));
-      this.list.appendChild(ul);
-    }
+    this.list.appendChild(this.branch(buildTree(state.folder), 0));
   }
 
-  private item(entry: FolderEntry): HTMLElement {
+  /**
+   * Una rama del árbol.
+   *
+   * Las carpetas son `<details>` a propósito: plegar y desplegar sale gratis,
+   * funciona con el teclado y lo anuncia un lector de pantalla sin que haya que
+   * escribir un solo atributo ARIA.
+   */
+  private branch(nodes: Nodo[], depth: number): HTMLElement {
+    const ul = el('ul', { class: 'carpeta__items' });
+
+    for (const node of nodes) {
+      if (node.entry) {
+        ul.appendChild(this.item(node.entry, node.nombre, depth));
+        continue;
+      }
+
+      const hijos = this.branch(node.hijos, depth + 1);
+      const carpeta = el('details', { class: 'carpeta__rama', attrs: { open: true } });
+      const titulo = el('summary', {
+        class: 'carpeta__carpeta',
+        text: node.nombre,
+        attrs: { style: `padding-inline-start:${10 + depth * 14}px` },
+      });
+      carpeta.append(titulo, hijos);
+      ul.appendChild(el('li', { children: [carpeta] }));
+    }
+
+    return ul;
+  }
+
+  private item(entry: FolderEntry, nombre: string, depth: number): HTMLElement {
     const abrir = el('button', {
       class: 'carpeta__archivo',
-      type: 'button',
-      text: leafOf(entry.path),
+      text: nombre,
       title: `${entry.path} · ${entry.by}`,
-      attrs: { 'data-ruta': entry.path },
-    } as never);
+      attrs: {
+        type: 'button',
+        'data-ruta': entry.path,
+        style: `padding-inline-start:${10 + depth * 14}px`,
+      },
+    });
     abrir.addEventListener('click', () => this.options.onOpen(entry.path));
 
     const acciones = el('span', { class: 'carpeta__acciones' });
@@ -427,27 +455,48 @@ export function linkify(
 }
 
 /**
- * Agrupa por la carpeta de cada archivo, entera.
+ * Un nodo del árbol: o tiene contenido, o tiene hijos.
  *
- * Por el primer tramo no valía: un zip que entra bajo `notas/` deja todo en un
- * único montón de cincuenta nombres, y las subcarpetas que traía —lo que le da
- * forma— desaparecen justo al llegar.
+ * Es la forma que la carpeta tiene de verdad. La lista plana agrupada valía
+ * para cuatro notas; con un vault dentro, lo que se necesita es el árbol.
  */
-function groupByFolder(entries: readonly FolderEntry[]): Map<string, FolderEntry[]> {
-  const groups = new Map<string, FolderEntry[]>();
+interface Nodo {
+  nombre: string;
+  hijos: Nodo[];
+  entry?: FolderEntry;
+}
+
+export function buildTree(entries: readonly FolderEntry[]): Nodo[] {
+  const raiz: Nodo = { nombre: '', hijos: [] };
 
   for (const entry of entries) {
-    const slash = entry.path.lastIndexOf('/');
-    const group = slash < 0 ? 'raíz' : entry.path.slice(0, slash);
-    const list = groups.get(group);
-    if (list) list.push(entry);
-    else groups.set(group, [entry]);
+    const partes = entry.path.split('/');
+    let actual = raiz;
+
+    for (const [i, parte] of partes.entries()) {
+      const hoja = i === partes.length - 1;
+      let hijo = actual.hijos.find((n) => n.nombre === parte && Boolean(n.entry) === hoja);
+
+      if (!hijo) {
+        hijo = { nombre: parte, hijos: [] };
+        if (hoja) hijo.entry = entry;
+        actual.hijos.push(hijo);
+      }
+      actual = hijo;
+    }
   }
 
-  // Por ruta, para que una carpeta y sus hijas salgan juntas y en orden.
-  return new Map([...groups].sort(([a], [b]) => a.localeCompare(b)));
+  ordenar(raiz.hijos);
+  return raiz.hijos;
 }
 
-function leafOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1);
+/** Carpetas antes que archivos, y cada grupo por nombre: como cualquier árbol. */
+function ordenar(nodos: Nodo[]): void {
+  nodos.sort((a, b) => {
+    const carpetaA = a.entry ? 1 : 0;
+    const carpetaB = b.entry ? 1 : 0;
+    return carpetaA - carpetaB || a.nombre.localeCompare(b.nombre);
+  });
+  for (const nodo of nodos) ordenar(nodo.hijos);
 }
+
