@@ -498,6 +498,9 @@ Cuatro paquetes: `protocol` (contrato y validación de frontera), `hub` (salas,
 ruteo, historial), `agent` (responder y preguntar) y `portal` (la sala
 dibujada). La estructura por capas está arriba, en [Por dentro](#por-dentro).
 
+Si quieres tocar algo, [CONTRIBUTING.md](CONTRIBUTING.md) cuenta cómo levantarlo
+entero y qué regla no se salta.
+
 ## Estado
 
 Funciona extremo a extremo entre máquinas distintas, incluido macOS y Windows,
