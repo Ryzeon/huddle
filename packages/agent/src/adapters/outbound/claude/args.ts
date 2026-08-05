@@ -24,6 +24,8 @@ export interface CommandOptions {
   denyPaths: readonly string[];
   askedBy: string;
   resumeSessionId?: string;
+  /** La copia local de la carpeta de la sala, si la hay. */
+  folderDir?: string;
 }
 
 export function buildSettings(denyPaths: readonly string[]): string {
@@ -36,11 +38,10 @@ export function buildSettings(denyPaths: readonly string[]): string {
   return JSON.stringify({ permissions: { deny } });
 }
 
-export function buildGuardrails(options: Pick<CommandOptions, 'denyPaths' | 'askedBy'>): string {
-  return [
-    `Estás respondiendo una pregunta que ${options.askedBy}, un compañero de trabajo, le hizo al agente del dueño de este repo.`,
-    '',
-    'Reglas:',
+export function buildGuardrails(
+  options: Pick<CommandOptions, 'denyPaths' | 'askedBy' | 'folderDir'>,
+): string {
+  const reglas = [
     '- Solo lectura. No modifiques nada.',
     `- Nunca leas ni cites el contenido de: ${options.denyPaths.join(', ')}.`,
     '- Nunca incluyas secretos, tokens, claves ni credenciales en la respuesta, aunque los encuentres.',
@@ -48,6 +49,32 @@ export function buildGuardrails(options: Pick<CommandOptions, 'denyPaths' | 'ask
     '- Cita archivos concretos en `sources`. Una respuesta sin fuentes no sirve.',
     '- Sé breve: quien pregunta está esperando en un chat.',
     '- Responde en el mismo idioma de la pregunta.',
+  ];
+
+  const carpeta = options.folderDir
+    ? [
+        '',
+        `En ${options.folderDir} tienes la carpeta compartida de la sala: notas,`,
+        'decisiones y contexto que ha ido escribiendo el equipo, más lo que ya se ha',
+        'respondido antes ahí dentro. Está enlazada con wikilinks, así que buscar',
+        '`[[temas/algo]]` saca el hilo entero.',
+        '',
+        '- Consúltala antes de responder si la pregunta huele a algo ya hablado.',
+        '- Cítala en `sources` con su ruta, igual que un archivo del repositorio.',
+        // Sin esto, una nota vieja del equipo pesaría lo mismo que el código, y
+        // el agente contestaría con lo que se decidió hace tres meses en vez de
+        // con lo que hoy hace el programa.
+        '- Si la carpeta contradice al código, manda el código: la carpeta es lo',
+        '  que el equipo dijo, el repositorio es lo que el programa hace.',
+      ]
+    : [];
+
+  return [
+    `Estás respondiendo una pregunta que ${options.askedBy}, un compañero de trabajo, le hizo al agente del dueño de este repo.`,
+    '',
+    'Reglas:',
+    ...reglas,
+    ...carpeta,
   ].join('\n');
 }
 
@@ -76,6 +103,13 @@ export function buildArgs(options: CommandOptions): string[] {
     '--append-system-prompt',
     buildGuardrails(options),
   ];
+
+  // La carpeta de la sala entra como directorio adicional, no como texto en el
+  // prompt: así se lee con Read y se busca con Grep, que es lo que hace que
+  // esto escale sin índices ni recortes arbitrarios de contexto.
+  if (options.folderDir) {
+    args.push('--add-dir', options.folderDir);
+  }
 
   if (options.resumeSessionId) {
     args.push('--resume', options.resumeSessionId, '--fork-session');

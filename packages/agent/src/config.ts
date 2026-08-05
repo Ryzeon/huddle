@@ -9,6 +9,15 @@ export const CONFIG_PATH = join(HUDDLE_DIR, 'config.json');
 export const AUDIT_PATH = join(HUDDLE_DIR, 'audit.jsonl');
 
 /**
+ * La copia local de la carpeta de la sala.
+ *
+ * Una sola para toda la instalación, no una por sala: la configuración tiene
+ * un único `room`, así que solo se está en una a la vez. Al cambiar de sala,
+ * la sincronización borra lo que ya no está y la deja limpia sola.
+ */
+export const FOLDER_DIR = join(HUDDLE_DIR, 'carpeta');
+
+/**
  * `sun_path` son 104 bytes en macOS y 108 en Linux, y `listen()` falla con
  * EINVAL si te pasas — un error que no dice nada útil. Dejamos margen.
  */

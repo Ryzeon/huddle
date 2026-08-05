@@ -96,6 +96,18 @@ class FakeRoom implements RoomGatewayPort {
   roster(): RosterEntry[] {
     return [];
   }
+  folder(): [] {
+    return [];
+  }
+  putFile(): Promise<void> {
+    return Promise.reject(new Error('no usado'));
+  }
+  dropFile(): Promise<void> {
+    return Promise.reject(new Error('no usado'));
+  }
+  fetchFile(): Promise<string> {
+    return Promise.reject(new Error('no usado'));
+  }
 }
 
 const fakeRepo: RepoInspectorPort = {

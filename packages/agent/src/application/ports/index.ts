@@ -1,4 +1,11 @@
-import type { Alias, RoomPolicy, SourceRef, Target } from '@huddle/protocol';
+import type {
+  Alias,
+  FolderEntry,
+  FolderWrite,
+  RoomPolicy,
+  SourceRef,
+  Target,
+} from '@huddle/protocol';
 import type { CachedAnswer } from '../../domain/answer-cache.js';
 import type { QuotaState } from '../../domain/quota.js';
 
@@ -49,9 +56,19 @@ export interface RoomAnswer {
   model?: string;
 }
 
+/**
+ * Lo que se decide al crear una sala y ya no cambia: quién entra, quién
+ * escribe en la carpeta y si las respuestas se recuerdan.
+ */
+export interface RoomOptions {
+  policy?: RoomPolicy;
+  folderWrite?: FolderWrite;
+  folderMemory?: boolean;
+}
+
 export interface RoomGatewayPort {
   connect(handlers: RoomEventHandlers): void;
-  create(name: string, handlers: RoomEventHandlers, policy?: RoomPolicy): Promise<string>;
+  create(name: string, handlers: RoomEventHandlers, options?: RoomOptions): Promise<string>;
   kick(alias: Alias, reason?: string): void;
   /** Deja entrar a quien espera. Siempre por id de solicitud, nunca por alias. */
   admit(id: string, remember?: boolean): void;
@@ -75,6 +92,12 @@ export interface RoomGatewayPort {
   ask(to: Target, question: string, ttlSeconds: number): Promise<OutboundResult>;
 
   roster(): RosterEntry[];
+
+  /** La carpeta de la sala, tal como la anunció el hub. */
+  folder(): FolderEntry[];
+  putFile(path: string, text: string): Promise<void>;
+  dropFile(path: string): Promise<void>;
+  fetchFile(path: string): Promise<string>;
 }
 
 export interface RosterEntry {
@@ -120,6 +143,35 @@ export interface RoomEventHandlers {
   onQuestion(question: IncomingQuestion): void;
   onJoinRequest?(request: JoinRequestInfo): void;
   onJoinRequestGone?(id: string): void;
+  /** La carpeta cambió. Solo lo escucha un repositorio: ver el composition root. */
+  onFolderState?(entries: FolderEntry[]): void;
+}
+
+/**
+ * La copia local de la carpeta de la sala.
+ *
+ * Es una réplica, no la fuente: el hub manda. La excepción es `notas/`, que se
+ * puede editar a mano y sube sola — por eso el puerto sabe decir si un archivo
+ * está `dirty`, o sea, si su contenido en disco ya no es el que se bajó.
+ */
+export interface LocalFolderEntry {
+  path: string;
+  /** El `at` que traía el hub cuando se bajó. */
+  syncedAt: number;
+  /** En disco hay algo distinto de lo que se bajó: alguien lo editó. */
+  dirty: boolean;
+}
+
+export interface FolderCachePort {
+  /** Dónde vive la copia. Es lo que se le pasa al motor con `--add-dir`. */
+  readonly dir: string;
+  list(): LocalFolderEntry[];
+  read(path: string): string | undefined;
+  /** Escribe el archivo y lo da por sincronizado en `at`. */
+  save(path: string, text: string, at: number): void;
+  remove(path: string): void;
+  /** Aparta una edición local que perdió contra el hub, sin borrarla. */
+  keepAside(path: string): string | undefined;
 }
 
 export interface RoomInfo {

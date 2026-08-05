@@ -2,10 +2,10 @@ import { WebSocket } from 'ws';
 import {
   type Alias,
   type ClientMessage,
+  type FolderEntry,
   type IdentityProof,
   type Member,
   PROTOCOL_VERSION,
-  type RoomPolicy,
   type ServerMessage,
   type Target,
   encodeMessage,
@@ -23,6 +23,7 @@ import type {
   RoomEventHandlers,
   RoomGatewayPort,
   RoomInfo,
+  RoomOptions,
   RosterEntry,
 } from '../../application/ports/index.js';
 
@@ -80,6 +81,21 @@ interface PendingRotation {
 
 const ROTATION_TIMEOUT_MS = 15_000;
 
+/**
+ * Cuánto se espera a que el hub conteste sobre la carpeta.
+ *
+ * Corto a propósito: son operaciones de archivo, y quien las pide está
+ * mirando. Si el hub tarda más que esto, algo va mal y decirlo vale más que
+ * seguir esperando.
+ */
+const FOLDER_TIMEOUT_MS = 15_000;
+
+interface PendingFolderOp {
+  resolve: (text: string) => void;
+  reject: (error: Error) => void;
+  cancel: () => void;
+}
+
 export class WsRoomGateway implements RoomGatewayPort {
   private socket?: WebSocket;
   private heartbeat?: NodeJS.Timeout;
@@ -89,12 +105,16 @@ export class WsRoomGateway implements RoomGatewayPort {
 
   private readonly outbound = new Map<string, PendingOutbound>();
 
+  /** Operaciones de carpeta esperando respuesta del hub, por id. */
+  private readonly folderOps = new Map<string, PendingFolderOp>();
+  private folderEntries: FolderEntry[] = [];
+
   private handlers?: RoomEventHandlers;
 
   onTerminal?: (code: number, reason: string) => void;
 
   private createName?: string;
-  private createPolicy?: RoomPolicy;
+  private createOptions?: RoomOptions;
   private createResolve?: (code: string) => void;
 
   private info?: RoomInfo;
@@ -195,9 +215,9 @@ export class WsRoomGateway implements RoomGatewayPort {
     return this.info;
   }
 
-  create(name: string, handlers: RoomEventHandlers, policy?: RoomPolicy): Promise<string> {
+  create(name: string, handlers: RoomEventHandlers, options?: RoomOptions): Promise<string> {
     this.createName = name;
-    this.createPolicy = policy;
+    this.createOptions = options;
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error('el hub no respondió al crear la sala')),
@@ -282,6 +302,56 @@ export class WsRoomGateway implements RoomGatewayPort {
     });
   }
 
+  folder(): FolderEntry[] {
+    return this.folderEntries;
+  }
+
+  putFile(path: string, text: string): Promise<void> {
+    return this.folderOp((id) => ({ t: 'folder_put', id, path, text })).then(() => undefined);
+  }
+
+  dropFile(path: string): Promise<void> {
+    return this.folderOp((id) => ({ t: 'folder_drop', id, path })).then(() => undefined);
+  }
+
+  fetchFile(path: string): Promise<string> {
+    return this.folderOp((id) => ({ t: 'folder_get', id, path }));
+  }
+
+  /**
+   * Manda una operación de carpeta y espera su respuesta.
+   *
+   * Las tres se resuelven igual —`folder_ok` o `folder_file` cierran, `error`
+   * rechaza—, así que comparten camino en vez de repetirlo tres veces.
+   */
+  private folderOp(build: (id: string) => ClientMessage): Promise<string> {
+    if (!this.isConnected()) {
+      return Promise.reject(new Error('el daemon no está conectado al hub'));
+    }
+
+    const id = newId();
+    return new Promise<string>((resolve, reject) => {
+      const handle = setTimeout(() => {
+        this.folderOps.delete(id);
+        reject(new Error('el hub no respondió sobre la carpeta'));
+      }, FOLDER_TIMEOUT_MS);
+
+      this.folderOps.set(id, { resolve, reject, cancel: () => clearTimeout(handle) });
+      this.send(build(id));
+    });
+  }
+
+  private settleFolder(id: string, outcome: { text: string } | { error: Error }): boolean {
+    const pending = this.folderOps.get(id);
+    if (!pending) return false;
+
+    this.folderOps.delete(id);
+    pending.cancel();
+    if ('error' in outcome) pending.reject(outcome.error);
+    else pending.resolve(outcome.text);
+    return true;
+  }
+
   ask(to: Target, question: string, ttlSeconds: number): Promise<OutboundResult> {
     if (!this.isConnected()) {
       return Promise.resolve({ ok: false, error: 'el daemon no está conectado al hub' });
@@ -332,7 +402,12 @@ export class WsRoomGateway implements RoomGatewayPort {
             name: this.createName ?? 'sala',
             ...common,
             ...(proof && { proof }),
-            ...(this.createPolicy && { policy: this.createPolicy }),
+            ...(this.createOptions?.policy && { policy: this.createOptions.policy }),
+            ...(this.createOptions?.folderWrite && {
+              folderWrite: this.createOptions.folderWrite,
+            }),
+            // Solo viaja el `false`: la memoria va encendida por defecto.
+            ...(this.createOptions?.folderMemory === false && { folderMemory: false }),
           }
         : { t: 'join', room, ...common, ...(proof && { proof }) },
     );
@@ -445,6 +520,19 @@ export class WsRoomGateway implements RoomGatewayPort {
         this.members = toRoster(message.members);
         return;
 
+      case 'folder_state':
+        this.folderEntries = message.entries;
+        this.handlers?.onFolderState?.(message.entries);
+        return;
+
+      case 'folder_file':
+        this.settleFolder(message.id, { text: message.text });
+        return;
+
+      case 'folder_ok':
+        this.settleFolder(message.id, { text: message.path });
+        return;
+
       case 'request':
         this.handlers?.onQuestion({
           id: message.id,
@@ -469,6 +557,16 @@ export class WsRoomGateway implements RoomGatewayPort {
         return;
 
       case 'error':
+        // Un fallo de carpeta tampoco es una respuesta pendiente. Va antes que
+        // la rotación por el mismo motivo: su id vive en otro mapa.
+        if (
+          this.settleFolder(message.id, {
+            error: new Error(`${message.reason}${message.detail ? `: ${message.detail}` : ''}`),
+          })
+        ) {
+          return;
+        }
+
         // Una rotación denegada no es una respuesta pendiente: si pasara por
         // `settle` se perdería, porque su id no está en `outbound`.
         if (this.rotation && this.rotation.id === message.id) {

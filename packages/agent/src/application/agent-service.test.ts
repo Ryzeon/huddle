@@ -51,6 +51,18 @@ class FakeGateway implements RoomGatewayPort {
   roster(): [] {
     return [];
   }
+  folder(): [] {
+    return [];
+  }
+  putFile(): Promise<void> {
+    return Promise.reject(new Error('no se usa'));
+  }
+  dropFile(): Promise<void> {
+    return Promise.reject(new Error('no se usa'));
+  }
+  fetchFile(): Promise<string> {
+    return Promise.reject(new Error('no se usa'));
+  }
 }
 
 const silent: LoggerPort = { info: () => undefined, warn: () => undefined };

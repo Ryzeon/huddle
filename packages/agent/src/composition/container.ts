@@ -15,7 +15,7 @@
  * independientes contra un único plan.
  */
 
-import { loadConfig, saveConfig, type Config, type Workspace } from '../config.js';
+import { FOLDER_DIR, loadConfig, saveConfig, type Config, type Workspace } from '../config.js';
 import { Quota } from '../domain/quota.js';
 import { QuestionCache } from '../domain/answer-cache.js';
 import { PendingRequests } from '../domain/pending-requests.js';
@@ -44,7 +44,10 @@ import {
 } from '../adapters/outbound/fs-stores.js';
 import { AskQueue } from '../application/ask-queue.js';
 import { ExpandVocabularyUseCase } from '../application/use-cases/expand-vocabulary.js';
+import { SyncFolderUseCase } from '../application/use-cases/sync-folder.js';
 import { VocabularyAwareInspector } from '../application/vocabulary-aware-inspector.js';
+import { FsFolderCache } from '../adapters/outbound/fs-folder-cache.js';
+import { FolderWatcher } from '../adapters/inbound/folder-watcher.js';
 
 export function makeWorkspaceFactory(
   config: Config,
@@ -100,7 +103,13 @@ export function buildAgent(config: Config): AgentService {
     for (const gateway of gateways) gateway.announcePresence(remaining);
   };
 
-  const workspaces = config.workspaces.map((workspace) =>
+  // La copia local de la carpeta es una sola, y la sincroniza un único
+  // repositorio: el primero. Los demás la leen —el motor la recibe con
+  // `--add-dir`—, pero escribir en ella desde N conexiones sería N daemons
+  // peleándose por los mismos archivos.
+  const folderCache = new FsFolderCache(FOLDER_DIR);
+
+  const workspaces = config.workspaces.map((workspace, index) =>
     buildWorkspace(
       config,
       workspace,
@@ -112,8 +121,11 @@ export function buildAgent(config: Config): AgentService {
       queue,
       signer,
       pending,
+      index === 0 ? folderCache : undefined,
     ),
   );
+
+  const folderSync = workspaces[0]?.folderSync;
 
   return new AgentService(
     {
@@ -121,6 +133,7 @@ export function buildAgent(config: Config): AgentService {
       quota,
       logger,
       pending,
+      ...(folderSync && { folderWatcher: new FolderWatcher({ sync: folderSync, logger }) }),
       makeWorkspace: makeWorkspaceFactory(
         config,
         quota,
@@ -167,6 +180,8 @@ function buildWorkspace(
   queue: AskQueue,
   signer: IdentitySigner,
   pending: PendingRequests,
+  /** Solo el repositorio que sincroniza la carpeta lo recibe. */
+  folderCache?: FsFolderCache,
 ): WorkspaceAgent {
   // El inspector de git dice de qué trata el repositorio con sus propias
   // palabras; el decorador le añade aquellas con las que otros lo buscarían.
@@ -191,6 +206,8 @@ function buildWorkspace(
     store: createCacheStore(cacheFileFor(workspace)),
   });
 
+  // La carpeta se le pasa a TODOS los motores, aunque solo uno la sincronice:
+  // el contexto de la sala vale para responder sobre cualquier repositorio.
   const engine = new ClaudeCodeEngine({
     cwd: workspace.cwd,
     model: config.model,
@@ -198,6 +215,7 @@ function buildWorkspace(
     tools: config.tools,
     denyPaths: config.denyPaths,
     timeoutMs: config.timeoutSeconds * 1000,
+    folderDir: FOLDER_DIR,
   });
 
   // Estado que sobrevive entre preguntas de *este* repositorio: la sesión del
@@ -239,6 +257,9 @@ function buildWorkspace(
     answerQuestion,
     state,
     logger,
+    ...(folderCache && {
+      folderSync: new SyncFolderUseCase({ cache: folderCache, gateway: room, logger }),
+    }),
   });
 }
 

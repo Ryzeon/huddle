@@ -6,7 +6,7 @@
  * concurrencia son de la suscripción de la persona, no de cada repositorio.
  */
 
-import type { RoomPolicy, Target } from '@huddle/protocol';
+import { normalizeFolderPath, type FolderEntry, type Target } from '@huddle/protocol';
 import type { Quota } from '../domain/quota.js';
 import type { PendingRequest, PendingRequests } from '../domain/pending-requests.js';
 import type { QuestionCache } from '../domain/answer-cache.js';
@@ -18,14 +18,22 @@ import type {
   RepoInspectorPort,
   RoomEventHandlers,
   RoomGatewayPort,
+  RoomOptions,
   RosterEntry,
 } from './ports/index.js';
+import type { SyncFolderUseCase } from './use-cases/sync-folder.js';
 
 export interface WorkspaceAgentDeps {
   tag?: string;
   room: RoomGatewayPort;
   /** Compartido entre repositorios: la solicitud llega por todas las conexiones. */
   pending?: PendingRequests;
+  /**
+   * Solo lo tiene un repositorio. La carpeta es de la sala y la copia local es
+   * una sola: sincronizarla desde N conexiones sería N escrituras del mismo
+   * archivo peleándose por el mismo disco.
+   */
+  folderSync?: SyncFolderUseCase;
   repo: RepoInspectorPort;
   cache: QuestionCache;
   answerQuestion: AnswerQuestionUseCase;
@@ -52,12 +60,17 @@ export class WorkspaceAgent {
     return this.deps.room;
   }
 
+  /** Lo tiene solo el repositorio que sostiene la copia local de la carpeta. */
+  get folderSync(): SyncFolderUseCase | undefined {
+    return this.deps.folderSync;
+  }
+
   start(): void {
     this.deps.room.connect(this.handlers());
   }
 
-  createRoom(name: string, policy?: RoomPolicy): Promise<string> {
-    return this.deps.room.create(name, this.handlers(), policy);
+  createRoom(name: string, options?: RoomOptions): Promise<string> {
+    return this.deps.room.create(name, this.handlers(), options);
   }
 
   admit(id: string, remember?: boolean): void {
@@ -73,6 +86,11 @@ export class WorkspaceAgent {
       onQuestion: (question) => this.handle(question),
       onJoinRequest: (request) => this.deps.pending?.add(request),
       onJoinRequestGone: (id) => this.deps.pending?.remove(id),
+      onFolderState: (entries) => {
+        void this.deps.folderSync?.apply(entries).catch((error: unknown) => {
+          this.deps.logger.warn(`no se pudo sincronizar la carpeta: ${String(error)}`);
+        });
+      },
     };
   }
 
@@ -137,6 +155,11 @@ export interface AgentServiceDeps {
   /** Deja el código nuevo escrito, para que el daemon reconecte con él. */
   onCodeRotated?: (code: string) => void;
   pending?: PendingRequests;
+  /**
+   * Vigila la copia local para subir lo que se edite a mano. Vive aquí y no en
+   * un repositorio porque la carpeta es de la sesión, no de ningún repo.
+   */
+  folderWatcher?: { start(): void; stop(): void };
 }
 
 export interface AgentIdentity {
@@ -154,9 +177,11 @@ export class AgentService {
 
   start(): void {
     for (const workspace of this.deps.workspaces) workspace.start();
+    this.deps.folderWatcher?.start();
   }
 
   stop(): void {
+    this.deps.folderWatcher?.stop();
     for (const workspace of this.deps.workspaces) workspace.stop();
   }
 
@@ -202,11 +227,11 @@ export class AgentService {
     return code;
   }
 
-  async createRoom(name: string, policy?: RoomPolicy): Promise<string> {
+  async createRoom(name: string, options?: RoomOptions): Promise<string> {
     const [primary, ...rest] = this.deps.workspaces;
     if (!primary) throw new Error('no hay ningún repositorio configurado');
 
-    const code = await primary.createRoom(name, policy);
+    const code = await primary.createRoom(name, options);
     for (const workspace of rest) workspace.start();
     return code;
   }
@@ -230,6 +255,53 @@ export class AgentService {
     const primary = this.deps.workspaces[0];
     if (!primary) throw new Error('no hay ningún repositorio configurado');
     primary.deny(id, reason);
+  }
+
+  /** La carpeta de la sala, tal como la anunció el hub. */
+  folder(): FolderEntry[] {
+    return this.activeGateway()?.folder() ?? [];
+  }
+
+  /** Dónde está la copia local, para poder enseñársela a quien pregunte. */
+  get folderDir(): string | undefined {
+    return this.folderSync()?.dir;
+  }
+
+  /**
+   * Lee de la copia local y solo baja del hub si allí no está.
+   *
+   * La copia se pone al día en cada cambio, así que preguntarle al hub por algo
+   * que ya tenemos en disco sería un viaje de red para leer lo mismo.
+   */
+  async readFile(path: string): Promise<string> {
+    const clean = normalizeFolderPath(path);
+    const local = this.folderSync()?.read(clean);
+    if (local !== undefined) return local;
+
+    const gateway = this.requireGateway();
+    return gateway.fetchFile(clean);
+  }
+
+  async writeFile(path: string, text: string): Promise<{ path: string }> {
+    const clean = normalizeFolderPath(path);
+    await this.requireGateway().putFile(clean, text);
+    return { path: clean };
+  }
+
+  async removeFile(path: string): Promise<{ path: string }> {
+    const clean = normalizeFolderPath(path);
+    await this.requireGateway().dropFile(clean);
+    return { path: clean };
+  }
+
+  private folderSync(): SyncFolderUseCase | undefined {
+    return this.deps.workspaces.find((workspace) => workspace.folderSync)?.folderSync;
+  }
+
+  private requireGateway(): RoomGatewayPort {
+    const gateway = this.activeGateway();
+    if (!gateway) throw new Error('el daemon no está conectado al hub');
+    return gateway;
   }
 
   addWorkspace(workspace: { cwd: string; tag?: string }): WorkspaceStatus {
