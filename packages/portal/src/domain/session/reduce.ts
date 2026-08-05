@@ -2,6 +2,8 @@ import type { ActivityMessage, Member } from '@huddle/protocol';
 import { memberLabel } from '../table-layout.js';
 import { describeAnswer, describeFailure, errorText } from './format.js';
 import type {
+  ErrorEvent,
+  FolderStateEvent,
   HostChangedEvent,
   JoinRequestEvent,
   JoinRequestGoneEvent,
@@ -59,15 +61,55 @@ export function reduce(state: SessionState, event: PortalEvent, now: number): Se
         sources: event.sources,
       });
     case 'error':
-      return appendEntry(state, now, {
-        kind: 'failed',
-        alias: event.from ?? undefined,
-        text: errorText(event.reason),
-        meta: event.detail ?? undefined,
-      });
+      return onError(state, event, now);
+    case 'folder_state':
+      return onFolderState(state, event);
+    case 'folder_file':
+      // Llega la respuesta a un `folder_get`. Si mientras tanto se abrió otro
+      // archivo, esta ya no interesa: pintarla sería reemplazar lo que se está
+      // mirando por lo que se dejó de mirar.
+      return state.folderOpen?.path === event.path
+        ? { ...state, folderOpen: { path: event.path, text: event.text } }
+        : state;
+    case 'folder_ok':
+      return state;
     default:
       return state;
   }
+}
+
+function onError(state: SessionState, event: ErrorEvent, now: number): SessionState {
+  const next = appendEntry(state, now, {
+    kind: 'failed',
+    alias: event.from ?? undefined,
+    text: errorText(event.reason),
+    meta: event.detail ?? undefined,
+  });
+
+  // Un error mientras se esperaba un archivo deja el visor cargando para
+  // siempre. Se cierra: el motivo ya se ve en el registro de la sesión.
+  return state.folderOpen && state.folderOpen.text === undefined
+    ? { ...next, folderOpen: null }
+    : next;
+}
+
+/**
+ * La carpeta llega entera en cada cambio, así que se reemplaza sin comparar.
+ *
+ * Lo que sí se mira es el archivo abierto: si ya no está en la carpeta, se lo
+ * han borrado a todo el mundo mientras alguien lo leía, y dejarlo en pantalla
+ * sería enseñar algo que ya no existe.
+ */
+function onFolderState(state: SessionState, event: FolderStateEvent): SessionState {
+  const open = state.folderOpen;
+  const sigue = open && event.entries.some((entry) => entry.path === open.path);
+
+  return {
+    ...state,
+    folder: event.entries,
+    folderWrite: event.write,
+    folderOpen: sigue ? open : null,
+  };
 }
 
 export function pruneActivities(state: SessionState, now: number): SessionState {

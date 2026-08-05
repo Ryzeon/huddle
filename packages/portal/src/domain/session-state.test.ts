@@ -388,3 +388,94 @@ describe('varios', () => {
     assert.deepEqual(mentionables(state), ['@ana', '@ana:api', '@all', '@auto']);
   });
 });
+
+describe('la carpeta de la sala', () => {
+  const entry = (path: string, at = 10) => ({ path, size: 12, by: '@ana', at });
+
+  it('el estado de la carpeta se reemplaza entero', () => {
+    const state = run([
+      WELCOME,
+      { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' },
+      { t: 'folder_state', entries: [entry('notas/b.md')], write: 'all' },
+    ]);
+
+    assert.deepEqual(
+      state.folder.map((f) => f.path),
+      ['notas/b.md'],
+    );
+  });
+
+  it('recuerda quién puede escribir', () => {
+    const state = run([WELCOME, { t: 'folder_state', entries: [], write: 'host' }]);
+    assert.equal(state.folderWrite, 'host');
+  });
+
+  it('el archivo pedido se queda cargando hasta que llega', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md' } };
+
+    assert.equal(state.folderOpen?.text, undefined);
+
+    state = reduce(
+      state,
+      { t: 'folder_file', id: 'g1', path: 'notas/a.md', text: '# hola', at: 10 },
+      99,
+    );
+    assert.equal(state.folderOpen?.text, '# hola');
+  });
+
+  it('un archivo que llega tarde no pisa al que se está mirando', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/b.md' } };
+
+    state = reduce(
+      state,
+      { t: 'folder_file', id: 'g1', path: 'notas/a.md', text: 'la vieja', at: 10 },
+      99,
+    );
+
+    assert.equal(state.folderOpen?.path, 'notas/b.md');
+    assert.equal(state.folderOpen?.text, undefined);
+  });
+
+  it('si borran lo que estabas leyendo, se cierra el visor', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(state, { t: 'folder_state', entries: [], write: 'all' }, 99);
+
+    assert.equal(state.folderOpen, null);
+  });
+
+  it('un cambio en otro archivo no cierra el que estás leyendo', () => {
+    let state = run([WELCOME, { t: 'folder_state', entries: [entry('notas/a.md')], write: 'all' }]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(
+      state,
+      { t: 'folder_state', entries: [entry('notas/a.md'), entry('notas/b.md')], write: 'all' },
+      99,
+    );
+
+    assert.equal(state.folderOpen?.text, 'x');
+  });
+
+  it('un error mientras se espera un archivo no deja el visor colgado', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/a.md' } };
+
+    state = reduce(state, { t: 'error', id: 'g1', reason: 'bad_request', detail: 'no existe' }, 99);
+
+    assert.equal(state.folderOpen, null);
+    assert.equal(state.entries.at(-1)?.kind, 'failed');
+  });
+
+  it('un error de otra cosa no cierra un archivo ya cargado', () => {
+    let state = run([WELCOME]);
+    state = { ...state, folderOpen: { path: 'notas/a.md', text: 'x' } };
+
+    state = reduce(state, { t: 'error', id: 'q1', reason: 'timeout' }, 99);
+
+    assert.equal(state.folderOpen?.text, 'x');
+  });
+});

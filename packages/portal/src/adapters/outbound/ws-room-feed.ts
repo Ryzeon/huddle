@@ -178,6 +178,9 @@ export class WsRoomFeed implements RoomFeed {
         quotaRemaining: null,
         ...(proof && { proof }),
         ...(identity.policy && proof && { policy: identity.policy }),
+        ...(identity.folderWrite === 'host' && { folderWrite: 'host' as const }),
+        // Solo viaja el `false`: la memoria va encendida por defecto.
+        ...(identity.folderMemory === false && { folderMemory: false }),
       };
     }
     return {
@@ -260,6 +263,9 @@ export function toPortalEvent(raw: string): PortalEvent | null {
     case 'activity':
     case 'result':
     case 'error':
+    case 'folder_state':
+    case 'folder_file':
+    case 'folder_ok':
       return parsed as PortalEvent;
     default:
       return null;

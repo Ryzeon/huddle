@@ -1113,3 +1113,369 @@ a {
   gap: 0.5rem;
   margin-top: 0.4rem;
 }
+
+/* --- la carpeta de la sala ----------------------------------------------- */
+
+/* Se abre sobre la mesa, no al lado: se mira un momento y se cierra. Por eso
+   tapa el escenario y no le roba sitio al chat, que sigue siendo el hilo. */
+.carpeta {
+  position: absolute;
+  inset: 12px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.28);
+  overflow: hidden;
+}
+
+.carpeta[hidden] {
+  display: none;
+}
+
+.carpeta__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-alta);
+}
+
+.carpeta__titulo {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.carpeta__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) 1fr;
+  min-height: 0;
+  flex: 1;
+}
+
+.carpeta__lista {
+  border-inline-end: 1px solid var(--borde);
+  overflow-y: auto;
+  padding: 0.6rem 0;
+}
+
+.carpeta__grupo {
+  margin: 0.5rem 0 0.25rem;
+  padding-inline: 0.9rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.carpeta__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.carpeta__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding-inline: 0.5rem 0.6rem;
+}
+
+.carpeta__item:hover {
+  background: var(--superficie-alta);
+}
+
+.carpeta__archivo {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--texto);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.carpeta__archivo:hover {
+  color: var(--acento-texto);
+}
+
+/* Las acciones solo al pasar por encima o con el foco dentro: una lista con
+   dos botones por fila se lee como un formulario, no como una carpeta. */
+.carpeta__acciones {
+  display: flex;
+  gap: 0.3rem;
+  opacity: 0;
+}
+
+.carpeta__item:hover .carpeta__acciones,
+.carpeta__item:focus-within .carpeta__acciones {
+  opacity: 1;
+}
+
+.carpeta__visor {
+  overflow-y: auto;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.carpeta__vacia,
+.carpeta__pista {
+  margin: 0;
+  padding-inline: 0.9rem;
+  color: var(--texto-2);
+  font-size: 0.85rem;
+  max-width: 46ch;
+}
+
+.carpeta__md {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.carpeta__nombre,
+.carpeta__editor {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  background: var(--fondo);
+  color: var(--texto);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.carpeta__editor {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.carpeta__nombre[readonly] {
+  color: var(--texto-2);
+}
+
+.carpeta__botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* En la mesa, debajo de la celda: el dibujo tiene que decir que ahí hay una
+   carpeta. Lo de verdad se abre desde la cabecera. */
+.mesa__carpeta-forma {
+  fill: color-mix(in srgb, var(--acento) 22%, transparent);
+  stroke: var(--acento);
+  stroke-width: 1.2;
+}
+
+.mesa__carpeta-cuenta {
+  fill: var(--texto-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .carpeta__cuerpo {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(90px, 30%) 1fr;
+  }
+
+  .carpeta__lista {
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--borde);
+  }
+}
+
+/* El frontmatter de las notas del hub: metadatos, no prosa. */
+.carpeta__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.7rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--r);
+  background: var(--fondo);
+  font-size: 0.78rem;
+}
+
+.carpeta__meta dt {
+  color: var(--texto-2);
+  font-family: var(--mono);
+}
+
+.carpeta__meta dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+
+/* Un wikilink se pulsa: es lo que hace que el grafo se pueda recorrer sin
+   volver a la lista en cada salto. */
+.carpeta__enlace {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--acento-texto);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.carpeta__enlace--roto {
+  color: var(--texto-2);
+  text-decoration-style: dotted;
+  cursor: default;
+}
+
+/* Subir archivos es un `label` con el input dentro: así se estiliza como un
+   botón sin duplicar el control ni perder el teclado. */
+.carpeta__subir {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.carpeta__subir input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.carpeta--soltar {
+  outline: 2px dashed var(--acento);
+  outline-offset: -6px;
+}
+
+/* Los ajustes de la sala, solo al crearla: se deciden una vez y se heredan. */
+.ajustes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--r);
+}
+
+.ajustes legend {
+  padding-inline: 0.35rem;
+  color: var(--texto-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ajuste {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: start;
+  cursor: pointer;
+}
+
+.ajuste input {
+  margin-top: 0.15rem;
+  accent-color: var(--acento);
+}
+
+.ajuste b {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ajuste small {
+  display: block;
+  color: var(--texto-2);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.ajuste input:disabled + span b,
+.ajuste input:disabled + span small {
+  color: var(--texto-2);
+  opacity: 0.6;
+}
+
+/* El campo de archivos no es una casilla: su control ocupa la fila entera, y
+   dentro de la rejilla de dos columnas dejaba el texto en una tira ilegible. */
+.ajuste--archivos {
+  display: block;
+  margin-top: 0.2rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--borde);
+}
+
+.ajuste--archivos > span {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.ajuste--archivos input[type="file"] {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--r);
+  background: var(--fondo);
+  color: var(--texto-2);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ajuste--archivos input[type="file"]::file-selector-button {
+  margin-inline-end: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r);
+  background: var(--superficie-alta);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* Con los ajustes de sala, el formulario de crear ya no cabe en una pantalla
+   corta. Se le da su propio scroll y los botones se quedan pegados abajo: sin
+   esto, «crear sala» desaparecía bajo el borde y había que buscarlo. */
+.dialogo {
+  max-height: min(88vh, 760px);
+}
+
+.dialogo form {
+  max-height: inherit;
+  overflow-y: auto;
+}
+
+.dialogo__botones {
+  position: sticky;
+  bottom: 0;
+  padding-block: 12px 4px;
+  /* Fondo sólido y una línea: el formulario pasa por detrás al hacer scroll, y
+     sin esto el texto asomaba entre los botones. */
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+}

@@ -90,6 +90,30 @@ export class SessionStore {
     this.ingest({ t: 'note', text, tone });
   }
 
+  /**
+   * Abre un archivo de la carpeta.
+   *
+   * El estado marca cuál se está esperando antes de pedirlo: así el visor
+   * puede decir «cargando» y, cuando llegue la respuesta, se sabe si sigue
+   * siendo la que interesa.
+   */
+  openFile(path: string): void {
+    this.commit({ ...this.state, folderOpen: { path } });
+    this.send({ t: 'folder_get', id: newLocalId(), path });
+  }
+
+  closeFile(): void {
+    if (this.state.folderOpen) this.commit({ ...this.state, folderOpen: null });
+  }
+
+  writeFile(path: string, text: string): void {
+    this.send({ t: 'folder_put', id: newLocalId(), path, text });
+  }
+
+  removeFile(path: string): void {
+    this.send({ t: 'folder_drop', id: newLocalId(), path });
+  }
+
   private send(message: PortalClientMessage): void {
     this.deps.feed.send(message);
   }

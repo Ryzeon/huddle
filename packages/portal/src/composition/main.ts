@@ -12,9 +12,11 @@ import { ChatView } from '../adapters/inbound/chat-view.js';
 import { HeaderView } from '../adapters/inbound/header-view.js';
 import { RoomsView, normalizeAlias } from '../adapters/inbound/rooms-view.js';
 import { ApprovalsView } from '../adapters/inbound/approvals-view.js';
+import { FolderView } from '../adapters/inbound/folder-view.js';
 import { TableView } from '../adapters/inbound/table-view.js';
 import { applyTheme, readTheme, toggleTheme, type Theme } from '../adapters/inbound/theme.js';
 import { need } from '../adapters/inbound/dom.js';
+import type { Upload } from '../domain/uploads.js';
 
 const DEFAULT_HUB = 'ws://localhost:8787';
 
@@ -59,7 +61,18 @@ function buildFeed(params: URLSearchParams, signer: PortalIdentity | null): Setu
   const policy = params.get('politica') === 'aprobada' && signer ? 'approved' : undefined;
 
   const identity: FeedIdentity = create
-    ? { mode: 'create', room: '', roomName: create, alias, viewer: true, policy }
+    ? {
+        mode: 'create',
+        room: '',
+        roomName: create,
+        alias,
+        viewer: true,
+        policy,
+        // Lo elegido en el diálogo viaja por la URL, como el resto del estado
+        // del portal: recargar tiene que llevar a la misma sala.
+        folderWrite: params.get('carpeta') === 'host' ? 'host' : 'all',
+        folderMemory: params.get('sin-memoria') === null,
+      }
     : { mode: 'join', room: room ?? '', alias, viewer: true };
 
   return {
@@ -79,6 +92,43 @@ function urlFor(room: string): string {
   url.searchParams.delete('crear');
   url.searchParams.set('sala', room);
   return url.toString();
+}
+
+/**
+ * Lo que la sala nueva se llevará dentro en cuanto exista.
+ *
+ * Crear una sala navega a otra URL, y en esa navegación se pierde todo lo que
+ * hubiera en memoria. `sessionStorage` es lo que sobrevive a una recarga y no
+ * a cerrar la pestaña, que es exactamente la vida que tiene esto: si la sala
+ * no llega a abrirse, no debe quedar nada esperando para siempre.
+ */
+const SEMILLA = 'huddle:carpeta-inicial';
+
+interface Semilla {
+  uploads: Upload[];
+  rechazados: string[];
+}
+
+function guardarSemilla(semilla: Semilla): void {
+  if (semilla.uploads.length === 0 && semilla.rechazados.length === 0) return;
+  try {
+    sessionStorage.setItem(SEMILLA, JSON.stringify(semilla));
+  } catch {
+    // Sin sitio o sin permiso: la sala se crea igual, vacía. Perder los
+    // archivos es malo; no poder crear la sala, peor.
+  }
+}
+
+/** Se lee una sola vez: al segundo intento ya no hay nada que sembrar. */
+function tomarSemilla(): Semilla | null {
+  try {
+    const raw = sessionStorage.getItem(SEMILLA);
+    if (!raw) return null;
+    sessionStorage.removeItem(SEMILLA);
+    return JSON.parse(raw) as Semilla;
+  } catch {
+    return null;
+  }
 }
 
 function navigateTo(params: Record<string, string>): void {
@@ -145,10 +195,20 @@ export async function bootstrap(): Promise<void> {
     rooms,
     {
       onOpen: (room) => navigateTo({ hub: room.hub, sala: room.code, alias: room.alias }),
-      onCreate: (room) => navigateTo({ hub: room.hub, crear: room.name, alias: room.alias }),
+      onCreate: (room) => {
+        guardarSemilla({ uploads: room.uploads, rechazados: room.rechazados });
+        navigateTo({
+          hub: room.hub,
+          crear: room.name,
+          alias: room.alias,
+          ...(room.approved && { politica: 'aprobada' }),
+          ...(room.folderHost && { carpeta: 'host' }),
+          ...(room.folderMemory ? {} : { 'sin-memoria': '1' }),
+        });
+      },
       onForget: (code) => rooms.forget(code),
     },
-    { hub, alias },
+    { hub, alias, canSign: signer !== null },
   );
 
   const puerta = document.querySelector<HTMLElement>('[data-puerta]');
@@ -158,6 +218,23 @@ export async function bootstrap(): Promise<void> {
         onDeny: (id) => store.deny(id),
       })
     : null;
+
+  const folderHost = document.querySelector<HTMLElement>('[data-carpeta]');
+  const folder = folderHost
+    ? new FolderView(folderHost, {
+        onOpen: (path) => store.openFile(path),
+        onClose: () => store.closeFile(),
+        onWrite: (path, text) => store.writeFile(path, text),
+        onRemove: (path) => store.removeFile(path),
+        onNote: (text) => store.note(text, 'failed'),
+      })
+    : null;
+
+  const folderButton = document.querySelector<HTMLButtonElement>('[data-carpeta-abrir]');
+  folderButton?.addEventListener('click', () => {
+    folder?.toggle();
+    folderButton.setAttribute('aria-expanded', String(folder?.isOpen ?? false));
+  });
 
   const empty = need<HTMLElement>('[data-vacio]');
   const replay = need<HTMLButtonElement>('[data-repetir]');
@@ -220,13 +297,38 @@ export async function bootstrap(): Promise<void> {
     }, 4_000);
   });
 
+  // La carpeta inicial se siembra cuando la sala ya existe: antes del welcome
+  // no hay a dónde escribir, y el hub rechazaría los `folder_put`.
+  const semilla = tomarSemilla();
+  let sembrado = false;
+
   let remembered: string | null = null;
   store.subscribe((state) => {
+    if (semilla && !sembrado && state.room !== null) {
+      sembrado = true;
+      for (const upload of semilla.uploads) store.writeFile(upload.path, upload.text);
+      for (const motivo of semilla.rechazados) store.note(motivo, 'failed');
+      if (semilla.uploads.length > 0) {
+        store.note(
+          `${semilla.uploads.length} archivo(s) en la carpeta de la sala: los leerá el agente de todos`,
+        );
+      }
+    }
+
     header.render(state);
     table.render(state);
     chat.render(state);
     roomsView.render(state);
     approvals?.render(state);
+    folder?.render(state);
+    if (folderButton) {
+      folderButton.hidden = state.room === null;
+      // El número va en el botón: es lo que hace que se note que hay algo
+      // nuevo sin tener que abrirlo.
+      folderButton.textContent =
+        state.folder.length > 0 ? `carpeta · ${state.folder.length}` : 'carpeta';
+      folderButton.setAttribute('aria-expanded', String(folder?.isOpen ?? false));
+    }
     empty.hidden = state.room !== null;
     if (salir) salir.hidden = state.room === null;
     // Solo al anfitrión, y comparando por alias: tu etiqueta puede llevar tag.

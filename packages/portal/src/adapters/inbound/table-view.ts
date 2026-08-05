@@ -79,7 +79,7 @@ export class TableView {
     this.geometry = this.computeGeometry(state.members.length);
     const seats = placeSeats(state.members, this.geometry);
 
-    drawBoard(this.boardLayer, this.geometry, state.busy.length > 0);
+    drawBoard(this.boardLayer, this.geometry, state.busy.length > 0, state.folder.length);
     this.nodes.sync(seats, state);
     this.arcs.reposition(this.geometry, (label) => this.nodes.seatOf(label));
     this.roster.update(seats, state);

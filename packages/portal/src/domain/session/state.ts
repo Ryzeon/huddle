@@ -1,4 +1,11 @@
-import type { ActivityMessage, Alias, Member, SourceRef } from '@huddle/protocol';
+import type {
+  ActivityMessage,
+  Alias,
+  FolderEntry,
+  FolderWrite,
+  Member,
+  SourceRef,
+} from '@huddle/protocol';
 import { memberLabel } from '../table-layout.js';
 
 export type ConnectionStatus =
@@ -80,6 +87,17 @@ export interface SessionState {
   pending: PendingGuest[];
   /** Puesto si eres tú quien espera. */
   waitingInfo: WaitingInfo | null;
+  /** La carpeta de la sala, sin contenidos: se piden de uno en uno. */
+  folder: FolderEntry[];
+  folderWrite: FolderWrite;
+  /** El archivo abierto en el visor, o el que se está esperando. */
+  folderOpen: OpenFile | null;
+}
+
+export interface OpenFile {
+  path: string;
+  /** Ausente mientras el hub no ha contestado todavía. */
+  text?: string;
 }
 
 export const MAX_ENTRIES = 400;
@@ -101,6 +119,9 @@ export function initialState(): SessionState {
     seq: 0,
     pending: [],
     waitingInfo: null,
+    folder: [],
+    folderWrite: 'all',
+    folderOpen: null,
   };
 }
 

@@ -1,4 +1,12 @@
-import type { ActivityMessage, Alias, CapabilityCard, Member, SourceRef } from '@huddle/protocol';
+import type {
+  ActivityMessage,
+  Alias,
+  CapabilityCard,
+  FolderEntry,
+  FolderWrite,
+  Member,
+  SourceRef,
+} from '@huddle/protocol';
 import type { ConnectionStatus } from './state.js';
 
 export interface TransportEvent {
@@ -100,6 +108,27 @@ export interface ErrorEvent {
   detail?: string;
 }
 
+export interface FolderStateEvent {
+  t: 'folder_state';
+  entries: FolderEntry[];
+  write: FolderWrite;
+}
+
+export interface FolderFileEvent {
+  t: 'folder_file';
+  id: string;
+  path: string;
+  text: string;
+  at: number;
+}
+
+/** Acuse de una escritura propia: es lo que cierra el editor abierto. */
+export interface FolderOkEvent {
+  t: 'folder_ok';
+  id: string;
+  path: string;
+}
+
 export type PortalEvent =
   | TransportEvent
   | NoteEvent
@@ -114,4 +143,7 @@ export type PortalEvent =
   | ChatEvent
   | ActivityMessage
   | ResultEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | FolderStateEvent
+  | FolderFileEvent
+  | FolderOkEvent;

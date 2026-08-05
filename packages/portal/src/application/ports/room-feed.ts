@@ -5,6 +5,10 @@ import type {
   DenyGuestMessage,
   ChatMessage,
   CreateRoomMessage,
+  FolderDropMessage,
+  FolderGetMessage,
+  FolderPutMessage,
+  FolderWrite,
   JoinMessage,
   KickMessage,
   RotateCodeMessage,
@@ -20,7 +24,10 @@ export type PortalClientMessage =
   | RotateCodeMessage
   | AdmitGuestMessage
   | DenyGuestMessage
-  | CloseRoomMessage;
+  | CloseRoomMessage
+  | FolderPutMessage
+  | FolderDropMessage
+  | FolderGetMessage;
 
 export interface RoomFeed {
   /** Abre el transporte. Idempotente. */
@@ -39,6 +46,10 @@ export interface FeedIdentity {
   viewer: boolean;
   /** Solo al crear, y solo si se puede firmar. */
   policy?: 'approved';
+  /** Solo al crear: quién escribe en la carpeta de la sala. */
+  folderWrite?: FolderWrite;
+  /** Solo al crear: si las respuestas se quedan escritas en la carpeta. */
+  folderMemory?: boolean;
 }
 
 export interface RememberedRoom {

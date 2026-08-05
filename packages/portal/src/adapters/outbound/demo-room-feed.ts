@@ -1,6 +1,6 @@
 import type { PortalClientMessage, RoomFeed } from '../../application/ports/room-feed.js';
 import type { PortalEvent } from '../../domain/session-state.js';
-import { DEMO_SCRIPT, DEMO_YOU, type ScriptedEvent } from './demo-script.js';
+import { DEMO_FILES, DEMO_SCRIPT, DEMO_YOU, type ScriptedEvent } from './demo-script.js';
 
 export interface DemoRoomFeedOptions {
   script?: readonly ScriptedEvent[];
@@ -76,6 +76,29 @@ export class DemoRoomFeed implements RoomFeed {
           });
         }, 2400),
       );
+      return;
+    }
+    if (message.t === 'folder_get') {
+      // Sin esto el visor se queda cargando para siempre: en la demostración
+      // no hay hub que conteste.
+      this.emit({
+        t: 'folder_file',
+        id: message.id,
+        path: message.path,
+        text: DEMO_FILES[message.path] ?? `# ${message.path}\n\n(demo) sin contenido.`,
+        at: Date.now(),
+      });
+      return;
+    }
+    if (message.t === 'folder_put' || message.t === 'folder_drop') {
+      this.emit({
+        t: 'note',
+        text:
+          message.t === 'folder_put'
+            ? `(demo) escribirías ${message.path} para toda la sala`
+            : `(demo) borrarías ${message.path} para toda la sala`,
+        tone: 'system',
+      });
       return;
     }
     if (message.t === 'kick') {
