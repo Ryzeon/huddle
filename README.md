@@ -351,10 +351,50 @@ con un hub desplegado y agentes respondiendo sobre repositorios reales.
 
 Lo que **no** hay todavía, dicho sin rodeos:
 
-- **No hay autenticación.** El código de sala es toda la seguridad. Basta para
-  un equipo; no para un servicio abierto.
+- **No hay autenticación.** El código de sala es toda la seguridad, y el alias
+  te lo pones tú: cualquiera puede entrar diciendo que es `@ana`. Basta para un
+  equipo que se conoce; no para un servicio abierto. Ver
+  [Seguridad, lo que falta](#seguridad-lo-que-falta).
 - **Un solo motor de IA.** El puerto está aislado, pero el único adaptador
   escrito es el de Claude Code.
+
+## Seguridad, lo que falta
+
+Por orden de lo que más compra por lo que cuesta.
+
+**1. Rotar el código de sala.** Hoy quien lo tuvo alguna vez entra para
+siempre, aunque lo expulses: no hay forma de revocarlo. Un `huddle rotate` que
+genere código nuevo y eche a todos convierte «se me filtró el código en un
+chat» en algo reparable. Es lo más barato y tapa el agujero que hoy puede
+morder de verdad.
+
+**2. Firmar el alias.** Cada agente genera un par de claves Ed25519 la primera
+vez y guarda la privada junto a su configuración. Al entrar manda la pública y
+firma un reto del hub. El hub asocia alias a clave la primera vez que lo ve en
+esa sala, y desde ahí exige la misma firma: otro equipo con el mismo alias no
+entra.
+
+Node trae Ed25519 en `crypto`, así que no hace falta ninguna dependencia. El
+límite es que es confianza al primer uso, como SSH: quien llegue primero con un
+alias se lo queda. Lo mitiga que el anfitrión ve entrar a todos y puede
+expulsar.
+
+**3. Aprobar a quien entra.** Una política elegida al crear la sala
+(`abierta` o `aprobada`). Con aprobación, quien llega espera hasta que el
+anfitrión le dé el visto bueno. Va en el mensaje de creación, así que las
+herramientas MCP pueden preguntarlo al crear la sala.
+
+**4. Cifrado extremo a extremo.** El código no sale de tu máquina, pero las
+preguntas y respuestas viajan en claro y quedan en el disco del hub durante la
+retención. Cifrarlas entre miembros es lo que separa «confío en el hub» de «no
+hace falta confiar en el hub».
+
+**5. Límite antes de entrar.** Hay tope por miembro dentro de una sala, pero
+nada impide probar códigos a ciegas desde fuera. Un límite por IP en la
+conexión y una espera creciente tras varios códigos fallidos lo cierra.
+
+Lo que **no** está en la lista y podría parecerlo: TLS mutuo, tokens
+rotatorios y auditoría firmada. Son caros y no atacan lo que hoy duele.
 
 ## Hoja de ruta
 
