@@ -53,9 +53,10 @@ Tres decisiones que lo definen:
 🔒 **Tu código no viaja.** Solo la pregunta y la respuesta. El repositorio se
 queda donde está, y el servidor jamás lo ve.
 
-💳 **Nadie paga por todos.** Cada quien responde con su propia suscripción, así
-que nadie puede gastarte el plan: veinte preguntas al día por defecto, y las
-que llegan a la vez hacen cola en lugar de rebotar.
+💳 **Ninguna API key compartida.** Cada quien responde con su propia
+suscripción. Sí, eso significa que las preguntas de tus compañeros gastan tu
+plan, y por eso hay tope: veinte al día por defecto, una a la vez, y las demás
+hacen cola en lugar de rebotar. Tú decides cuánto prestas.
 
 📎 **Sin fuentes no hay respuesta.** Si el agente no puede citar archivo y commit,
 lo dice. Prefiero un «no lo sé» a una respuesta redonda que te manda a
@@ -96,9 +97,10 @@ You ask from your terminal. The agent of whoever maintains that code answers,
 reading it right then, and hands you the file and commit where the answer
 lives.
 
-Your code never leaves your machine. It runs on each person's own
-subscription, not a shared API key. And an answer without sources isn't an
-answer.
+Your code never leaves your machine. Everyone answers with their own
+subscription, not a shared API key — which means your teammates' questions do
+spend your plan, and that's exactly why there's a cap: twenty a day by
+default. And an answer without sources isn't an answer.
 
 Open source, in beta, working today: github.com/Ryzeon/huddle
 
