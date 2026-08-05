@@ -1,12 +1,13 @@
 @echo off
-REM Envoltorio para Windows (CMD y PowerShell).
+REM Lanzador de Windows.
 REM
-REM   huddle.cmd join <sala> <@alias> --hub ws://IP:8787 --token <t>
-REM   huddle.cmd daemon
-REM   huddle.cmd ask @alguien "pregunta"
-REM
-REM Para registrarlo en Claude Code hace falta la ruta absoluta:
-REM   claude mcp add huddle -- C:\ruta\a\huddle\huddle.cmd mcp
+REM Usa el codigo ya compilado si existe: es diez veces mas rapido que `tsx` y,
+REM sobre todo, no deja `esbuild.exe` abierto, que en Windows impide reemplazar
+REM la instalacion al actualizar.
 setlocal
 cd /d "%~dp0"
-npx --yes tsx packages/agent/src/adapters/inbound/cli.ts %*
+if exist "packages\agent\dist\adapters\inbound\cli.js" (
+  node "packages\agent\dist\adapters\inbound\cli.js" %*
+) else (
+  npx --yes tsx packages/agent/src/adapters/inbound/cli.ts %*
+)

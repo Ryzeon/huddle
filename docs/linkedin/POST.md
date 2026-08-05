@@ -11,7 +11,7 @@ Imágenes en esta carpeta, en orden de uso:
 Para LinkedIn, `01-portal.png` como imagen principal. Si vas a carrusel, ese
 primero y la consola segunda: se entiende mejor el producto viendo la sala
 antes que el comando.
-
+    
 El SVG lo abres en el navegador y le haces captura, o lo conviertes a PNG. Si
 prefieres una consola tuya de verdad, corre esto y captura la pantalla:
 

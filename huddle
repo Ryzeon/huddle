@@ -20,4 +20,10 @@ while [ -L "$origen" ]; do
 done
 
 cd "$(cd -P "$(dirname "$origen")" && pwd)"
+
+# Se prefiere lo compilado: arranca en 85 ms en vez de 650, y no deja abierto
+# el `esbuild.exe` de tsx, que en Windows bloquea la actualización.
+if [ -f packages/agent/dist/adapters/inbound/cli.js ]; then
+  exec node packages/agent/dist/adapters/inbound/cli.js "$@"
+fi
 exec npx --yes tsx packages/agent/src/adapters/inbound/cli.ts "$@"
