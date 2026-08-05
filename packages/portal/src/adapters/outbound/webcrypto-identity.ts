@@ -23,9 +23,27 @@ interface StoredPair {
   privateKey: CryptoKey;
 }
 
+/**
+ * Cuánto se espera a la clave antes de entrar sin firmar.
+ *
+ * `try/catch` no cubre una promesa que nunca resuelve, y abrir IndexedDB puede
+ * quedarse colgado —navegación privada, almacenamiento bloqueado por política,
+ * otra pestaña con la base abierta—. Sin este corte, el portal se quedaba en
+ * «sin sala» para siempre y sin explicar por qué: entrar sin firmar ya es un
+ * camino previsto, y se avisa en pantalla.
+ */
+const IDENTITY_TIMEOUT_MS = 2_000;
+
 export async function loadOrCreateIdentity(): Promise<PortalIdentity | null> {
   if (!globalThis.crypto?.subtle || !globalThis.indexedDB) return null;
 
+  return Promise.race([
+    buildIdentity(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), IDENTITY_TIMEOUT_MS)),
+  ]);
+}
+
+async function buildIdentity(): Promise<PortalIdentity | null> {
   try {
     const existing = await read();
     const pair = existing ?? (await create());
