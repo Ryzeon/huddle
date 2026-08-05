@@ -319,6 +319,13 @@ signifique algo, cada agente firma su alias con una clave Ed25519.
 - El vínculo no se suelta cuando te vas ni cuando el hub se reinicia. Muere con
   la sala. El roster enseña una marca de firmado y los últimos 8 caracteres de
   la clave, nunca la clave entera.
+- **La puerta va antes que el nombre.** Quien se queda esperando aprobación no
+  ata su alias ni echa de la sala a quien lo estuviera usando: la clave se ata
+  cuando alguien entra de verdad, no cuando lo pide. Un rechazo no le deja a
+  nadie el nombre quemado.
+- Una sala guarda como mucho 200 alias firmados. Pasado ese tope, un alias
+  nuevo entra **sin** marca: antes que una insignia que no respalda nada, se
+  degrada a lo que había antes de las firmas.
 - **Para usar el mismo alias en dos máquinas**, copia `identity.json` a la
   segunda. Generar una clave nueva ahí te dejaría fuera de las salas donde ya
   firmaste, y por eso un archivo corrupto falla en vez de regenerarse solo.
