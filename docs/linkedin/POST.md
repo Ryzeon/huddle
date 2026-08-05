@@ -5,7 +5,7 @@ Imágenes en esta carpeta, en orden de uso:
 | Archivo | Qué es | De dónde sale |
 |---|---|---|
 | `01-portal.png` | el portal en tema oscuro, con una pregunta en vuelo | captura real, 2880×1800 |
-| `02-consola.svg` | una respuesta en la terminal, con fuentes y commit | salida real, tipografiada |
+| `02-consola.svg` | una respuesta en la terminal, con fuentes y commit | ejemplo con un repo ficticio |
 | `03-portal-claro.png` | el mismo portal en tema claro | captura real |
 
 Para LinkedIn, `01-portal.png` como imagen principal. Si vas a carrusel, ese

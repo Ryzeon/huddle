@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320">
 <rect width="1200" height="320" fill="#191512"/>
 <circle cx="26" cy="24" r="6" fill="#332c25"/><circle cx="48" cy="24" r="6" fill="#332c25"/><circle cx="70" cy="24" r="6" fill="#332c25"/>
-<text x="26" y="66" fill="#faf6f0" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">$ huddle ask @ryzeon:hotel-server "de que trata este repositorio?"</text>
-<text x="26" y="118" fill="#faf6f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">Es hotel-server: el backend SaaS multi-tenant de gestion hotelera</text>
-<text x="26" y="144" fill="#faf6f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">para Peru (marca Alkila), construido en Spring Boot 3.5.5 +</text>
-<text x="26" y="170" fill="#faf6f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">MongoDB + Redis, que incluye facturacion electronica SUNAT.</text>
-<text x="26" y="222" fill="#a39a94" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">Fuentes:</text>
-<text x="26" y="248" fill="#a39a94" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">  CLAUDE.md</text>
-<text x="26" y="300" fill="#ffb000" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">@ryzeon:hotel-server · @3b21f8ba · high · 9.2s</text>
+<text x="26" y="66" fill="#faf6f0" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">$ huddle ask @ana:billing-api "en que puerto corre el servicio?"</text>
+<text x="26" y="118" fill="#faf6f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">El servicio de facturacion corre en el puerto 9931, definido en la</text>
+<text x="26" y="144" fill="#faf6f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">constante BILLING_PORT y sobreescribible con la variable PORT.</text>
+<text x="26" y="196" fill="#a39a94" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">Fuentes:</text>
+<text x="26" y="222" fill="#a39a94" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">  src/server.ts:2</text>
+<text x="26" y="248" fill="#a39a94" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">  src/config/ports.ts:14</text>
+<text x="26" y="300" fill="#ffb000" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19">@ana:billing-api · @a44512c · high · 12s</text>
 </svg>
