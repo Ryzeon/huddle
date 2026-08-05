@@ -127,16 +127,16 @@ describe('los nodos del grafo', () => {
 });
 
 describe('los verbos no son temas', () => {
-  test('«qué tabla guarda los bultos» no crea temas/guarda', () => {
-    const temas = topicsOf('¿Qué tabla guarda los bultos?', []);
+  test('«qué tabla guarda los cobros» no crea temas/guarda', () => {
+    const temas = topicsOf('¿Qué tabla guarda los cobros?', []);
     assert.equal(temas.includes('guarda'), false, `salió ${temas.join(', ')}`);
-    assert.ok(temas.includes('tabla') || temas.includes('bulto'));
+    assert.ok(temas.includes('tabla') || temas.includes('cobro'));
   });
 
-  test('«por qué campos se identifica un pedido» tampoco', () => {
-    const temas = topicsOf('¿Por qué campos se identifica un Pedido?', []);
+  test('«por qué campos se identifica una factura» tampoco', () => {
+    const temas = topicsOf('¿Por qué campos se identifica una factura?', []);
     assert.equal(temas.includes('identifica'), false, `salió ${temas.join(', ')}`);
-    assert.ok(temas.includes('pedido') || temas.includes('campo'));
+    assert.ok(temas.includes('factura') || temas.includes('campo'));
   });
 });
 
@@ -150,7 +150,7 @@ describe('lo que el hub genera tiene que caber por su propia puerta', () => {
     const path = notePath({
       ...base,
       to: '@ryz',
-      question: '¿Qué tabla guarda los bultos y cómo se identifica cada uno de ellos?',
+      question: '¿Cómo se reintenta un cobro fallido y dónde queda registrado el intento?',
     });
 
     assert.doesNotThrow(() => normalizeFolderPath(path));
@@ -172,8 +172,8 @@ describe('lo que el hub genera tiene que caber por su propia puerta', () => {
     const { path, links } = buildNote({
       ...base,
       to: '@ryz',
-      question: '¿Por qué campos se identifica un Pedido en integration-processing?',
-      keywords: ['facturacion', 'pedidos', 'integracion'],
+      question: '¿Cómo se reintenta un cobro que falló y dónde se guarda el resultado?',
+      keywords: ['facturacion', 'cobros', 'reintentos'],
     });
 
     for (const ruta of [path, ...links]) {
