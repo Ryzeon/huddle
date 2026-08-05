@@ -1,7 +1,7 @@
 /**
  * La clave con la que el portal firma su alias.
  *
- * La privada se genera **no extraíble** y se guarda en IndexedDB como
+ * La privada se genera no extraíble y se guarda en IndexedDB como
  * `CryptoKey`: el navegador la usa para firmar pero no la deja leer, ni
  * siquiera a este código. Borrar los datos del sitio la pierde, y entonces el
  * hub ve otra clave; por eso el error de identidad explica cómo salir.

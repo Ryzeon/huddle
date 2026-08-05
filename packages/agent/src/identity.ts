@@ -14,9 +14,9 @@ interface StoredIdentity {
 /**
  * La clave con la que este agente firma su alias.
  *
- * Se crea una vez y se queda. Un archivo corrupto **lanza** en vez de
- * regenerar: una clave nueva te echa de todas las salas donde ya firmaste, y
- * hacerlo en silencio convierte un problema de disco en un misterio.
+ * Se crea una vez y se queda. Un archivo corrupto lanza en vez de regenerar:
+ * una clave nueva te echa de todas las salas donde ya firmaste, y hacerlo en
+ * silencio convierte un problema de disco en un misterio.
  */
 export function loadOrCreateIdentity(path = IDENTITY_PATH): IdentitySigner {
   ensureHuddleDir();

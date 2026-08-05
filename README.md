@@ -290,18 +290,83 @@ miembro y bloqueo por alias.
 El historial de sala se guarda 30 días y luego se purga. Una sala sin memoria
 vigente se cierra sola.
 
+### Rotar el código
+
+El código de sala es la llave. Si se filtra en un chat, `huddle rotate` genera
+uno nuevo: la sala sigue siendo la misma —mismo nombre, mismo dueño, mismo
+historial— pero a todos los demás se les cierra la conexión y necesitan el
+código nuevo para volver.
+
+```bash
+huddle rotate                 # solo el anfitrión; imprime el código nuevo
+huddle rejoin ABCDE-FGHIJ     # los demás, con el código que les pases
+```
+
+`rejoin` solo cambia el código: tu alias, tu hub y tus repos siguen igual.
+`join --force` se los llevaría por delante.
+
+### Identidad: tu alias es tuyo
+
+El alias lo escribe quien entra, así que por sí solo no prueba nada. Para que
+signifique algo, cada agente firma su alias con una clave Ed25519.
+
+- La clave se crea sola la primera vez, en `~/.huddle/identity.json`, con
+  permisos `0600`. Mírala con `huddle key`.
+- **Confianza al primer uso, por sala.** El primero que firma un alias en una
+  sala se lo queda mientras la sala viva. Quien llegue después con ese alias y
+  otra clave no entra; quien llegue sin firma, tampoco. Si alguien lo estaba
+  ocupando sin firmar, se le echa cuando aparece quien lo firma.
+- El vínculo no se suelta cuando te vas ni cuando el hub se reinicia. Muere con
+  la sala. El roster enseña una marca de firmado y los últimos 8 caracteres de
+  la clave, nunca la clave entera.
+- **Para usar el mismo alias en dos máquinas**, copia `identity.json` a la
+  segunda. Generar una clave nueva ahí te dejaría fuera de las salas donde ya
+  firmaste, y por eso un archivo corrupto falla en vez de regenerarse solo.
+- El portal firma también, con WebCrypto y la clave privada no extraíble en
+  IndexedDB. Si el navegador no trae Ed25519, entra sin firmar —solo a salas
+  abiertas y con el alias libre— y lo dice en pantalla. Borrar los datos del
+  sitio pierde la clave, y el hub te verá como otra persona.
+
+### Salas con aprobación
+
+Con `--policy approved`, el código deja de bastar: quien llega espera en la
+puerta hasta que el anfitrión le abre.
+
+```bash
+huddle create "Plataforma" @ana --policy approved
+huddle pending                # alias, clave y el id de cada solicitud
+huddle admit <id>             # --once si no quieres que se recuerde
+huddle deny <id>
+```
+
+Se aprueba por **id de solicitud y clave**, nunca por alias: dos personas
+pueden pedir entrar como `@ana` a la vez. Antes de admitir a nadie, comprueba
+por otro canal que la clave que ves es la suya.
+
+Quien espera no está dentro: no sale en el roster, no recibe el historial y no
+puede preguntar. La lista de aprobados sobrevive al reinicio del hub, y
+`huddle kick` la revoca — sin eso, expulsar sería decorativo. Crear una sala
+con aprobación exige poder firmar: el hub rechaza la creación si no llega
+firma, en vez de degradarla a abierta en silencio.
+
 ## Comandos
 
 | | |
 |---|---|
 | `huddle create "<nombre>" <@alias>` | Crear sala; imprime el código |
+| `huddle create … --policy approved` | Crear sala en la que tú apruebas a cada uno |
 | `huddle join <código> <@alias>` | Entrar |
+| `huddle rejoin <código>` | Volver a entrar con otro código, sin tocar nada más |
 | `huddle daemon` | Mantener presencia y atender preguntas |
 | `huddle ask <@alias\|@auto\|@all> "…"` | Preguntar |
 | `huddle add-repo <dir> [--tag <t>]` | Exponer otro repo, misma cuota |
 | `huddle repos` · `remove-repo <tag>` | Gestionarlos |
 | `huddle who` · `status` | Ver la sala y tu estado |
+| `huddle key` | Tu clave pública: es la que firma tu alias |
+| `huddle pending` | Quién espera a entrar (salas con aprobación) |
+| `huddle admit <id>` · `deny <id>` | Dejar entrar o no (solo el anfitrión) |
 | `huddle kick <@alias>` | Expulsar (solo el anfitrión) |
+| `huddle rotate` | Cambiar el código de la sala (solo el anfitrión) |
 | `huddle close` | Cerrar la sala y borrar su historial (solo el anfitrión) |
 
 Un daemon puede exponer varios repositorios. Comparten cuota porque la cuota es
@@ -336,7 +401,7 @@ servidor web lo sirve tal cual.
 ## Desarrollo
 
 ```bash
-npm test        # 322 tests, sin sockets ni subprocesos
+npm test        # 451 tests, sin sockets ni subprocesos
 npm run build
 ```
 
@@ -351,10 +416,11 @@ con un hub desplegado y agentes respondiendo sobre repositorios reales.
 
 Lo que **no** hay todavía, dicho sin rodeos:
 
-- **No hay autenticación.** El código de sala es toda la seguridad, y el alias
-  te lo pones tú: cualquiera puede entrar diciendo que es `@ana`. Basta para un
-  equipo que se conoce; no para un servicio abierto. Ver
-  [Seguridad, lo que falta](#seguridad-lo-que-falta).
+- **La autenticación es de confianza al primer uso.** El alias se firma con una
+  clave, y el código se puede rotar, pero no hay identidades de verdad: quien
+  llega primero con un alias se lo queda en esa sala. Con `--policy approved`
+  decides tú quién entra. Basta para un equipo que se conoce; no para un
+  servicio abierto. Ver [Seguridad, lo que falta](#seguridad-lo-que-falta).
 - **Un solo motor de IA.** El puerto está aislado, pero el único adaptador
   escrito es el de Claude Code.
 
@@ -362,27 +428,26 @@ Lo que **no** hay todavía, dicho sin rodeos:
 
 Por orden de lo que más compra por lo que cuesta.
 
-**1. Rotar el código de sala.** Hoy quien lo tuvo alguna vez entra para
-siempre, aunque lo expulses: no hay forma de revocarlo. Un `huddle rotate` que
-genere código nuevo y eche a todos convierte «se me filtró el código en un
-chat» en algo reparable. Es lo más barato y tapa el agujero que hoy puede
-morder de verdad.
+Rotar el código, firmar el alias y aprobar a quien entra ya están hechos, y se
+explican arriba. Lo que sigue abierto:
 
-**2. Firmar el alias.** Cada agente genera un par de claves Ed25519 la primera
-vez y guarda la privada junto a su configuración. Al entrar manda la pública y
-firma un reto del hub. El hub asocia alias a clave la primera vez que lo ve en
-esa sala, y desde ahí exige la misma firma: otro equipo con el mismo alias no
-entra.
+**1. `GET /rooms/:code/transcript` no pide nada.** Quien tenga el código lee el
+historial por HTTP sin pasar por el socket. En una sala abierta es coherente
+—el código es la llave—, pero en una sala con aprobación es una contradicción
+visible: alguien a quien no dejaste entrar puede leer lo que se dijo dentro.
 
-Node trae Ed25519 en `crypto`, así que no hace falta ninguna dependencia. El
-límite es que es confianza al primer uso, como SSH: quien llegue primero con un
-alias se lo queda. Lo mitiga que el anfitrión ve entrar a todos y puede
-expulsar.
+**2. La firma solo vale de verdad sobre `wss://`.** El reto va por el mismo
+socket que todo lo demás. Sobre `ws://` sin TLS, quien esté en medio puede
+quitar el `challenge` y el agente entra sin firmar, que es justo lo que se
+quería evitar. Contra eso hay dos defensas: usar `wss://`, o poner
+`requireSignedJoin: true` en `~/.huddle/config.json` para que el agente corte
+en vez de entrar sin firmar.
 
-**3. Aprobar a quien entra.** Una política elegida al crear la sala
-(`abierta` o `aprobada`). Con aprobación, quien llega espera hasta que el
-anfitrión le dé el visto bueno. Va en el mensaje de creación, así que las
-herramientas MCP pueden preguntarlo al crear la sala.
+**3. No hay rotación ni revocación de claves.** Un alias se ata a una clave y
+ahí se queda mientras viva la sala. Si te roban el portátil, la respuesta es
+`huddle kick` —que además revoca la aprobación— y, si hace falta,
+`huddle rotate` o cerrar la sala. No hay forma de decir «esta clave ya no soy
+yo, esta otra sí».
 
 **4. Cifrado extremo a extremo.** El código no sale de tu máquina, pero las
 preguntas y respuestas viajan en claro y quedan en el disco del hub durante la
