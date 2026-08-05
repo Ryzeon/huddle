@@ -1,0 +1,11 @@
+# Un issue en blanco casi siempre acaba en una conversación de ida y vuelta
+# preguntando la versión y el sistema. Las plantillas eso ya lo traen.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Un fallo de seguridad
+    url: https://github.com/Ryzeon/huddle/security/advisories/new
+    about: >-
+      En privado, nunca en un issue. Huddle deja que alguien dispare lectura en
+      el directorio de trabajo de otra persona: un agujero aquí se cuenta a
+      solas antes de contarlo en público.

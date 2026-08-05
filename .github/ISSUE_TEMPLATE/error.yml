@@ -1,0 +1,98 @@
+name: Algo no funciona
+description: Un fallo, un error o algo que se comporta distinto de lo que dice el README
+labels: ["error"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de nada: **no pegues el código de tu sala**. Es la llave — quien lo
+        tiene, entra. Si aparece en un log que quieres compartir, táchalo. Y si
+        ya se te ha escapado en algún sitio, `huddle rotate` te da uno nuevo sin
+        perder la sala.
+
+        Tampoco hace falta que pegues código de tu repositorio: casi siempre
+        basta con el error y lo que estabas haciendo.
+
+  - type: textarea
+    id: que-pasa
+    attributes:
+      label: Qué pasa
+      description: Qué esperabas que ocurriera y qué ocurrió en su lugar.
+      placeholder: |
+        Esperaba que `huddle ask @ana "..."` respondiera, y se queda colgado
+        hasta que caduca a los 120 s.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducir
+    attributes:
+      label: Cómo llegar hasta ahí
+      description: Los pasos, aunque parezcan obvios. El orden importa más de lo que parece.
+      placeholder: |
+        1. `npm run hub` en mi portátil
+        2. `huddle create "Equipo" @yo --hub ws://localhost:8787`
+        3. Desde otra máquina, `huddle join …`
+        4. `huddle ask @yo "¿dónde está el login?"`
+    validations:
+      required: true
+
+  - type: dropdown
+    id: donde
+    attributes:
+      label: Dónde ocurre
+      description: Si no lo tienes claro, elige lo que estabas usando.
+      multiple: true
+      options:
+        - El agente (huddle daemon)
+        - El hub
+        - El portal (navegador)
+        - El servidor MCP, desde mi sesión de IA
+        - La instalación o la actualización
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: La salida de `git rev-parse --short HEAD`, o la fecha en que instalaste.
+      placeholder: a44512c
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema
+      multiple: true
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: hub
+    attributes:
+      label: Dónde vive el hub
+      description: Cambia bastante el diagnóstico, sobre todo si hay un túnel de por medio.
+      placeholder: localhost · red local · ngrok · Cloudflare · un VPS con TLS
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Lo que se ve
+      description: |
+        La salida del daemon, la del hub, o la consola del navegador si es el
+        portal. Se formatea sola, no hace falta que pongas comillas.
+      render: shell
+
+  - type: checkboxes
+    id: comprobado
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: No hay ningún código de sala, token ni secreto en lo que he pegado
+          required: true

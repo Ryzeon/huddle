@@ -1,0 +1,34 @@
+name: Una idea
+description: Algo que falta, algo que estorba, o una forma distinta de hacer lo que ya hay
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuenta el problema antes que la solución. Muchas veces la mejor forma de
+        resolverlo no es la primera que se le ocurre a nadie, y con el problema
+        delante se ve.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema tienes
+      description: Cuándo te pasa, qué haces hoy para apañarlo y qué te cuesta.
+      placeholder: |
+        Cada vez que entro a la sala tengo que volver a decirle a mi agente en
+        qué repositorio trabajar, y se me olvida la mitad de las veces.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qué se te ocurre
+      description: Si tienes una idea de cómo resolverlo, aquí. Si no, tampoco pasa nada.
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Qué más has pensado
+      description: |
+        Lo que descartaste y por qué. Ahorra la mitad de la conversación.
