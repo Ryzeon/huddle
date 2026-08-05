@@ -39,8 +39,12 @@ if (-not $Update) {
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Hace falta Node. Instalalo desde https://nodejs.org"
 }
-$major = [int](node -p 'process.versions.node.split(".")[0]')
-if ($major -lt 20) { throw "Node $major es demasiado viejo; hace falta 20 o superior." }
+# Se lee `node --version` y se parte en PowerShell: pasarle a Node un `-p` con
+# comillas dobles dentro no sobrevive al paso por PowerShell, que se las come y
+# le deja a Node un `split(.)` que no compila.
+$versionNode = (node --version) -replace '^v', ''
+$major = [int]($versionNode.Split('.')[0])
+if ($major -lt 20) { throw "Node $versionNode es demasiado viejo; hace falta 20 o superior." }
 
 if (-not $NoMcp -and -not (Get-Command claude -ErrorAction SilentlyContinue)) {
   throw "No encuentro el CLI de Claude Code. Instalalo desde https://claude.com/claude-code, o usa -NoMcp"
