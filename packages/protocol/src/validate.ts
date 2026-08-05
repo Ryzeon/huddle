@@ -26,6 +26,7 @@ import type {
   SourceRef,
   TraceMessage,
   FolderPutMessage,
+  FolderPutManyMessage,
   FolderDropMessage,
   FolderGetMessage,
   FolderWrite,
@@ -63,6 +64,14 @@ export const LIMITS = {
   folderPath: 160,
   /** Cuántos archivos caben en la carpeta de una sala. */
   folderFiles: 500,
+  /**
+   * Archivos por lote, y texto total del lote.
+   *
+   * El hub corta los frames en 1 MB, así que un lote tiene que caber ahí con su
+   * JSON escapado alrededor. Quien sube más, trocea.
+   */
+  folderBatch: 50,
+  folderBatchText: 400_000,
 } as const;
 
 const B64U = /^[A-Za-z0-9_-]+$/;
@@ -389,6 +398,34 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
         // miembro acabe escribiendo fuera de la carpeta en el disco ajeno.
         path: folderPath(msg),
         text: str(msg, 'text', LIMITS.folderText),
+      };
+      return out;
+    }
+
+    case 'folder_put_many': {
+      const raw = msg.files;
+      if (!Array.isArray(raw)) throw new ValidationError('files', 'se esperaba un array');
+      if (raw.length === 0) throw new ValidationError('files', 'el lote viene vacío');
+      if (raw.length > LIMITS.folderBatch) {
+        throw new ValidationError('files', `máximo ${LIMITS.folderBatch} archivos por lote`);
+      }
+
+      const files: FolderPutManyMessage['files'] = [];
+      let total = 0;
+      for (const entrada of raw) {
+        const obj = asObject(entrada, 'files[]');
+        const text = str(obj, 'text', LIMITS.folderText);
+        total += text.length;
+        if (total > LIMITS.folderBatchText) {
+          throw new ValidationError('files', 'el lote es demasiado grande; mándalo en trozos');
+        }
+        files.push({ path: folderPath(obj), text });
+      }
+
+      const out: FolderPutManyMessage = {
+        t: 'folder_put_many',
+        id: str(msg, 'id', 64),
+        files,
       };
       return out;
     }
