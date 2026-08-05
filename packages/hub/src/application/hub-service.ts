@@ -1,8 +1,9 @@
 import { PROTOCOL_VERSION, type ClientMessage } from '@huddle/protocol';
-import type { TranscriptEntry } from '../domain/room.js';
+import type { Room, TranscriptEntry } from '../domain/room.js';
 import type { BucketPolicy } from '../domain/rate-limit.js';
 import type {
   ClockPort,
+  FolderStorePort,
   MemberChannelPort,
   NoncePort,
   RoomStorePort,
@@ -22,6 +23,8 @@ import { ApproveGuestHandler } from './commands/approve-guest.js';
 import { generateRoomCode, normalizeRoomCode } from '../domain/room-code.js';
 import { AskQuestionHandler } from './commands/ask-question.js';
 import { RelayAnswerHandler } from './commands/relay-answer.js';
+import { WriteFolderHandler } from './commands/write-folder.js';
+import { RememberAnswerHandler } from './commands/remember-answer.js';
 import { LeaveRoomHandler } from './commands/leave-room.js';
 import { SweepStaleMembersHandler } from './commands/sweep-stale-members.js';
 import { RoomQueries, type HubStats } from './queries/room-queries.js';
@@ -63,6 +66,8 @@ export interface HubDeps {
   verifier: SignatureVerifierPort;
   nonces?: NoncePort;
   rooms?: RoomStorePort;
+  /** Sin él la carpeta funciona, pero se va con el proceso. */
+  folders?: FolderStorePort;
   log?: (message: string) => void;
   generateCode?: () => string;
 }
@@ -82,10 +87,12 @@ export class HubService {
   private readonly leaveRoom: LeaveRoomHandler;
   private readonly rotateCode: RotateCodeHandler;
   private readonly sweepStale: SweepStaleMembersHandler;
+  private readonly writeFolder: WriteFolderHandler;
 
   private readonly clock: ClockPort;
   private readonly transcripts: TranscriptStorePort;
   private readonly roomStore?: RoomStorePort;
+  private readonly folderStore?: FolderStorePort;
   private readonly retentionMs: number;
   private readonly log: (message: string) => void;
   private readonly verifier: SignatureVerifierPort;
@@ -99,6 +106,7 @@ export class HubService {
     this.verifier = deps.verifier;
     this.challenges = new Challenges(deps.nonces ?? counterNonces());
     this.roomStore = deps.rooms;
+    this.folderStore = deps.folders;
     this.retentionMs = config.retentionMs;
     this.log = log;
     this.registry = new RoomRegistry(config.askPolicy);
@@ -135,6 +143,7 @@ export class HubService {
     this.closeRoom = new CloseRoomHandler({
       registry: this.registry,
       transcripts: this.transcripts,
+      folders: deps.folders,
       log,
     });
     this.askQuestion = new AskQuestionHandler({
@@ -149,11 +158,18 @@ export class HubService {
       timeouts,
       clock: deps.clock,
       transcripts: deps.transcripts,
+      remember: new RememberAnswerHandler({ notifier: this.notifier, log }),
+    });
+    this.writeFolder = new WriteFolderHandler({
+      notifier: this.notifier,
+      clock: deps.clock,
+      log,
     });
     this.leaveRoom = new LeaveRoomHandler({ ...shared, notifier: this.notifier });
     this.rotateCode = new RotateCodeHandler({
       ...shared,
       transcripts: this.transcripts,
+      folders: deps.folders,
       leaveRoom: this.leaveRoom,
       generateCode,
     });
@@ -170,6 +186,15 @@ export class HubService {
     const records = this.roomStore?.readAll() ?? [];
     if (records.length === 0) return;
     this.registry.restore(records);
+
+    // La carpeta se recupera después de la sala y por separado: es lo único
+    // que puede ocupar megas, y un archivo corrupto ahí no debe llevarse por
+    // delante el índice de salas.
+    for (const room of this.registry.allRooms()) {
+      const files = this.folderStore?.read(room.code) ?? [];
+      if (files.length > 0) room.folder.restore(files);
+    }
+
     this.log(`${records.length} sala(s) recuperadas del disco`);
     this.purgeExpired();
   }
@@ -182,8 +207,14 @@ export class HubService {
       const remaining = this.transcripts.purge(room.code, cutoff);
       room.replaceTranscript(this.transcripts.read(room.code));
 
-      if (remaining === 0 && room.isEmpty && room.createdAt < cutoff) {
+      // La carpeta caduca con los mismos treinta días. Sin esto, la primera
+      // respuesta que se anota deja una sala que ya no se cierra nunca.
+      if (room.folder.purge(cutoff) === 0) this.folderStore?.purge(room.code);
+      else this.persistFolder(room);
+
+      if (remaining === 0 && room.isEmpty && room.folder.isEmpty && room.createdAt < cutoff) {
         this.registry.forget(room.code);
+        this.folderStore?.purge(room.code);
         closed += 1;
       }
     }
@@ -194,6 +225,10 @@ export class HubService {
 
   private persistRooms(): void {
     this.roomStore?.writeAll(this.registry.snapshot());
+  }
+
+  private persistFolder(room: Room): void {
+    this.folderStore?.write(room.code, room.folder.snapshot());
   }
 
   transcriptOf(roomCode: string): readonly TranscriptEntry[] {
@@ -300,14 +335,38 @@ export class HubService {
         this.relayAnswer.relayProgress({ room, responder: member.alias, message });
         return;
 
-      case 'result':
+      case 'result': {
         room.touch(channel.id, now);
-        this.relayAnswer.finish({ room, responder: member.alias, message });
+        // La respuesta se queda escrita en la carpeta, así que hay que dejarla
+        // en disco: si no, un reinicio se lleva la memoria que acaba de nacer.
+        if (this.relayAnswer.finish({ room, responder: member, message })) {
+          this.persistFolder(room);
+        }
         return;
+      }
 
       case 'error':
         room.touch(channel.id, now);
         this.relayAnswer.fail({ room, responder: member.alias, message });
+        return;
+
+      case 'folder_put': {
+        room.touch(channel.id, now);
+        if (this.writeFolder.put({ room, member, channel, message })) this.persistFolder(room);
+        return;
+      }
+
+      case 'folder_drop': {
+        room.touch(channel.id, now);
+        if (this.writeFolder.drop({ room, member, channel, message })) {
+          this.persistFolder(room);
+        }
+        return;
+      }
+
+      case 'folder_get':
+        room.touch(channel.id, now);
+        this.writeFolder.get({ room, member, channel, message });
         return;
     }
   }

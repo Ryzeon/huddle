@@ -25,6 +25,13 @@ export class RoomRegistry {
         if (record.ownerKey) room.restoreOwnerKey(record.ownerKey);
         if (Array.isArray(record.approved)) room.restoreApproved(record.approved);
       }
+
+      // Reiniciar el hub no debe abrir la carpeta de una sala donde solo
+      // escribía el anfitrión, ni encender una memoria que se apagó.
+      room.folder.configure(
+        record.folderWrite === 'host' ? 'host' : 'all',
+        record.folderMemory !== false,
+      );
       this.rooms.set(record.code, room);
     }
   }
@@ -45,6 +52,8 @@ export class RoomRegistry {
         const approved = room.approvedSnapshot();
         if (approved.length > 0) record.approved = approved;
       }
+      if (room.folder.write === 'host') record.folderWrite = 'host';
+      if (!room.folder.memory) record.folderMemory = false;
       return record;
     });
   }
@@ -124,9 +133,18 @@ export class RoomRegistry {
    * Salvo las que tienen aprobación: ahí la sala ES la lista de invitados y la
    * clave del dueño. Tirarla al salir el último le quitaría la sala a su dueño
    * en cuanto se fuera un rato. Esas las recoge la retención, no esto.
+   *
+   * Y salvo las que tienen carpeta: lo que el equipo dejó escrito es memoria
+   * igual que el historial, y tirarlo porque se fue el último sería perderlo
+   * por cerrar el portátil.
    */
   dropIfExhausted(room: Room): void {
-    if (room.isEmpty && room.transcript.length === 0 && room.policy !== 'approved') {
+    if (
+      room.isEmpty &&
+      room.transcript.length === 0 &&
+      room.folder.isEmpty &&
+      room.policy !== 'approved'
+    ) {
       this.rooms.delete(room.code);
     }
   }

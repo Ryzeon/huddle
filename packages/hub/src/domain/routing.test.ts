@@ -23,6 +23,8 @@ function member(
     inFlight: 0,
     askTokens: 5,
     askTokensAt: 0,
+    folderTokens: 20,
+    folderTokensAt: 0,
     ...overrides,
   };
 }

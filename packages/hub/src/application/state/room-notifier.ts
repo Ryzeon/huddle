@@ -27,6 +27,15 @@ export class RoomNotifier {
     this.broadcast(room, { t: 'room_state', members: room.roster() });
   }
 
+  /** La carpeta entera, sin contenidos: cada uno se baja lo que le falte. */
+  broadcastFolder(room: Room): void {
+    this.broadcast(room, {
+      t: 'folder_state',
+      entries: room.folder.list(),
+      write: room.folder.write,
+    });
+  }
+
   /** Solo al anfitrión, y a todas sus conexiones: el portero es él. */
   toHost(room: Room, message: ServerMessage): void {
     const host = room.hostAlias;

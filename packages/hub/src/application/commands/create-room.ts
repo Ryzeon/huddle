@@ -76,6 +76,12 @@ export class CreateRoomHandler {
       room.restoreOwnerKey(offered);
     }
 
+    // Quién escribe en la carpeta y si se recuerdan las respuestas se decide
+    // al crear la sala y ya no cambia: un anfitrión que hereda el mando no
+    // debería poder abrir la carpeta que otro cerró, ni apagar una memoria
+    // sobre la que los demás ya han escrito.
+    room.folder.configure(message.folderWrite ?? 'all', message.folderMemory !== false);
+
     room.join(
       {
         channelId: channel.id,

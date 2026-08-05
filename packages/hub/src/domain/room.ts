@@ -8,6 +8,7 @@ import {
 } from './admission.js';
 import { consume, newBucket, type BucketPolicy } from './rate-limit.js';
 import { resolveAuto, resolveTargets } from './routing.js';
+import { Folder } from './folder.js';
 
 export interface PendingAsk {
   readonly id: string;
@@ -41,6 +42,12 @@ const TRANSCRIPT_LIMIT = 500;
 /** Tope de alias firmados por sala: el vínculo no caduca, la memoria sí importa. */
 export const MAX_KEYS = 200;
 
+/**
+ * Escrituras en la carpeta: veinte de golpe y luego una cada dos segundos.
+ * Sobra para trabajar y no llega para machacar a la sala a difusiones.
+ */
+export const FOLDER_WRITE_POLICY: BucketPolicy = { burst: 20, refillMs: 2_000 };
+
 const KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
 export class Room {
@@ -69,6 +76,14 @@ export class Room {
    * `isEmpty` y `staleMembers` los ignoran sin tener que saber que existen.
    */
   readonly admission = new Admission();
+
+  /**
+   * La carpeta de la sala: lo que el equipo deja escrito y lo que el hub anota
+   * de cada respuesta. Es de la sala, no de un miembro, así que vive aquí y
+   * muere con ella.
+   */
+  readonly folder = new Folder();
+
   private readonly pendingById = new Map<string, PendingAsk>();
   private readonly entries: TranscriptEntry[] = [];
   private readonly askPolicy: BucketPolicy;
@@ -135,6 +150,34 @@ export class Room {
 
   isHost(alias: Alias): boolean {
     return this.host === alias;
+  }
+
+  /**
+   * Con `write: 'host'` la carpeta es material que se reparte, no que se
+   * edita. Con `all` —lo normal— escribe cualquiera de dentro, incluidos los
+   * espectadores del portal: dejar una nota no es responder preguntas.
+   */
+  canWriteFolder(alias: Alias): boolean {
+    return this.folder.write === 'all' || this.isHost(alias);
+  }
+
+  /**
+   * Coge un hueco para escribir en la carpeta.
+   *
+   * El tope es generoso —un editor que guarda solo, o pegar diez notas de
+   * golpe, tienen que caber—, pero existe: cada escritura difunde el estado a
+   * toda la sala, así que un cliente en bucle sería N² mensajes por segundo
+   * contra todo el mundo.
+   */
+  allowFolderWrite(member: RoomMember, now: number): boolean {
+    const { bucket, allowed } = consume(
+      { tokens: member.folderTokens, updatedAt: member.folderTokensAt },
+      FOLDER_WRITE_POLICY,
+      now,
+    );
+    member.folderTokens = bucket.tokens;
+    member.folderTokensAt = bucket.updatedAt;
+    return allowed;
   }
 
   keyOf(alias: Alias): string | undefined {
@@ -248,13 +291,17 @@ export class Room {
   }
 
   join(
-    member: Omit<RoomMember, 'inFlight' | 'askTokens' | 'askTokensAt' | 'joinedAt'>,
+    member: Omit<
+      RoomMember,
+      'inFlight' | 'askTokens' | 'askTokensAt' | 'folderTokens' | 'folderTokensAt' | 'joinedAt'
+    >,
     now: number,
   ): { replaced?: RoomMember; becameHost: boolean; reclaimedHost: boolean } {
     const key = memberKey(member.alias, member.tag);
     const previous = this.membersByKey.get(key);
 
     const bucket = newBucket(this.askPolicy, now);
+    const folderBucket = newBucket(FOLDER_WRITE_POLICY, now);
     this.membersByKey.set(key, {
       ...member,
       // Una reconexión conserva su antigüedad: perderla te mandaría al final
@@ -263,6 +310,8 @@ export class Room {
       inFlight: 0,
       askTokens: bucket.tokens,
       askTokensAt: bucket.updatedAt,
+      folderTokens: folderBucket.tokens,
+      folderTokensAt: folderBucket.updatedAt,
     });
 
     // Sala recién creada o que se quedó sin anfitrión: manda el que llega,

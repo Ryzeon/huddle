@@ -15,6 +15,14 @@ export interface RoomMember {
   inFlight: number;
   askTokens: number;
   askTokensAt: number;
+  /**
+   * Cubeta aparte para escribir en la carpeta. Separada de la de preguntas
+   * porque los costes no se parecen: preguntar gasta la suscripción de otro,
+   * escribir solo difunde. Pero difundir a toda la sala en bucle también hace
+   * daño, así que tiene su propio tope.
+   */
+  folderTokens: number;
+  folderTokensAt: number;
 }
 
 export function memberKey(alias: Alias, tag?: string): string {

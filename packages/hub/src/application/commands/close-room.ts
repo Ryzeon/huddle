@@ -1,6 +1,10 @@
 import type { Alias, CloseRoomMessage } from '@huddle/protocol';
 import type { Room } from '../../domain/room.js';
-import type { MemberChannelPort, TranscriptStorePort } from '../ports/member-channel.js';
+import type {
+  FolderStorePort,
+  MemberChannelPort,
+  TranscriptStorePort,
+} from '../ports/member-channel.js';
 import type { RoomRegistry } from '../state/room-registry.js';
 
 export interface CloseRoomCommand {
@@ -13,6 +17,7 @@ export interface CloseRoomCommand {
 export interface CloseRoomDeps {
   registry: RoomRegistry;
   transcripts: TranscriptStorePort;
+  folders?: FolderStorePort;
   log: (message: string) => void;
 }
 
@@ -51,9 +56,10 @@ export class CloseRoomHandler {
       suyo?.close(ROOM_CLOSED_CODE, 'room closed by host');
     }
 
-    // El historial se va con la sala. Cerrar y dejar el transcript sería
+    // El historial y la carpeta se van con la sala. Cerrar y dejarlos sería
     // cerrar a medias, y el código volvería a funcionar tras un reinicio.
     this.deps.transcripts.purge(room.code, Number.POSITIVE_INFINITY);
+    this.deps.folders?.purge(room.code);
     this.deps.registry.forget(room.code);
 
     this.deps.log(`sala ${room.code} cerrada por ${requester}`);

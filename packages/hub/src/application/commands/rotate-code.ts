@@ -1,6 +1,10 @@
 import type { Alias, RotateCodeMessage } from '@huddle/protocol';
 import type { Room } from '../../domain/room.js';
-import type { MemberChannelPort, TranscriptStorePort } from '../ports/member-channel.js';
+import type {
+  FolderStorePort,
+  MemberChannelPort,
+  TranscriptStorePort,
+} from '../ports/member-channel.js';
 import type { RoomRegistry } from '../state/room-registry.js';
 import type { RoomNotifier } from '../state/room-notifier.js';
 import type { AskTimeouts } from '../state/ask-timeouts.js';
@@ -18,6 +22,7 @@ export interface RotateCodeDeps {
   notifier: RoomNotifier;
   timeouts: AskTimeouts;
   transcripts: TranscriptStorePort;
+  folders?: FolderStorePort;
   leaveRoom: LeaveRoomHandler;
   generateCode: () => string;
   log: (message: string) => void;
@@ -37,7 +42,7 @@ export class RotateCodeHandler {
   constructor(private readonly deps: RotateCodeDeps) {}
 
   handle({ room, requester, channel, message }: RotateCodeCommand): void {
-    const { registry, notifier, timeouts, transcripts, leaveRoom, log } = this.deps;
+    const { registry, notifier, timeouts, transcripts, folders, leaveRoom, log } = this.deps;
 
     if (!room.isHost(requester)) {
       channel.send({
@@ -60,6 +65,21 @@ export class RotateCodeHandler {
         id: message.id,
         reason: 'bad_request',
         detail: 'no se pudo mover el historial de la sala; el código no ha cambiado',
+      });
+      return;
+    }
+
+    // La carpeta va detrás del historial y por el mismo motivo: si se quedara
+    // bajo el código viejo, la sala sobreviviría a la rotación sin lo que el
+    // equipo tenía escrito. Al fallar se devuelve el historial a su sitio,
+    // porque quedarse a medias es peor que no rotar.
+    if (folders && !folders.rename(previous, next)) {
+      transcripts.rename(next, previous);
+      channel.send({
+        t: 'error',
+        id: message.id,
+        reason: 'bad_request',
+        detail: 'no se pudo mover la carpeta de la sala; el código no ha cambiado',
       });
       return;
     }

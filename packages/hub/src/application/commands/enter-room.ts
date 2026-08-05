@@ -91,6 +91,17 @@ export function enterRoom(
     verified,
   });
 
+  // La carpeta va justo detrás del welcome: quien entra tiene que poder
+  // ponerse al día con lo que el equipo ya dejó escrito antes de que le
+  // pregunten nada.
+  if (!room.folder.isEmpty) {
+    channel.send({
+      t: 'folder_state',
+      entries: room.folder.list(),
+      write: room.folder.write,
+    });
+  }
+
   if (becameHost || reclaimedHost) {
     notifier.broadcast(room, {
       t: 'host_changed',
