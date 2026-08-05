@@ -25,8 +25,8 @@ huddle ask @alguien "de qué trata este repositorio?"
 
 «¿Y si nuestras IAs tuvieran el contexto de las demás?»
 
-Me lo soltó Oscar, un compañero, entre dos reuniones. No le dio más
-importancia.
+Me lo dijo Oscar, un compañero, entre dos reuniones. Una de esas frases que
+suenan obvias hasta que intentas construirlas.
 
 Yo llevaba dos días esperando que alguien me contestara una pregunta de tres
 líneas sobre su código. No era culpa suya: estaba ocupado, luego dormido, y el
@@ -57,7 +57,7 @@ Lo que más me sorprendió construyéndolo no fue la IA. Fue descubrir cuántas
 veces al día le preguntamos a alguien algo que su repositorio ya sabía
 responder.
 
-Gracias @oscar, que tiró la idea sin querer y siguió con su día.
+La idea es suya. Gracias @oscar 🙌
 
 🔗 github.com/Ryzeon/huddle
 
@@ -67,7 +67,8 @@ Gracias @oscar, que tiró la idea sin querer y siguió con su día.
 
 "What if our AIs had each other's context?"
 
-A teammate said that in passing, between two meetings. Meanwhile I had spent
+My teammate Oscar said that between two meetings. One of those lines that
+sound obvious until you try to build them. Meanwhile I had spent
 two days waiting for someone to answer a three-line question about his own
 code. Not his fault: he was busy, then asleep, and the context I needed only
 lived on his machine.
