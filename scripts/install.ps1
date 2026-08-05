@@ -142,8 +142,10 @@ if (-not $NoMcp) {
   #
   # Los argumentos van en una lista: el `--` suelto lo puede interpretar
   # PowerShell antes de que llegue a `claude`, y asi pasa literal.
+  # `--scope user`, no el `local` por defecto: local ata el MCP al directorio
+  # desde el que se instalo, asi que Claude no lo veria en ningun otro proyecto.
   $argumentos = @(
-    'mcp', 'add', 'huddle',
+    'mcp', 'add', 'huddle', '--scope', 'user',
     '--env', "HUDDLE_ALIAS=$Alias",
     '--env', "HUDDLE_HUB=$Hub",
     '--', $huddle, 'mcp'

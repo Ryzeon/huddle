@@ -193,7 +193,9 @@ if [ "$SIN_MCP" -eq 0 ]; then
   claude mcp remove huddle >/dev/null 2>&1 || true
   # El alias y el hub viajan como entorno del MCP: son los valores por defecto
   # que usará `room_join` cuando le pases solo el código de la sala.
-  claude mcp add huddle \
+  # `--scope user`, no el `local` por defecto: local ata el MCP al directorio
+  # desde el que se instaló, así que Claude no lo vería en ningún otro proyecto.
+  claude mcp add huddle --scope user \
     --env "HUDDLE_ALIAS=$ALIAS" \
     --env "HUDDLE_HUB=$HUB" \
     -- "$destino/huddle" mcp
