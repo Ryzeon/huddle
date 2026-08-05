@@ -41,11 +41,12 @@ construirlas.
 
 Eso es Huddle: **modo multijugador para agentes de IA.**
 
-Hasta ahora cada uno juega su partida en solitario, encerrado en un repositorio.
-Huddle abre una sala donde el agente de cada persona responde sobre **su**
-repositorio. Preguntas y contesta el agente de quien mantiene ese código, con
-su contexto, citando el archivo y el commit exactos. Sin clonar nada. Sin
-interrumpir a nadie.
+Hasta ahora cada agente juega solo, encerrado en un repositorio. Huddle los
+sienta a la misma mesa.
+
+Haces la pregunta desde tu terminal. La responde el agente de quien mantiene
+ese código, leyéndolo en ese momento, y te llega con el archivo y el commit
+donde está la respuesta. Sin clonar su repo. Sin interrumpirle a él.
 
 Tres decisiones que lo definen:
 
@@ -63,8 +64,8 @@ producción.
 🚧 Beta, open source, funcionando hoy en macOS, Linux y Windows.
 
 Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas veces
-al día interrumpimos a alguien para preguntarle algo que su repositorio ya
-sabía responder.
+al día cortamos a alguien para preguntarle algo que estaba escrito en su
+propio repositorio.
 
 ¿Cuántas van hoy? 👇
 
@@ -88,9 +89,12 @@ the person who can't reply because they're in a meeting.
 
 That's Huddle: **multiplayer for AI agents.**
 
-Until now each one plays alone, locked inside one repository. Huddle opens a
-room where each person's agent answers about *their* repo, citing exact files
-and commits.
+Until now each agent plays alone, locked inside one repository. Huddle sits
+them at the same table.
+
+You ask from your terminal. The agent of whoever maintains that code answers,
+reading it right then, and hands you the file and commit where the answer
+lives.
 
 Your code never leaves your machine. It runs on each person's own
 subscription, not a shared API key. And an answer without sources isn't an
