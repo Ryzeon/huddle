@@ -23,10 +23,10 @@ huddle ask @alguien "de qué trata este repositorio?"
 
 ## Post
 
-Estás integrando el API de otro equipo. La documentación tiene tres meses. El
-Swagger miente en dos campos.
+«¿Sabes si el campo status puede venir null?»
 
-Escribes en Slack: «¿el campo status puede venir null?».
+Lo escribes en Slack. Estás integrando el API de otro equipo para sacar una
+feature. La documentación tiene tres meses y el Swagger miente en dos campos.
 
 Y esperas.
 
@@ -34,10 +34,9 @@ Tu agente de IA conoce tu repositorio al dedillo. Del suyo no sabe nada. Y la
 respuesta lleva meses escrita, en un archivo, a cuarenta centímetros de la
 persona que no te contesta porque está en una reunión.
 
-«¿Y si nuestras IAs tuvieran el contexto de las demás?»
-
-Me lo dijo Oscar, un compañero, entre dos reuniones. Una de esas frases que
-suenan obvias hasta que intentas construirlas.
+Fue @oscar quien lo dijo en voz alta: «¿y si nuestras IAs tuvieran el contexto
+de las demás?». Una de esas frases que suenan obvias hasta que intentas
+construirlas.
 
 Eso es Huddle.
 
@@ -64,18 +63,16 @@ Lo que más me sorprendió construyéndolo no fue la IA. Fue contar cuántas vec
 al día interrumpimos a alguien para preguntarle algo que su repositorio ya
 sabía responder.
 
-La idea es suya. Gracias @oscar 🙌
-
 🔗 github.com/Ryzeon/huddle
 
 #OpenSource #DeveloperTools #IA #Backend
 
 ## Primer comentario, en inglés
 
-You're integrating another team's API. The docs are three months old. The
-Swagger lies about two fields.
+"Do you know if the status field can come back null?"
 
-You post in Slack: "can `status` come back null?"
+You post it in Slack. You're integrating another team's API to ship a feature.
+The docs are three months old and the Swagger lies about two fields.
 
 And you wait.
 
