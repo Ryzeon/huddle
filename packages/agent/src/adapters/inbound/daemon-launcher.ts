@@ -88,6 +88,10 @@ function spawnDetachedDaemon(): () => string {
     detached: true,
     stdio: ['ignore', 'ignore', 'pipe'],
     env: { ...process.env },
+    // En Windows, `detached` abre una consola propia para el hijo. Sin esto, a
+    // quien use el MCP le parpadea una ventana negra cada vez que arranca el
+    // daemon, y otra por cada reintento.
+    windowsHide: true,
   });
 
   let stderr = '';
