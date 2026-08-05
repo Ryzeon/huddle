@@ -168,12 +168,26 @@ if (-not $NoMcp) {
   # PowerShell antes de que llegue a `claude`, y asi pasa literal.
   # `--scope user`, no el `local` por defecto: local ata el MCP al directorio
   # desde el que se instalo, asi que Claude no lo veria en ningun otro proyecto.
+  # Se registra con `node` y el .js compilado, no con el .cmd: Windows abre una
+  # consola cada vez que ejecuta un archivo por lotes, y Claude lanza el MCP a
+  # menudo. Apuntando a node no parpadea nada.
+  $cliCompilado = Join-Path $app "packages\agent\dist\adapters\inbound\cli.js"
+  if (Test-Path $cliCompilado) {
+    $ejecutable = (Get-Command node).Source
+    $primerArg = $cliCompilado
+  } else {
+    $ejecutable = $huddle
+    $primerArg = $null
+  }
+
   $argumentos = @(
     'mcp', 'add', 'huddle', '--scope', 'user',
     '--env', "HUDDLE_ALIAS=$Alias",
     '--env', "HUDDLE_HUB=$Hub",
-    '--', $huddle, 'mcp'
+    '--', $ejecutable
   )
+  if ($primerArg) { $argumentos += $primerArg }
+  $argumentos += 'mcp'
   & claude @argumentos
   Verde "servidor MCP registrado: tu agente ya puede preguntar por ti"
 }
