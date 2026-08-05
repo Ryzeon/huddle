@@ -19,6 +19,7 @@ import type { RoomNotifier } from '../state/room-notifier.js';
 import type { Challenges } from '../state/challenges.js';
 import { verifiedKey } from './verify-identity.js';
 import { ADMISSION_CODE } from './approve-guest.js';
+import { enterRoom, IDENTITY_CODE } from './enter-room.js';
 
 export interface JoinRoomCommand {
   channel: MemberChannelPort;
@@ -36,8 +37,7 @@ export interface JoinRoomDeps {
   log: (message: string) => void;
 }
 
-/** Cierre por identidad: el alias es de otra clave, o te lo acaban de reclamar. */
-export const IDENTITY_CODE = 4007;
+export { IDENTITY_CODE };
 
 export class JoinRoomHandler {
   constructor(private readonly deps: JoinRoomDeps) {}
@@ -118,27 +118,9 @@ export class JoinRoomHandler {
       return false;
     }
 
-    // Quien tenía el alias sin firmarlo sale antes de que entre el que sí lo
-    // firma: dos @ana en el roster, una de ellas okupa, no es un roster.
-    if (decision.kind === 'bind') {
-      room.bindKey(alias, decision.pubkey);
-      for (const channelId of room.unsignedChannelsOf(alias)) {
-        const okupa = registry.channel(channelId);
-        okupa?.send({
-          t: 'room_closed',
-          reason: 'identity_taken',
-          detail: `${alias} lo reclamó quien tiene su clave`,
-        });
-        okupa?.close(IDENTITY_CODE, 'alias claimed by its key');
-        room.leave(channelId);
-        registry.detach(channelId);
-      }
-    }
-
-    const verified = decision.kind === 'bind' || decision.kind === 'known';
-
-    // La puerta. Quien espera no es miembro: ni sale en el roster, ni recibe
-    // preguntas, ni ve el historial, ni cuenta para que la sala esté vacía.
+    // La puerta va ANTES de atar nada. Quien espera no es miembro: ni sale en
+    // el roster, ni recibe preguntas, ni ve el historial, ni cuenta para que la
+    // sala esté vacía, ni le quita el alias a nadie.
     const admission = room.decideAdmission(offered, alias);
 
     if (admission.kind === 'full') {
@@ -149,60 +131,31 @@ export class JoinRoomHandler {
         detail: 'hay demasiada gente esperando en la puerta; prueba en un rato',
       });
       channel.close(ADMISSION_CODE, 'waiting room full');
-      return decision.kind === 'bind';
+      return false;
     }
 
     if (admission.kind === 'wait') {
       this.wait(room, channel, message, alias, offered);
-      return decision.kind === 'bind';
+      return false;
     }
 
-    const { replaced, becameHost, reclaimedHost } = room.join(
+    const { bound } = enterRoom(
+      { registry, notifier },
       {
-        channelId: channel.id,
+        room,
+        channel,
         alias,
         tag: message.tag,
         card: message.card,
         viewer: message.viewer,
-        pubkey: offered,
-        verified,
-        lastSeen: now,
+        identity: decision,
         quotaRemaining: message.quotaRemaining,
+        now,
       },
-      now,
     );
 
-    // Reconexión: cerramos el canal viejo para no dejar un miembro fantasma
-    // ocupando sitio en el roster y recibiendo preguntas que nadie atenderá.
-    if (replaced && replaced.channelId !== channel.id) {
-      registry.channel(replaced.channelId)?.close(4003, 'replaced by new connection');
-      registry.detach(replaced.channelId);
-    }
-
-    registry.attach(channel, room.code);
-
-    channel.send({
-      t: 'welcome',
-      v: PROTOCOL_VERSION,
-      room: room.code,
-      roomName: room.name,
-      you: alias,
-      host: room.hostAlias ?? alias,
-      members: room.roster(),
-      verified,
-    });
-
-    if (reclaimedHost) {
-      notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'returned' });
-    }
-
-    if (becameHost) {
-      notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });
-    }
-    notifier.broadcastRoster(room);
     log(`entró ${alias} a #${room.code} (${message.card?.repo ?? 'sin repo'})`);
-
-    return decision.kind === 'bind';
+    return bound;
   }
 
   /**
@@ -227,7 +180,7 @@ export class JoinRoomHandler {
       channelId: channel.id,
       alias,
       tag: message.tag,
-      key: key ?? '',
+      key,
       card: message.card,
       viewer: message.viewer,
       at: now,
@@ -244,7 +197,7 @@ export class JoinRoomHandler {
       key: key ? keyTail(key) : '',
     });
 
-    const knownAlias = key ? room.admission.aliasOwner(key) : undefined;
+    const knownAlias = room.admission.aliasOwner(key);
     notifier.toHost(room, {
       t: 'join_request',
       id,

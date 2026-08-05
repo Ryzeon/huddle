@@ -1,13 +1,15 @@
 import {
-  PROTOCOL_VERSION,
+  keyTail,
   type Alias,
   type AdmitGuestMessage,
   type DenyGuestMessage,
 } from '@huddle/protocol';
+import { decideIdentity } from '../../domain/identity.js';
 import type { Room } from '../../domain/room.js';
 import type { ClockPort, MemberChannelPort } from '../ports/member-channel.js';
 import type { RoomRegistry } from '../state/room-registry.js';
 import type { RoomNotifier } from '../state/room-notifier.js';
+import { enterRoom, IDENTITY_CODE } from './enter-room.js';
 
 export interface ApproveGuestCommand {
   room: Room;
@@ -69,51 +71,56 @@ export class ApproveGuestHandler {
     }
 
     const now = clock.now();
-    const guest = room.admission.approve(message.id, message.remember !== false, now);
-    if (!guest) return this.gone(channel, message.id);
+    const pending = room.waitingBy(message.id);
+    if (!pending) return this.gone(channel, message.id);
 
-    const suyo = registry.channel(guest.channelId);
+    const suyo = registry.channel(pending.channelId);
     if (!suyo) {
       // Se cansó de esperar y cerró antes de que le abrieran la puerta.
+      room.admission.deny(message.id);
       notifier.toHost(room, { t: 'join_request_gone', id: message.id, reason: 'left' });
       return;
     }
 
-    const { becameHost, reclaimedHost } = room.join(
+    // El alias pudo atarse mientras esperaba: abrir la puerta no es saltarse la
+    // firma de quien ya está dentro.
+    const decision = decideIdentity(room.keyOf(pending.alias), pending.key);
+    if (decision.kind === 'impostor' || decision.kind === 'squatter') {
+      room.admission.deny(message.id);
+      suyo.send({
+        t: 'error',
+        id: '',
+        reason: 'identity_mismatch',
+        detail:
+          `${pending.alias} está firmado en esta sala por la clave …${keyTail(decision.bound)}. ` +
+          'Firma con esa clave o entra con otro alias.',
+      });
+      suyo.close(IDENTITY_CODE, 'alias bound to another key');
+      registry.detach(pending.channelId);
+      notifier.toHost(room, { t: 'join_request_gone', id: message.id, reason: 'resolved' });
+      log(`${pending.alias} no entró en #${room.code}: el alias ya es de otra clave`);
+      return;
+    }
+
+    const guest = room.admission.approve(message.id, message.remember !== false, now);
+    if (!guest) return this.gone(channel, message.id);
+
+    notifier.toHost(room, { t: 'join_request_gone', id: message.id, reason: 'resolved' });
+    enterRoom(
+      { registry, notifier },
       {
-        channelId: guest.channelId,
+        room,
+        channel: suyo,
         alias: guest.alias,
         tag: guest.tag,
         card: guest.card,
         viewer: guest.viewer,
-        pubkey: guest.key || undefined,
-        verified: Boolean(guest.key),
-        lastSeen: now,
+        identity: decision,
         quotaRemaining: null,
+        now,
       },
-      now,
     );
 
-    suyo.send({
-      t: 'welcome',
-      v: PROTOCOL_VERSION,
-      room: room.code,
-      roomName: room.name,
-      you: guest.alias,
-      host: room.hostAlias ?? requester,
-      members: room.roster(),
-      verified: Boolean(guest.key),
-    });
-
-    if (reclaimedHost) {
-      notifier.broadcast(room, { t: 'host_changed', host: guest.alias, reason: 'returned' });
-    }
-    if (becameHost) {
-      notifier.broadcast(room, { t: 'host_changed', host: guest.alias, reason: 'created' });
-    }
-
-    notifier.broadcastRoster(room);
-    notifier.toHost(room, { t: 'join_request_gone', id: message.id, reason: 'resolved' });
     log(`${requester} dejó entrar a ${guest.alias} en #${room.code}`);
   }
 
