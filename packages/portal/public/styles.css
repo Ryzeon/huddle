@@ -1066,3 +1066,10 @@ a {
 .entrada__texto .md-parrafo,
 .entrada__texto .md-lista,
 .entrada__texto .md-cita { white-space: normal; }
+
+/* Armado para cerrar la sala: se ve que va en serio. */
+.boton--peligro {
+  color: var(--mal);
+  border-color: var(--mal);
+  font-weight: 700;
+}

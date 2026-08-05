@@ -143,6 +143,28 @@ export function bootstrap(): void {
     window.location.href = window.location.pathname;
   });
 
+  // Cerrar es irreversible: se borra la sala y su historial. Por eso pide
+  // confirmación en dos toques, igual que expulsar, y no un `confirm()` del
+  // navegador, que bloquea la página entera.
+  const cerrar = document.querySelector<HTMLButtonElement>('[data-cerrar-sala]');
+  let armado = false;
+  let desarmar: ReturnType<typeof setTimeout> | undefined;
+  cerrar?.addEventListener('click', () => {
+    if (armado) {
+      clearTimeout(desarmar);
+      store.closeRoom();
+      return;
+    }
+    armado = true;
+    cerrar.textContent = '¿seguro? se borra todo';
+    cerrar.classList.add('boton--peligro');
+    desarmar = setTimeout(() => {
+      armado = false;
+      cerrar.textContent = 'cerrar sala';
+      cerrar.classList.remove('boton--peligro');
+    }, 4_000);
+  });
+
   let remembered: string | null = null;
   store.subscribe((state) => {
     header.render(state);
@@ -151,6 +173,11 @@ export function bootstrap(): void {
     roomsView.render(state);
     empty.hidden = state.room !== null;
     if (salir) salir.hidden = state.room === null;
+    // Solo al anfitrión, y comparando por alias: tu etiqueta puede llevar tag.
+    if (cerrar) {
+      cerrar.hidden =
+        state.room === null || state.host === null || state.host !== state.you?.split(':')[0];
+    }
 
     // Se recuerda una sola vez por sala: escribir en cada `room_state` sería
     // tocar `localStorage` decenas de veces por sesión sin ganar nada.

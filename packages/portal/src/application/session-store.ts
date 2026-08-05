@@ -66,6 +66,11 @@ export class SessionStore {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
   }
 
+  /** Cierra la sala para todos. El hub solo lo acepta del anfitrión. */
+  closeRoom(): void {
+    this.send({ t: 'close' });
+  }
+
   note(text: string, tone: 'system' | 'failed' = 'system'): void {
     this.ingest({ t: 'note', text, tone });
   }

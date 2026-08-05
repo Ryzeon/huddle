@@ -1,5 +1,6 @@
 import type {
   AskMessage,
+  CloseRoomMessage,
   ChatMessage,
   CreateRoomMessage,
   JoinMessage,
@@ -12,7 +13,8 @@ export type PortalClientMessage =
   | CreateRoomMessage
   | AskMessage
   | ChatMessage
-  | KickMessage;
+  | KickMessage
+  | CloseRoomMessage;
 
 export interface RoomFeed {
   /** Abre el transporte. Idempotente. */
