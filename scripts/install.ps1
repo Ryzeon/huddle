@@ -69,7 +69,7 @@ $instalada = if (Test-Path $versionFile) { Get-Content $versionFile -Raw } else 
 
 if ($instalada.Trim() -eq $tag -and $tag -ne "main" -and (Test-Path $app)) {
   Verde "ya tienes la $tag, que es la ultima."
-  if ($Update) { exit 0 }
+  if ($Update) { return }
 } else {
   Gris "descargando $tag..."
   $url = if ($tag -eq "main") {
@@ -127,7 +127,7 @@ if ($userPath -notlike "*$binDir*") {
 
 Verde "huddle instalado en $binDir ($tag)"
 
-if ($Update) { Verde "actualizado."; exit 0 }
+if ($Update) { Verde "actualizado."; return }
 
 # --- Registrar el MCP -------------------------------------------------------
 
@@ -162,7 +162,7 @@ if (-not $Room) {
   Write-Host ""
   Write-Host "O desde el terminal:"
   Write-Host "  huddle join ABCDE-12345 $Alias"
-  exit 0
+  return
 }
 
 & $huddle join $Room $Alias --hub $Hub --cwd (Resolve-Path $Expose).Path --force
