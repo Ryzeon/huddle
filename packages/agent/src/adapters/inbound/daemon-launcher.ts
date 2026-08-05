@@ -84,10 +84,7 @@ function resolveEntrypoint(): string[] {
 
 /** Devuelve lo que el hijo escriba en stderr, para poder contar por qué murió. */
 function spawnDetachedDaemon(): () => string {
-  // `detached` y `windowsHide` se pelean: en Windows, `detached` pide una
-  // consola nueva y gana, así que la ventana aparece igual. Allí no hace falta,
-  // porque un hijo no muere con su padre como sí ocurre en unix. En unix sí es
-  // imprescindible, o el daemon se iría con la sesión del MCP.
+  // En Windows `detached` fuerza consola nueva y anula `windowsHide`.
   const enWindows = process.platform === 'win32';
 
   const child = spawn(process.execPath, [...resolveEntrypoint(), 'daemon'], {
