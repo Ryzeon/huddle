@@ -56,12 +56,14 @@ export class ExpandVocabularyUseCase {
 
   private withTimeout<T>(work: Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      // Sin `unref`: un temporizador que no sujeta el bucle deja que el proceso
+      // se vacíe mientras aún hay trabajo, y el runner de tests cancelaba los
+      // casos siguientes del bloque. El `clearTimeout` ya evita que se quede
+      // colgado, que era lo que `unref` pretendía resolver.
       const timer = setTimeout(
         () => reject(new Error(`agotados los ${this.config.timeoutMs} ms`)),
         this.config.timeoutMs,
       );
-      // `unref` para que una ampliación en vuelo no mantenga vivo el proceso.
-      timer.unref?.();
       work.then(resolve, reject).finally(() => clearTimeout(timer));
     });
   }
