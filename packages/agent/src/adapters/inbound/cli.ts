@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { runMcpServer } from './mcp-server.js';
-import { runDaemon } from './cli/daemon.js';
+import { runDaemon, runStop } from './cli/daemon.js';
 import { usage } from './cli/io.js';
 import { runAsk, runQuery } from './cli/queries.js';
 import { runAddRepo, runJoin, runListRepos, runRemoveRepo } from './cli/repos.js';
@@ -27,6 +27,8 @@ async function main(): Promise<void> {
       return runListRepos();
     case 'daemon':
       return runDaemon();
+    case 'stop':
+      return runStop();
     case 'mcp':
       return runMcpServer();
     case 'ask':

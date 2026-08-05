@@ -1,9 +1,18 @@
 import { SOCKET_PATH, loadConfig } from '../../../config.js';
 import { buildAgent } from '../../../composition/container.js';
-import { startControlServer } from '../control-server.js';
+import { callControl, startControlServer } from '../control-server.js';
 import { addWorkspaceToConfig, removeWorkspaceFromConfig } from './workspaces.js';
 
 type Agent = ReturnType<typeof buildAgent>;
+
+export async function runStop(): Promise<void> {
+  try {
+    await callControl({ op: 'shutdown' });
+    console.log('Daemon detenido.');
+  } catch {
+    console.log('No había ningún daemon corriendo.');
+  }
+}
 
 export function runDaemon(): void {
   serveControl(buildAgent(loadConfig()));

@@ -89,7 +89,23 @@ if ($instalada.Trim() -eq $tag -and $tag -ne "main" -and (Test-Path $app)) {
     # Se reemplaza entero en vez de mezclar: un archivo que desaparecio en la
     # version nueva no debe seguir ahi. La config vive fuera, en $prefix.
     New-Item -ItemType Directory -Path $prefix -Force | Out-Null
-    if (Test-Path $app) { Remove-Item $app -Recurse -Force }
+
+    # Windows no deja borrar un ejecutable en marcha, y el daemon tiene abierto
+    # el `esbuild.exe` de tsx. Se para antes de reemplazar nada.
+    $antiguo = Join-Path $app "huddle.cmd"
+    if (Test-Path $antiguo) {
+      try { & $antiguo stop 2>&1 | Out-Null } catch { }
+      Start-Sleep -Milliseconds 800
+    }
+
+    if (Test-Path $app) {
+      try {
+        Remove-Item $app -Recurse -Force -ErrorAction Stop
+      } catch {
+        throw "No se pudo reemplazar la instalacion: hay un proceso usandola. " +
+              "Cierra el daemon (huddle stop, o cierra su ventana) y vuelve a intentarlo."
+      }
+    }
     Move-Item $extraido.FullName $app
     Set-Content -Path $versionFile -Value $tag -NoNewline
 

@@ -136,6 +136,11 @@ else
   # Se reemplaza entero en vez de mezclar: un archivo que desapareció en la
   # versión nueva no debe seguir ahí. La config vive fuera, en ~/.huddle.
   mkdir -p "$PREFIX"
+
+  # El daemon puede tener archivos abiertos de la instalación que vamos a
+  # reemplazar. En Windows eso es un error duro; aquí, un reemplazo a medias.
+  [ -x "$APP/huddle" ] && "$APP/huddle" stop >/dev/null 2>&1 || true
+
   rm -rf "$APP"
   mv "$tmp/x" "$APP"
   echo "$etiqueta" > "$PREFIX/version"

@@ -33,6 +33,7 @@ export function usage(): never {
       '  repos                  Listar los repos configurados',
       '',
       '  daemon                 Mantener la presencia y atender preguntas',
+      '  stop                   Parar el daemon y salir de la sala',
       '  mcp                    Servidor MCP por stdio (lo lanza tu agente)',
       '  ask <destino> "..."    Preguntar desde la terminal',
       '  kick <@alias>          Expulsar a alguien (solo el anfitrión)',
