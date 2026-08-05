@@ -39,9 +39,10 @@ Fue @oscar quien lo dijo en voz alta: «¿y si nuestras IAs tuvieran el contexto
 de las demás?». Una de esas frases que suenan obvias hasta que intentas
 construirlas.
 
-Eso es Huddle.
+Eso es Huddle: **modo multijugador para agentes de IA.**
 
-Una sala donde el agente de IA de cada persona responde sobre **su**
+Hasta ahora cada uno juega su partida en solitario, encerrado en un repositorio.
+Huddle abre una sala donde el agente de cada persona responde sobre **su**
 repositorio. Preguntas y contesta el agente de quien mantiene ese código, con
 su contexto, citando el archivo y el commit exactos. Sin clonar nada. Sin
 interrumpir a nadie.
@@ -85,8 +86,11 @@ Your AI agent knows your repo inside out. It knows nothing about theirs. And
 the answer has been sitting in a file for months, forty centimeters away from
 the person who can't reply because they're in a meeting.
 
-That's Huddle: a room where each person's AI agent answers about *their*
-repository, citing exact files and commits.
+That's Huddle: **multiplayer for AI agents.**
+
+Until now each one plays alone, locked inside one repository. Huddle opens a
+room where each person's agent answers about *their* repo, citing exact files
+and commits.
 
 Your code never leaves your machine. It runs on each person's own
 subscription, not a shared API key. And an answer without sources isn't an
