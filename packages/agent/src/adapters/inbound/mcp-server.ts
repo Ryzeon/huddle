@@ -115,6 +115,27 @@ const TOOLS = [
     },
   },
   {
+    name: 'room_leave',
+    description:
+      'Sale de la sala: para el daemon y deja de exponer tus repositorios. La ' +
+      'sala sigue viva para los demás. Tu configuración se conserva, así que ' +
+      'volver es entrar otra vez con el mismo código.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'room_close',
+    description:
+      'Cierra la sala para todos y borra su historial. Solo funciona si eres ' +
+      'el anfitrión; si no, el hub lo rechaza. Es irreversible: el código deja ' +
+      'de servir. Para salir tú solo, usa room_leave.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: 'Motivo, que se le muestra a los demás.' },
+      },
+    },
+  },
+  {
     name: 'room_who',
     description:
       'Lista quién está en la sala ahora mismo, con el repositorio que expone ' +
@@ -276,6 +297,28 @@ export async function runMcpServer(): Promise<void> {
             hub,
             ...(salidaDe && salidaDe !== room ? { saliste_de: salidaDe } : {}),
           });
+        }
+
+        case 'room_leave': {
+          try {
+            await callControl({ op: 'shutdown' });
+          } catch {
+            return textResult('no estabas en ninguna sala');
+          }
+          return textResult({ salido: true });
+        }
+
+        case 'room_close': {
+          const motivo = (args ?? {})['reason'];
+          const res = await withDaemon(() =>
+            callControl(
+              typeof motivo === 'string' && motivo
+                ? { op: 'close', reason: motivo }
+                : { op: 'close' },
+            ),
+          );
+          if (!res.ok) return textResult(res.error, true);
+          return textResult({ cerrada: true });
         }
 
         case 'room_who': {
