@@ -64,7 +64,14 @@ export async function readUploads(
       continue;
     }
 
-    ok.push({ path: `${prefix}${safeName(file.name)}`, text });
+    // Al elegir una carpeta, el navegador da la ruta relativa de cada archivo;
+    // al elegir sueltos, solo el nombre. La estructura se conserva igual que
+    // dentro de un zip.
+    const relativa = (file as { webkitRelativePath?: string }).webkitRelativePath;
+    const destino = relativa ? safePath(relativa) : safeName(file.name);
+    if (!destino) continue;
+
+    ok.push({ path: `${prefix}${destino}`, text });
   }
 
   return { ok, rechazados };

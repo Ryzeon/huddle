@@ -8,6 +8,7 @@ import type {
   FolderDropMessage,
   FolderGetMessage,
   FolderPutMessage,
+  FolderPutManyMessage,
   FolderWrite,
   JoinMessage,
   KickMessage,
@@ -26,6 +27,7 @@ export type PortalClientMessage =
   | DenyGuestMessage
   | CloseRoomMessage
   | FolderPutMessage
+  | FolderPutManyMessage
   | FolderDropMessage
   | FolderGetMessage;
 

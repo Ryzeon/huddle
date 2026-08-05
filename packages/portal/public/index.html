@@ -135,6 +135,10 @@
                 subir archivos
                 <input type="file" multiple accept=".md,.txt,.json,.yml,.yaml,.csv,.sql,.toml,.ini,.zip,text/*,application/zip" data-carpeta-subir />
               </label>
+              <label class="boton boton--fino carpeta__subir" data-carpeta-carpeta-etiqueta hidden>
+                subir carpeta
+                <input type="file" webkitdirectory directory multiple data-carpeta-carpeta />
+              </label>
               <button class="boton boton--realce boton--fino" type="button" data-carpeta-nueva hidden>
                 + nota
               </button>
@@ -211,9 +215,10 @@
           <label class="ajuste ajuste--archivos">
             <span>
               <b>con qué empieza la carpeta</b>
-              <small>documentos, decisiones, convenciones — o un .zip entero: lo que el agente de todos leerá desde el primer día</small>
+              <small>archivos sueltos, un .zip o una carpeta entera: lo que el agente de todos leerá desde el primer día. Se conserva la estructura de dentro.</small>
             </span>
             <input type="file" multiple name="archivos" accept=".md,.txt,.json,.yml,.yaml,.csv,.sql,.toml,.ini,.zip,text/*,application/zip" />
+            <input type="file" webkitdirectory directory multiple name="carpeta" />
           </label>
 
           <label class="ajuste">

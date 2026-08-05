@@ -1479,3 +1479,20 @@ a {
   background: var(--superficie);
   border-top: 1px solid var(--borde);
 }
+
+/* Las rutas de un vault real son largas («CASO_PEDY-LDUME-…_edicion_en_LID.md»).
+   Cortarlas con puntos suspensivos dejaba media lista en «CASO_P…», que no
+   distingue un archivo de otro: mejor dos líneas y el nombre entero. */
+.carpeta__cuerpo {
+  grid-template-columns: minmax(200px, 290px) 1fr;
+}
+
+.carpeta__archivo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.carpeta__grupo {
+  overflow-wrap: anywhere;
+}

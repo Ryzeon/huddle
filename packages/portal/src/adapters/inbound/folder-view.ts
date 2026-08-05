@@ -21,6 +21,8 @@ export interface FolderViewOptions {
   onOpen: (path: string) => void;
   onClose: () => void;
   onWrite: (path: string, text: string) => void;
+  /** Varios de una vez: un zip o una carpeta entera. */
+  onWriteMany: (files: readonly { path: string; text: string }[]) => void;
   onRemove: (path: string) => void;
   /** Para contar lo que no se pudo subir, en el hilo de la sesión. */
   onNote: (text: string) => void;
@@ -40,6 +42,8 @@ export class FolderView {
   private readonly newButton: HTMLButtonElement;
   private readonly upload: HTMLInputElement;
   private readonly uploadLabel: HTMLElement;
+  private readonly uploadDir: HTMLInputElement;
+  private readonly uploadDirLabel: HTMLElement;
 
   private open = false;
   /** Se recuerda para no repintar la lista entera en cada latido. */
@@ -69,6 +73,13 @@ export class FolderView {
       // Sin esto, elegir el mismo archivo dos veces seguidas no dispara nada:
       // el valor no cambia y el `change` no llega.
       this.upload.value = '';
+    });
+
+    this.uploadDirLabel = need<HTMLElement>('[data-carpeta-carpeta-etiqueta]', root);
+    this.uploadDir = need<HTMLInputElement>('[data-carpeta-carpeta]', root);
+    this.uploadDir.addEventListener('change', () => {
+      void this.take(this.uploadDir.files);
+      this.uploadDir.value = '';
     });
 
     // Arrastrar es la forma natural de meter algo en una carpeta. El
@@ -130,6 +141,7 @@ export class FolderView {
     const puedeEscribir = this.canWrite(state);
     this.newButton.hidden = !puedeEscribir;
     this.uploadLabel.hidden = !puedeEscribir;
+    this.uploadDirLabel.hidden = !puedeEscribir;
     this.paintList(state);
     this.paintViewer(state);
   }
@@ -145,7 +157,7 @@ export class FolderView {
     if (!files || files.length === 0 || !this.state || !this.canWrite(this.state)) return;
 
     const { ok, rechazados } = await readUploads(files);
-    for (const upload of ok) this.options.onWrite(upload.path, upload.text);
+    if (ok.length > 0) this.options.onWriteMany(ok);
     for (const motivo of rechazados) this.options.onNote(motivo);
   }
 
@@ -414,17 +426,26 @@ export function linkify(
   }
 }
 
-/** El primer tramo de la ruta, que es como la gente lee una carpeta. */
+/**
+ * Agrupa por la carpeta de cada archivo, entera.
+ *
+ * Por el primer tramo no valía: un zip que entra bajo `notas/` deja todo en un
+ * único montón de cincuenta nombres, y las subcarpetas que traía —lo que le da
+ * forma— desaparecen justo al llegar.
+ */
 function groupByFolder(entries: readonly FolderEntry[]): Map<string, FolderEntry[]> {
   const groups = new Map<string, FolderEntry[]>();
+
   for (const entry of entries) {
-    const slash = entry.path.indexOf('/');
+    const slash = entry.path.lastIndexOf('/');
     const group = slash < 0 ? 'raíz' : entry.path.slice(0, slash);
     const list = groups.get(group);
     if (list) list.push(entry);
     else groups.set(group, [entry]);
   }
-  return groups;
+
+  // Por ruta, para que una carpeta y sus hijas salgan juntas y en orden.
+  return new Map([...groups].sort(([a], [b]) => a.localeCompare(b)));
 }
 
 function leafOf(path: string): string {

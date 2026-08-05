@@ -170,10 +170,11 @@ export class RoomsView {
 
       // Se leen aquí, antes de navegar: los `File` no sobreviven a la recarga
       // que abre la sala nueva, pero su texto sí.
-      const elegidos = this.dialog.querySelector<HTMLInputElement>('[name=archivos]')?.files;
-      const { ok, rechazados } = elegidos
-        ? await readUploads(elegidos)
-        : { ok: [], rechazados: [] };
+      const sueltos = this.dialog.querySelector<HTMLInputElement>('[name=archivos]')?.files;
+      const carpeta = this.dialog.querySelector<HTMLInputElement>('[name=carpeta]')?.files;
+      const elegidos = [...(sueltos ?? []), ...(carpeta ?? [])];
+      const { ok, rechazados } =
+        elegidos.length > 0 ? await readUploads(elegidos) : { ok: [], rechazados: [] };
 
       this.handlers.onCreate({
         uploads: ok,

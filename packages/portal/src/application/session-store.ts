@@ -110,6 +110,19 @@ export class SessionStore {
     this.send({ t: 'folder_put', id: newLocalId(), path, text });
   }
 
+  /**
+   * Escribe varios de una vez, en lotes que quepan en un frame.
+   *
+   * Uno por archivo se comía el tope de ráfaga a los veinte y difundía el
+   * estado de la carpeta a toda la sala una vez por archivo. Vaciar un zip de
+   * cincuenta pasa a ser un puñado de mensajes en vez de cincuenta.
+   */
+  writeFiles(files: readonly { path: string; text: string }[]): void {
+    for (const lote of batches(files)) {
+      this.send({ t: 'folder_put_many', id: newLocalId(), files: lote });
+    }
+  }
+
   removeFile(path: string): void {
     this.send({ t: 'folder_drop', id: newLocalId(), path });
   }
@@ -132,6 +145,35 @@ export class SessionStore {
     this.state = next;
     for (const listener of this.listeners) listener(next);
   }
+}
+
+/**
+ * Trocea por número de archivos y por tamaño, porque el hub corta los frames
+ * en 1 MB. Los límites van por debajo de los suyos: un archivo que aquí pasa
+ * no debería rebotar allí.
+ */
+const MAX_POR_LOTE = 50;
+const MAX_TEXTO_POR_LOTE = 400_000;
+
+function batches(
+  files: readonly { path: string; text: string }[],
+): Array<{ path: string; text: string }[]> {
+  const lotes: Array<{ path: string; text: string }[]> = [];
+  let actual: { path: string; text: string }[] = [];
+  let bytes = 0;
+
+  for (const file of files) {
+    if (actual.length >= MAX_POR_LOTE || bytes + file.text.length > MAX_TEXTO_POR_LOTE) {
+      if (actual.length > 0) lotes.push(actual);
+      actual = [];
+      bytes = 0;
+    }
+    actual.push(file);
+    bytes += file.text.length;
+  }
+
+  if (actual.length > 0) lotes.push(actual);
+  return lotes;
 }
 
 /**
