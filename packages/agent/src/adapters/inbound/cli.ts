@@ -5,7 +5,15 @@ import { runDaemon, runStop } from './cli/daemon.js';
 import { usage } from './cli/io.js';
 import { runAsk, runQuery } from './cli/queries.js';
 import { runAddRepo, runJoin, runListRepos, runRejoin, runRemoveRepo } from './cli/repos.js';
-import { runClose, runCreate, runKick, runRotate } from './cli/rooms.js';
+import {
+  runAdmit,
+  runClose,
+  runCreate,
+  runDeny,
+  runKick,
+  runPending,
+  runRotate,
+} from './cli/rooms.js';
 import { runKey } from './cli/identity.js';
 
 async function main(): Promise<void> {
@@ -20,6 +28,12 @@ async function main(): Promise<void> {
       return runRejoin(args);
     case 'rotate':
       return runRotate(args);
+    case 'pending':
+      return runPending();
+    case 'admit':
+      return runAdmit(args);
+    case 'deny':
+      return runDeny(args);
     case 'kick':
       return runKick(args);
     case 'close':

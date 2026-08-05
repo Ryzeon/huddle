@@ -153,6 +153,12 @@ export const ANSWER_JSON_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/**
+ * Quién entra. `open`: el código basta. `approved`: además hay que pasar por
+ * el anfitrión, y sin firma aprobar un alias no aprobaría nada.
+ */
+export type RoomPolicy = 'open' | 'approved';
+
 export interface CreateRoomMessage {
   t: 'create';
   v: number;
@@ -162,6 +168,20 @@ export interface CreateRoomMessage {
   card?: CapabilityCard;
   quotaRemaining: number | null;
   proof?: IdentityProof;
+  policy?: RoomPolicy;
+}
+
+/** El anfitrión deja entrar a quien espera. `remember`: y a la próxima, directo. */
+export interface AdmitGuestMessage {
+  t: 'admit';
+  id: string;
+  remember?: boolean;
+}
+
+export interface DenyGuestMessage {
+  t: 'deny';
+  id: string;
+  reason?: string;
 }
 
 /** Cierra la sala para todos. Solo el anfitrión. */
@@ -264,6 +284,8 @@ export type ClientMessage =
   | CloseRoomMessage
   | KickMessage
   | RotateCodeMessage
+  | AdmitGuestMessage
+  | DenyGuestMessage
   | JoinMessage
   | AskMessage
   | ChatMessage
@@ -318,6 +340,37 @@ export interface RoomStateMessage {
   members: Member[];
 }
 
+/** Estás en la puerta. Sin roster ni historial: todavía no estás dentro. */
+export interface WaitingApprovalMessage {
+  t: 'waiting_approval';
+  id: string;
+  room: string;
+  roomName: string;
+  you: Alias;
+  host: Alias;
+  /** Tu propia cola de clave, para poder dictársela al anfitrión. */
+  key: string;
+}
+
+/** Alguien quiere entrar. Solo lo reciben las conexiones del anfitrión. */
+export interface JoinRequestMessage {
+  t: 'join_request';
+  id: string;
+  alias: Alias;
+  tag?: string;
+  key: string;
+  card?: CapabilityCard;
+  at: number;
+  /** El alias con el que esa clave ya entró antes en esta sala. */
+  knownAlias?: Alias;
+}
+
+export interface JoinRequestGoneMessage {
+  t: 'join_request_gone';
+  id: string;
+  reason: 'resolved' | 'left' | 'expired' | 'room_closed';
+}
+
 /** El código nuevo. Solo lo reciben las conexiones del anfitrión. */
 export interface RoomCodeMessage {
   t: 'room_code';
@@ -343,6 +396,9 @@ export type ServerMessage =
   | RoomClosedMessage
   | RoomStateMessage
   | RoomCodeMessage
+  | WaitingApprovalMessage
+  | JoinRequestMessage
+  | JoinRequestGoneMessage
   | RequestMessage
   | ChunkMessage
   | TraceMessage

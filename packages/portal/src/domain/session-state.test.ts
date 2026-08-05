@@ -288,6 +288,81 @@ describe('alias firmado', () => {
   });
 });
 
+describe('la puerta', () => {
+  const ESPERA: PortalEvent = {
+    t: 'waiting_approval',
+    id: 'w1',
+    room: 'MPP8V-7HZS5',
+    roomName: 'plataforma',
+    you: '@visita',
+    host: '@ana',
+    key: 'abc12345',
+  };
+
+  const SOLICITUD: PortalEvent = {
+    t: 'join_request',
+    id: 'r1',
+    alias: '@beto',
+    key: 'def67890',
+    at: 1_000,
+  };
+
+  it('esperar no es estar dentro', () => {
+    const state = run([ESPERA]);
+    assert.equal(state.status, 'waiting');
+    assert.deepEqual(state.members, [], 'todavía no ve a nadie');
+    assert.equal(state.waitingInfo?.host, '@ana');
+    assert.equal(state.waitingInfo?.key, 'abc12345');
+  });
+
+  it('al entrar por fin, la pantalla de espera desaparece', () => {
+    const state = run([ESPERA, WELCOME]);
+    assert.equal(state.waitingInfo, null);
+    assert.equal(state.status, 'online');
+  });
+
+  it('el anfitrión ve quién pide entrar, con su clave', () => {
+    const state = run([WELCOME, SOLICITUD]);
+    assert.equal(state.pending.length, 1);
+    assert.equal(state.pending[0]?.alias, '@beto');
+    assert.equal(state.pending[0]?.key, 'def67890');
+  });
+
+  it('la misma solicitud por varios repos se cuenta una vez', () => {
+    const state = run([WELCOME, SOLICITUD, SOLICITUD, SOLICITUD]);
+    assert.equal(state.pending.length, 1, 'un repo por conexión, una sola persona');
+    assert.equal(
+      state.entries.filter((e) => e.text?.includes('pide entrar')).length,
+      1,
+      'y un solo aviso en el hilo',
+    );
+  });
+
+  it('resolver una solicitud la quita de la lista', () => {
+    const state = run([
+      WELCOME,
+      SOLICITUD,
+      { t: 'join_request_gone', id: 'r1', reason: 'resolved' },
+    ]);
+    assert.equal(state.pending.length, 0);
+  });
+
+  it('retirar una solicitud que no está no cambia el estado', () => {
+    const antes = run([WELCOME, SOLICITUD]);
+    const despues = reduce(antes, { t: 'join_request_gone', id: 'otra', reason: 'left' }, 9_000);
+    assert.equal(despues, antes, 'sin cambios no hay que repintar');
+  });
+
+  it('dos personas distintas esperan las dos', () => {
+    const state = run([
+      WELCOME,
+      SOLICITUD,
+      { t: 'join_request', id: 'r2', alias: '@caro', key: 'xyz11111', at: 2_000 },
+    ]);
+    assert.equal(state.pending.length, 2);
+  });
+});
+
 describe('varios', () => {
   it('los ids de entrada son únicos y crecientes', () => {
     const state = run([WELCOME, { t: 'msg', from: '@ana', text: 'a' }, { t: 'msg', from: '@ana', text: 'b' }]);

@@ -18,6 +18,7 @@
 import { loadConfig, saveConfig, type Config, type Workspace } from '../config.js';
 import { Quota } from '../domain/quota.js';
 import { QuestionCache } from '../domain/answer-cache.js';
+import { PendingRequests } from '../domain/pending-requests.js';
 import { AgentService, WorkspaceAgent } from '../application/agent-service.js';
 import {
   AnswerQuestionUseCase,
@@ -54,9 +55,21 @@ export function makeWorkspaceFactory(
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
   signer: IdentitySigner,
+  pending: PendingRequests,
 ): (workspace: Workspace) => WorkspaceAgent {
   return (workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue, signer);
+    buildWorkspace(
+      config,
+      workspace,
+      quota,
+      logger,
+      audit,
+      gateways,
+      announceQuota,
+      queue,
+      signer,
+      pending,
+    );
 }
 
 export function buildAgent(config: Config): AgentService {
@@ -66,6 +79,10 @@ export function buildAgent(config: Config): AgentService {
   // Una sola clave para toda la instalación: el alias es de la persona, no del
   // repositorio, así que los N gateways firman con la misma.
   const signer = loadOrCreateIdentity();
+
+  // Una sola lista para todos los repositorios: la misma solicitud llega por
+  // cada conexión, y verla N veces no es verla N veces.
+  const pending = new PendingRequests();
 
   // Un solo presupuesto para todos los repositorios: es el de tu plan.
   const quota = new Quota(config.dailyQuota, config.maxConcurrent, {
@@ -84,7 +101,18 @@ export function buildAgent(config: Config): AgentService {
   };
 
   const workspaces = config.workspaces.map((workspace) =>
-    buildWorkspace(config, workspace, quota, logger, audit, gateways, announceQuota, queue, signer),
+    buildWorkspace(
+      config,
+      workspace,
+      quota,
+      logger,
+      audit,
+      gateways,
+      announceQuota,
+      queue,
+      signer,
+      pending,
+    ),
   );
 
   return new AgentService(
@@ -92,6 +120,7 @@ export function buildAgent(config: Config): AgentService {
       workspaces,
       quota,
       logger,
+      pending,
       makeWorkspace: makeWorkspaceFactory(
         config,
         quota,
@@ -101,6 +130,7 @@ export function buildAgent(config: Config): AgentService {
         announceQuota,
         queue,
         signer,
+        pending,
       ),
       onCodeRotated: (code) => rememberCode(config, code, logger),
     },
@@ -136,6 +166,7 @@ function buildWorkspace(
   announceQuota: (remaining: number | null) => void,
   queue: AskQueue,
   signer: IdentitySigner,
+  pending: PendingRequests,
 ): WorkspaceAgent {
   // El inspector de git dice de qué trata el repositorio con sus propias
   // palabras; el decorador le añade aquellas con las que otros lo buscarían.
@@ -202,6 +233,7 @@ function buildWorkspace(
   return new WorkspaceAgent({
     tag: workspace.tag,
     room,
+    pending,
     repo,
     cache,
     answerQuestion,

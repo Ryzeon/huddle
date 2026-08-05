@@ -16,6 +16,15 @@ export class RoomRegistry {
       const room = new Room(record.code, record.name, this.askPolicy, record.createdAt);
       if (record.owner) room.restoreOwner(record.owner);
       if (record.keys) room.restoreKeys(record.keys);
+
+      // Fallar cerrado: si la lista de aprobados viene corrupta se descarta la
+      // lista y se conserva la política. Al revés —conservar la lista y perder
+      // la política— convertiría una sala cerrada en una abierta sin avisar.
+      if (record.policy === 'approved') {
+        room.restorePolicy('approved');
+        if (record.ownerKey) room.restoreOwnerKey(record.ownerKey);
+        if (Array.isArray(record.approved)) room.restoreApproved(record.approved);
+      }
       this.rooms.set(record.code, room);
     }
   }
@@ -30,6 +39,12 @@ export class RoomRegistry {
       if (room.ownerAlias) record.owner = room.ownerAlias;
       const keys = room.keySnapshot();
       if (Object.keys(keys).length > 0) record.keys = keys;
+      if (room.policy === 'approved') {
+        record.policy = 'approved';
+        if (room.ownerKey) record.ownerKey = room.ownerKey;
+        const approved = room.approvedSnapshot();
+        if (approved.length > 0) record.approved = approved;
+      }
       return record;
     });
   }
@@ -103,8 +118,15 @@ export class RoomRegistry {
     this.roomOfChannel.delete(channelId);
   }
 
+  /**
+   * Una sala vacía y sin memoria no vale nada y se tira.
+   *
+   * Salvo las que tienen aprobación: ahí la sala ES la lista de invitados y la
+   * clave del dueño. Tirarla al salir el último le quitaría la sala a su dueño
+   * en cuanto se fuera un rato. Esas las recoge la retención, no esto.
+   */
   dropIfExhausted(room: Room): void {
-    if (room.isEmpty && room.transcript.length === 0) {
+    if (room.isEmpty && room.transcript.length === 0 && room.policy !== 'approved') {
       this.rooms.delete(room.code);
     }
   }

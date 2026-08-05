@@ -92,6 +92,21 @@ export class RotateCodeHandler {
       });
     }
 
+    // Los que esperaban lo hacían por el código viejo. Se les echa igual: los
+    // aprobados vuelven directos con el nuevo, sin pasar otra vez por la puerta.
+    for (const guest of room.waitingList()) {
+      const suyo = registry.channel(guest.channelId);
+      suyo?.send({
+        t: 'room_closed',
+        reason: 'code_rotated',
+        detail: message.reason ?? `${requester} cambió el código de la sala`,
+      });
+      suyo?.close(ROOM_ROTATED_CODE, 'room code rotated');
+      room.removeWaiting(guest.channelId);
+      registry.detach(guest.channelId);
+      notifier.toHost(room, { t: 'join_request_gone', id: guest.id, reason: 'room_closed' });
+    }
+
     for (const member of echados) {
       const suyo = registry.channel(member.channelId);
       suyo?.send({

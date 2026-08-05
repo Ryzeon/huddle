@@ -1,6 +1,8 @@
 import type {
+  AdmitGuestMessage,
   AskMessage,
   CloseRoomMessage,
+  DenyGuestMessage,
   ChatMessage,
   CreateRoomMessage,
   JoinMessage,
@@ -16,6 +18,8 @@ export type PortalClientMessage =
   | ChatMessage
   | KickMessage
   | RotateCodeMessage
+  | AdmitGuestMessage
+  | DenyGuestMessage
   | CloseRoomMessage;
 
 export interface RoomFeed {
@@ -33,6 +37,8 @@ export interface FeedIdentity {
   roomName?: string;
   alias: string;
   viewer: boolean;
+  /** Solo al crear, y solo si se puede firmar. */
+  policy?: 'approved';
 }
 
 export interface RememberedRoom {

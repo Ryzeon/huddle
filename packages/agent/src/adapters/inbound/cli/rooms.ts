@@ -28,6 +28,12 @@ export async function runCreate(args: string[]): Promise<void> {
   const workspace = { cwd: resolve(flag(args, 'cwd') ?? process.cwd()) };
   const quota = flag(args, 'quota');
 
+  const policyFlag = flag(args, 'policy');
+  if (policyFlag && policyFlag !== 'open' && policyFlag !== 'approved') {
+    fail(`política desconocida: "${policyFlag}". Usa "open" o "approved".`);
+  }
+  const policy = policyFlag === 'approved' ? 'approved' : undefined;
+
   // La sala aún no existe: `room` se rellena con el código que devuelva el hub.
   const config: Config = {
     ...DEFAULT_CONFIG,
@@ -39,10 +45,10 @@ export async function runCreate(args: string[]): Promise<void> {
   if (quota) config.dailyQuota = quota === 'none' ? null : Number.parseInt(quota, 10);
 
   const agent = buildAgent({ ...config, room: 'PENDIENTE' });
-  const code = await agent.createRoom(name);
+  const code = await agent.createRoom(name, policy);
   saveConfig({ ...config, room: code });
 
-  printRoomCreated(name, code);
+  printRoomCreated(name, code, policy === 'approved');
 
   // Esta terminal se queda como daemon. Si saliéramos, la sala quedaría sin
   // nadie dentro y se cerraría al instante, por diseño.
@@ -54,6 +60,60 @@ export async function runClose(args: string[]): Promise<void> {
   const response = await callControl({ op: 'close', reason: flag(args, 'reason') });
   if (!response.ok) fail(response.error);
   console.log('Sala cerrada. Su código ya no sirve y su historial se ha borrado.');
+}
+
+interface PendingRow {
+  id: string;
+  alias: string;
+  key: string;
+  repo?: string;
+  knownAlias?: string;
+}
+
+export async function runPending(): Promise<void> {
+  const response = await callControl({ op: 'pending' });
+  if (!response.ok) fail(response.error);
+
+  const rows = response.data as PendingRow[];
+  if (rows.length === 0) {
+    console.log('No hay nadie esperando a entrar.');
+    return;
+  }
+
+  console.log('Esperando a entrar:');
+  console.log('');
+  for (const row of rows) {
+    const conocido = row.knownAlias ? `  (ya entró antes como ${row.knownAlias})` : '';
+    console.log(`  ${row.alias}   clave …${row.key}${conocido}`);
+    if (row.repo) console.log(`    repositorio: ${row.repo}`);
+    console.log(`    huddle admit ${row.id}     huddle deny ${row.id}`);
+    console.log('');
+  }
+  console.log('Comprueba la clave con esa persona por otro canal antes de dejarla entrar.');
+}
+
+export async function runAdmit(args: string[]): Promise<void> {
+  const [id] = args;
+  if (!id) usage();
+
+  const remember = !args.includes('--once');
+  const response = await callControl({ op: 'admit', id, remember });
+  if (!response.ok) fail(response.error);
+
+  console.log(
+    remember
+      ? 'Dentro. La próxima vez entrará sin preguntar.'
+      : 'Dentro, solo por esta vez.',
+  );
+}
+
+export async function runDeny(args: string[]): Promise<void> {
+  const [id] = args;
+  if (!id) usage();
+
+  const response = await callControl({ op: 'deny', id, reason: flag(args, 'reason') });
+  if (!response.ok) fail(response.error);
+  console.log('Rechazado.');
 }
 
 export async function runRotate(args: string[]): Promise<void> {
@@ -96,14 +156,24 @@ function printCodeRotated(code: string): void {
   console.log('');
 }
 
-function printRoomCreated(name: string, code: string): void {
+function printRoomCreated(name: string, code: string, approved: boolean): void {
   console.log('');
   console.log(`  Sala "${name}" creada.`);
   console.log('');
   console.log(`  CÓDIGO:  ${code}`);
   console.log('');
-  console.log('  Pásaselo a tu equipo. Es la única llave: quien lo tiene, entra.');
-  console.log(`  Ellos:   huddle join ${code} @sualias`);
+
+  if (approved) {
+    console.log('  Con aprobación: el código no basta, tú decides quién entra.');
+    console.log(`  Ellos:   huddle join ${code} @sualias`);
+    console.log('  Tú:      huddle pending → huddle admit <id>');
+    console.log('');
+    console.log('  Comprueba la clave de cada uno con esa persona antes de dejarla entrar.');
+  } else {
+    console.log('  Pásaselo a tu equipo. Es la única llave: quien lo tiene, entra.');
+    console.log(`  Ellos:   huddle join ${code} @sualias`);
+  }
+
   console.log('');
   console.log('  Eres el anfitrión: puedes expulsar con `huddle kick @alguien`.');
   console.log('');

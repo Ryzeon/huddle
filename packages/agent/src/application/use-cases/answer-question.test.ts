@@ -61,6 +61,8 @@ class FakeRoom implements RoomGatewayPort {
     return Promise.resolve('TEST1-ROOM1');
   }
   kick(): void {}
+  admit(): void {}
+  deny(): void {}
   closeRoom(): void {}
   rotateCode(): Promise<string> {
     return Promise.resolve('TEST2-ROOM2');

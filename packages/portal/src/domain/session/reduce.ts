@@ -3,17 +3,21 @@ import { memberLabel } from '../table-layout.js';
 import { describeAnswer, describeFailure, errorText } from './format.js';
 import type {
   HostChangedEvent,
+  JoinRequestEvent,
+  JoinRequestGoneEvent,
   PortalEvent,
   RoomClosedEvent,
   RoomCodeEvent,
   RoomStateEvent,
   TransportEvent,
+  WaitingApprovalEvent,
   WelcomeEvent,
 } from './events.js';
 import {
   ACTIVITY_TTL_MS,
   appendEntry,
   type Activity,
+  type PendingGuest,
   type SessionState,
 } from './state.js';
 
@@ -36,6 +40,12 @@ export function reduce(state: SessionState, event: PortalEvent, now: number): Se
       return onRoomClosed(state, event, now);
     case 'room_code':
       return onRoomCode(state, event, now);
+    case 'waiting_approval':
+      return onWaitingApproval(state, event, now);
+    case 'join_request':
+      return onJoinRequest(state, event, now);
+    case 'join_request_gone':
+      return onJoinRequestGone(state, event);
     case 'msg':
       return appendEntry(state, now, { kind: 'message', alias: event.from, text: event.text });
     case 'activity':
@@ -95,6 +105,8 @@ function onWelcome(state: SessionState, event: WelcomeEvent, now: number): Sessi
     host: event.host,
     members: [...event.members],
     closed: false,
+    // Si venías de la puerta, ya estás dentro.
+    waitingInfo: null,
   };
   delete next.detail;
 
@@ -146,6 +158,65 @@ function onRoomCode(state: SessionState, event: RoomCodeEvent, now: number): Ses
     text: `${event.by} cambió el código de la sala`,
     meta: event.room,
   });
+}
+
+function onWaitingApproval(
+  state: SessionState,
+  event: WaitingApprovalEvent,
+  now: number,
+): SessionState {
+  const next: SessionState = {
+    ...state,
+    status: 'waiting',
+    room: event.room,
+    roomName: event.roomName,
+    you: event.you,
+    host: event.host,
+    members: [],
+    closed: false,
+    waitingInfo: {
+      id: event.id,
+      roomName: event.roomName,
+      host: event.host,
+      key: event.key,
+    },
+  };
+  delete next.detail;
+
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `esperando a que ${event.host} te deje entrar en «${event.roomName}»`,
+    meta: event.key ? `tu clave: …${event.key}` : 'entras sin firmar',
+  });
+}
+
+function onJoinRequest(state: SessionState, event: JoinRequestEvent, now: number): SessionState {
+  const guest: PendingGuest = {
+    id: event.id,
+    alias: event.alias,
+    tag: event.tag,
+    key: event.key,
+    repo: event.card?.repo,
+    at: event.at,
+    knownAlias: event.knownAlias,
+  };
+
+  // Dedupe por id: con varios repos, la misma solicitud llega varias veces.
+  const pending = [...state.pending.filter((p) => p.id !== event.id), guest];
+  const yaEstaba = state.pending.some((p) => p.id === event.id);
+  const next: SessionState = { ...state, pending };
+  if (yaEstaba) return next;
+
+  return appendEntry(next, now, {
+    kind: 'system',
+    text: `${event.alias} pide entrar`,
+    meta: `clave …${event.key}`,
+  });
+}
+
+function onJoinRequestGone(state: SessionState, event: JoinRequestGoneEvent): SessionState {
+  const pending = state.pending.filter((p) => p.id !== event.id);
+  return pending.length === state.pending.length ? state : { ...state, pending };
 }
 
 const CLOSED_TEXT: Record<RoomClosedEvent['reason'], string> = {

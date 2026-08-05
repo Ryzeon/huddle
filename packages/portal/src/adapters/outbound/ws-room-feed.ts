@@ -177,6 +177,7 @@ export class WsRoomFeed implements RoomFeed {
         alias: identity.alias,
         quotaRemaining: null,
         ...(proof && { proof }),
+        ...(identity.policy && proof && { policy: identity.policy }),
       };
     }
     return {
@@ -252,6 +253,9 @@ export function toPortalEvent(raw: string): PortalEvent | null {
     case 'host_changed':
     case 'room_closed':
     case 'room_code':
+    case 'waiting_approval':
+    case 'join_request':
+    case 'join_request_gone':
     case 'msg':
     case 'activity':
     case 'result':

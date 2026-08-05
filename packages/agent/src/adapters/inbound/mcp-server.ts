@@ -136,6 +136,51 @@ const TOOLS = [
     },
   },
   {
+    name: 'room_pending',
+    description:
+      'Lista quién está esperando a entrar en una sala con aprobación. Cada ' +
+      'solicitud trae un `id`, el alias que pide y la cola de su clave (`key`). ' +
+      'ENSÉÑALE SIEMPRE a la persona el alias Y la key juntos, y dile que ' +
+      'compruebe esa key con quien dice ser por otro canal (mensaje, voz) antes ' +
+      'de decidir. El alias lo elige quien entra; la key es lo único que no se ' +
+      'puede falsificar.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'room_admit',
+    description:
+      'Deja entrar a quien espera, por el `id` de su solicitud (nunca por alias: ' +
+      'dos personas pueden pedir el mismo). NO lo llames por tu cuenta: pregunta ' +
+      'primero, enseñando alias y key, y espera una confirmación explícita. Por ' +
+      'defecto se recuerda y la próxima vez entra directo.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'El `id` que devolvió room_pending.' },
+        remember: {
+          type: 'boolean',
+          description: 'false = solo por esta vez; la próxima vuelve a pedir permiso.',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'room_deny',
+    description:
+      'Rechaza a quien espera, por el `id` de su solicitud. Se le cierra la ' +
+      'conexión. Ante la duda sobre quién es de verdad, rechazar es lo correcto: ' +
+      'siempre puede volver a pedirlo.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'El `id` que devolvió room_pending.' },
+        reason: { type: 'string', description: 'Motivo, que se le muestra.' },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'room_rotate',
     description:
       'Cambia el código de la sala. Solo el anfitrión. La sala, su historial y ' +
@@ -333,6 +378,36 @@ export async function runMcpServer(): Promise<void> {
           );
           if (!res.ok) return textResult(res.error, true);
           return textResult({ cerrada: true });
+        }
+
+        case 'room_pending': {
+          const res = await withDaemon(() => callControl({ op: 'pending' }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult(res.data);
+        }
+
+        case 'room_admit': {
+          const a = (args ?? {}) as { id?: unknown; remember?: unknown };
+          if (typeof a.id !== 'string') {
+            return textResult('room_admit necesita `id` como string.', true);
+          }
+          const id = a.id;
+          const remember = a.remember === false ? false : undefined;
+          const res = await withDaemon(() => callControl({ op: 'admit', id, remember }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult({ ok: true, mensaje: `Admitido ${id} (si eras el anfitrión).` });
+        }
+
+        case 'room_deny': {
+          const a = (args ?? {}) as { id?: unknown; reason?: unknown };
+          if (typeof a.id !== 'string') {
+            return textResult('room_deny necesita `id` como string.', true);
+          }
+          const id = a.id;
+          const reason = typeof a.reason === 'string' ? a.reason : undefined;
+          const res = await withDaemon(() => callControl({ op: 'deny', id, reason }));
+          if (!res.ok) return textResult(res.error, true);
+          return textResult({ ok: true, mensaje: `Rechazado ${id}.` });
         }
 
         case 'room_rotate': {

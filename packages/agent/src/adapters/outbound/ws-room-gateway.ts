@@ -5,6 +5,7 @@ import {
   type IdentityProof,
   type Member,
   PROTOCOL_VERSION,
+  type RoomPolicy,
   type ServerMessage,
   type Target,
   encodeMessage,
@@ -93,6 +94,7 @@ export class WsRoomGateway implements RoomGatewayPort {
   onTerminal?: (code: number, reason: string) => void;
 
   private createName?: string;
+  private createPolicy?: RoomPolicy;
   private createResolve?: (code: string) => void;
 
   private info?: RoomInfo;
@@ -193,8 +195,9 @@ export class WsRoomGateway implements RoomGatewayPort {
     return this.info;
   }
 
-  create(name: string, handlers: RoomEventHandlers): Promise<string> {
+  create(name: string, handlers: RoomEventHandlers, policy?: RoomPolicy): Promise<string> {
     this.createName = name;
+    this.createPolicy = policy;
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error('el hub no respondió al crear la sala')),
@@ -244,6 +247,14 @@ export class WsRoomGateway implements RoomGatewayPort {
 
   kick(alias: Alias, reason?: string): void {
     this.send(reason ? { t: 'kick', alias, reason } : { t: 'kick', alias });
+  }
+
+  admit(id: string, remember = true): void {
+    this.send(remember ? { t: 'admit', id } : { t: 'admit', id, remember: false });
+  }
+
+  deny(id: string, reason?: string): void {
+    this.send(reason ? { t: 'deny', id, reason } : { t: 'deny', id });
   }
 
   announcePresence(quotaRemaining: number | null): void {
@@ -316,7 +327,13 @@ export class WsRoomGateway implements RoomGatewayPort {
     // que entrar con su código, no crear otra.
     this.send(
       creating
-        ? { t: 'create', name: this.createName ?? 'sala', ...common, ...(proof && { proof }) }
+        ? {
+            t: 'create',
+            name: this.createName ?? 'sala',
+            ...common,
+            ...(proof && { proof }),
+            ...(this.createPolicy && { policy: this.createPolicy }),
+          }
         : { t: 'join', room, ...common, ...(proof && { proof }) },
     );
 
@@ -380,6 +397,29 @@ export class WsRoomGateway implements RoomGatewayPort {
             ? 'ahora eres el anfitrión de la sala'
             : `${message.host} es ahora el anfitrión`,
         );
+        return;
+
+      case 'waiting_approval':
+        this.logger.info(
+          `esperando a que ${message.host} te deje entrar en ${message.roomName} ` +
+            `(${message.room}). Tu clave: …${message.key}`,
+        );
+        return;
+
+      case 'join_request':
+        this.handlers?.onJoinRequest?.({
+          id: message.id,
+          alias: message.alias,
+          tag: message.tag,
+          key: message.key,
+          repo: message.card?.repo,
+          at: message.at,
+          knownAlias: message.knownAlias,
+        });
+        return;
+
+      case 'join_request_gone':
+        this.handlers?.onJoinRequestGone?.(message.id);
         return;
 
       case 'room_code': {

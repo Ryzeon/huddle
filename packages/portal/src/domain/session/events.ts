@@ -1,4 +1,4 @@
-import type { ActivityMessage, Alias, Member, SourceRef } from '@huddle/protocol';
+import type { ActivityMessage, Alias, CapabilityCard, Member, SourceRef } from '@huddle/protocol';
 import type { ConnectionStatus } from './state.js';
 
 export interface TransportEvent {
@@ -48,6 +48,33 @@ export interface RoomCodeEvent {
   by: Alias;
 }
 
+export interface WaitingApprovalEvent {
+  t: 'waiting_approval';
+  id: string;
+  room: string;
+  roomName: string;
+  you: Alias;
+  host: Alias;
+  key: string;
+}
+
+export interface JoinRequestEvent {
+  t: 'join_request';
+  id: string;
+  alias: Alias;
+  tag?: string;
+  key: string;
+  card?: CapabilityCard;
+  at: number;
+  knownAlias?: Alias;
+}
+
+export interface JoinRequestGoneEvent {
+  t: 'join_request_gone';
+  id: string;
+  reason: 'resolved' | 'left' | 'expired' | 'room_closed';
+}
+
 export interface ChatEvent {
   t: 'msg';
   from: Alias;
@@ -81,6 +108,9 @@ export type PortalEvent =
   | HostChangedEvent
   | RoomClosedEvent
   | RoomCodeEvent
+  | WaitingApprovalEvent
+  | JoinRequestEvent
+  | JoinRequestGoneEvent
   | ChatEvent
   | ActivityMessage
   | ResultEvent

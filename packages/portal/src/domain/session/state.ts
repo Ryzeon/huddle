@@ -1,7 +1,32 @@
 import type { ActivityMessage, Alias, Member, SourceRef } from '@huddle/protocol';
 import { memberLabel } from '../table-layout.js';
 
-export type ConnectionStatus = 'idle' | 'connecting' | 'online' | 'offline' | 'closed';
+export type ConnectionStatus =
+  | 'idle'
+  | 'connecting'
+  | 'online'
+  | 'offline'
+  | 'closed'
+  /** En la puerta: el hub te oyó, pero todavía no estás dentro. */
+  | 'waiting';
+
+export interface PendingGuest {
+  id: string;
+  alias: Alias;
+  tag?: string;
+  key: string;
+  repo?: string;
+  at: number;
+  knownAlias?: Alias;
+}
+
+export interface WaitingInfo {
+  id: string;
+  roomName: string;
+  host: Alias;
+  /** Tu propia cola de clave, para poder dictársela al anfitrión. */
+  key: string;
+}
 
 export type ActivityPhase = ActivityMessage['phase'];
 
@@ -51,6 +76,10 @@ export interface SessionState {
   busy: string[];
   closed: boolean;
   seq: number;
+  /** Quién espera a entrar. Solo se llena si eres el anfitrión. */
+  pending: PendingGuest[];
+  /** Puesto si eres tú quien espera. */
+  waitingInfo: WaitingInfo | null;
 }
 
 export const MAX_ENTRIES = 400;
@@ -70,6 +99,8 @@ export function initialState(): SessionState {
     busy: [],
     closed: false,
     seq: 0,
+    pending: [],
+    waitingInfo: null,
   };
 }
 

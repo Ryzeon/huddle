@@ -69,6 +69,13 @@ export class CreateRoomHandler {
     const room = registry.createRoom(name, this.deps.generateCode, clock.now());
     if (offered) room.bindKey(alias, offered);
 
+    // `validate` ya garantiza que no hay `approved` sin prueba; esto es la
+    // segunda cerradura, por si algún día se entra por otra puerta.
+    if (message.policy === 'approved' && offered) {
+      room.restorePolicy('approved');
+      room.restoreOwnerKey(offered);
+    }
+
     room.join(
       {
         channelId: channel.id,
@@ -96,6 +103,6 @@ export class CreateRoomHandler {
     });
     notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });
 
-    log(`${alias} creó "${name}" → código ${room.code}`);
+    log(`${alias} creó "${name}" → código ${room.code} (${room.policy})`);
   }
 }

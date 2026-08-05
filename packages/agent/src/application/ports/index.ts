@@ -1,4 +1,4 @@
-import type { Alias, SourceRef, Target } from '@huddle/protocol';
+import type { Alias, RoomPolicy, SourceRef, Target } from '@huddle/protocol';
 import type { CachedAnswer } from '../../domain/answer-cache.js';
 import type { QuotaState } from '../../domain/quota.js';
 
@@ -51,8 +51,11 @@ export interface RoomAnswer {
 
 export interface RoomGatewayPort {
   connect(handlers: RoomEventHandlers): void;
-  create(name: string, handlers: RoomEventHandlers): Promise<string>;
+  create(name: string, handlers: RoomEventHandlers, policy?: RoomPolicy): Promise<string>;
   kick(alias: Alias, reason?: string): void;
+  /** Deja entrar a quien espera. Siempre por id de solicitud, nunca por alias. */
+  admit(id: string, remember?: boolean): void;
+  deny(id: string, reason?: string): void;
   /** Cierra la sala para todos. El hub solo lo acepta del anfitrión. */
   closeRoom(reason?: string): void;
   /** Pide un código nuevo. Resuelve con el que devuelva el hub. */
@@ -102,8 +105,21 @@ export interface IncomingQuestion {
   ttlSeconds: number;
 }
 
+export interface JoinRequestInfo {
+  id: string;
+  alias: Alias;
+  tag?: string;
+  /** La cola de su clave, para leérsela a la persona antes de decidir. */
+  key: string;
+  repo?: string;
+  at: number;
+  knownAlias?: Alias;
+}
+
 export interface RoomEventHandlers {
   onQuestion(question: IncomingQuestion): void;
+  onJoinRequest?(request: JoinRequestInfo): void;
+  onJoinRequestGone?(id: string): void;
 }
 
 export interface RoomInfo {

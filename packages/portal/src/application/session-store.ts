@@ -71,6 +71,15 @@ export class SessionStore {
     this.send({ t: 'close' });
   }
 
+  /** Deja entrar a quien espera, por id de solicitud. Solo el anfitrión. */
+  admit(id: string, remember = true): void {
+    this.send(remember ? { t: 'admit', id } : { t: 'admit', id, remember: false });
+  }
+
+  deny(id: string, reason?: string): void {
+    this.send(reason ? { t: 'deny', id, reason } : { t: 'deny', id });
+  }
+
   /** Cambia el código de la sala. El hub solo lo acepta del anfitrión. */
   rotateCode(reason?: string): void {
     const id = newLocalId();

@@ -18,6 +18,7 @@ import { CreateRoomHandler } from './commands/create-room.js';
 import { CloseRoomHandler } from './commands/close-room.js';
 import { KickMemberHandler } from './commands/kick-member.js';
 import { RotateCodeHandler } from './commands/rotate-code.js';
+import { ApproveGuestHandler } from './commands/approve-guest.js';
 import { generateRoomCode, normalizeRoomCode } from '../domain/room-code.js';
 import { AskQuestionHandler } from './commands/ask-question.js';
 import { RelayAnswerHandler } from './commands/relay-answer.js';
@@ -31,6 +32,8 @@ export interface HubConfig {
   retentionMs: number;
   maxTtlSeconds: number;
   heartbeatTimeoutMs: number;
+  /** Cuánto se espera en la puerta antes de darse por rechazado. */
+  approvalTimeoutMs: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,6 +52,7 @@ export const DEFAULT_HUB_CONFIG: HubConfig = {
   retentionMs: 30 * DAY_MS,
   maxTtlSeconds: 300,
   heartbeatTimeoutMs: 45_000,
+  approvalTimeoutMs: 10 * 60_000,
 };
 
 export interface HubDeps {
@@ -71,6 +75,7 @@ export class HubService {
   private readonly createRoom: CreateRoomHandler;
   private readonly joinRoom: JoinRoomHandler;
   private readonly kickMember: KickMemberHandler;
+  private readonly approveGuest: ApproveGuestHandler;
   private readonly closeRoom: CloseRoomHandler;
   private readonly askQuestion: AskQuestionHandler;
   private readonly relayAnswer: RelayAnswerHandler;
@@ -113,7 +118,19 @@ export class HubService {
       ...identity,
       log,
     });
-    this.joinRoom = new JoinRoomHandler({ ...shared, clock: deps.clock, ...identity });
+    this.joinRoom = new JoinRoomHandler({
+      ...shared,
+      clock: deps.clock,
+      ...identity,
+      timers: deps.timers,
+      approvalTimeoutMs: config.approvalTimeoutMs ?? DEFAULT_HUB_CONFIG.approvalTimeoutMs,
+    });
+    this.approveGuest = new ApproveGuestHandler({
+      registry: this.registry,
+      notifier: this.notifier,
+      clock: deps.clock,
+      log,
+    });
     this.kickMember = new KickMemberHandler({ registry: this.registry, log });
     this.closeRoom = new CloseRoomHandler({
       registry: this.registry,
@@ -214,11 +231,16 @@ export class HubService {
     const room = this.registry.roomOf(channel.id);
     const member = room?.find(channel.id);
     if (!room || !member) {
+      // Quien espera en la puerta SÍ mandó join: decirle lo contrario le haría
+      // reintentar y volver a ponerse a la cola detrás de sí mismo.
+      const esperando = room?.isWaiting(channel.id) === true;
       channel.send({
         t: 'error',
         id: '',
-        reason: 'bad_request',
-        detail: 'hay que mandar `join` primero',
+        reason: esperando ? 'denied_by_owner' : 'bad_request',
+        detail: esperando
+          ? 'sigues esperando a que el anfitrión te deje entrar'
+          : 'hay que mandar `join` primero',
       });
       return;
     }
@@ -248,6 +270,16 @@ export class HubService {
       case 'kick':
         room.touch(channel.id, now);
         this.kickMember.handle({ room, requester: member.alias, channel, message });
+        // Expulsar revoca la aprobación: si no se guarda, un reinicio se la
+        // devuelve y la expulsión se deshace sola.
+        this.persistRooms();
+        return;
+
+      case 'admit':
+      case 'deny':
+        room.touch(channel.id, now);
+        this.approveGuest.handle({ room, requester: member.alias, channel, message });
+        this.persistRooms();
         return;
 
       case 'rotate':

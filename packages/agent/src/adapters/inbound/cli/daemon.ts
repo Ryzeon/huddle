@@ -45,6 +45,15 @@ export function serveControl(agent: Agent, alreadyStarted = false): void {
       return { ok: true };
     },
     rotateCode: async (reason) => ({ room: await agent.rotateCode(reason) }),
+    pending: () => agent.pending(),
+    admit: (id, remember) => {
+      agent.admit(id, remember);
+      return { ok: true };
+    },
+    deny: (id, reason) => {
+      agent.deny(id, reason);
+      return { ok: true };
+    },
     // Se contesta primero y se sale después: si saliéramos aquí, quien lo
     // pidió no llegaría a saber que funcionó.
     shutdown: () => {

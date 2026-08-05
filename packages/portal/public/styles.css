@@ -1073,3 +1073,43 @@ a {
   border-color: var(--mal);
   font-weight: 700;
 }
+
+/* La puerta: quien espera a entrar, y la espera propia. */
+.puerta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.puerta__titulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.puerta__ficha,
+.puerta__espera {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--r);
+}
+
+/* El alias y la clave, al mismo peso: el alias lo elige quien entra y no
+   prueba nada, la clave sí. Destacar el nombre invitaría a decidir por él. */
+.puerta__linea {
+  margin: 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.puerta__acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}

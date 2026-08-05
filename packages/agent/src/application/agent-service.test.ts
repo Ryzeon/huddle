@@ -16,6 +16,14 @@ class FakeGateway implements RoomGatewayPort {
     return Promise.resolve('VIEJO-CODIG');
   }
   kick(): void {}
+  admitted: { id: string; remember?: boolean }[] = [];
+  denied: string[] = [];
+  admit(id: string, remember?: boolean): void {
+    this.admitted.push({ id, remember });
+  }
+  deny(id: string): void {
+    this.denied.push(id);
+  }
   closeRoom(): void {}
   rotateCode(reason?: string): Promise<string> {
     this.rotations.push(reason);

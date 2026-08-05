@@ -13,7 +13,10 @@ export interface ControlRequest {
     | 'repos'
     | 'shutdown'
     | 'close'
-    | 'rotate';
+    | 'rotate'
+    | 'pending'
+    | 'admit'
+    | 'deny';
   to?: string;
   question?: string;
   ttl?: number;
@@ -21,6 +24,9 @@ export interface ControlRequest {
   reason?: string;
   path?: string;
   tag?: string;
+  /** Id de solicitud de entrada. Nunca se admite por alias. */
+  id?: string;
+  remember?: boolean;
 }
 
 export type ControlResponse = { ok: true; data: unknown } | { ok: false; error: string };
@@ -37,6 +43,9 @@ export interface ControlHandlers {
   shutdown(): unknown;
   closeRoom(reason?: string): unknown;
   rotateCode(reason?: string): Promise<unknown>;
+  pending(): unknown;
+  admit(id: string, remember?: boolean): unknown;
+  deny(id: string, reason?: string): unknown;
 }
 
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -143,6 +152,16 @@ async function dispatch(line: string, handlers: ControlHandlers): Promise<Contro
       return { ok: true, data: handlers.closeRoom(req.reason) };
     case 'rotate':
       return { ok: true, data: await handlers.rotateCode(req.reason) };
+    case 'pending':
+      return { ok: true, data: handlers.pending() };
+    case 'admit': {
+      if (!req.id) return { ok: false, error: 'falta `id` de la solicitud' };
+      return { ok: true, data: handlers.admit(req.id, req.remember) };
+    }
+    case 'deny': {
+      if (!req.id) return { ok: false, error: 'falta `id` de la solicitud' };
+      return { ok: true, data: handlers.deny(req.id, req.reason) };
+    }
     case 'shutdown':
       return { ok: true, data: handlers.shutdown() };
     default:

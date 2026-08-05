@@ -6,8 +6,9 @@
  * concurrencia son de la suscripción de la persona, no de cada repositorio.
  */
 
-import type { Target } from '@huddle/protocol';
+import type { RoomPolicy, Target } from '@huddle/protocol';
 import type { Quota } from '../domain/quota.js';
+import type { PendingRequest, PendingRequests } from '../domain/pending-requests.js';
 import type { QuestionCache } from '../domain/answer-cache.js';
 import { AnswerQuestionUseCase, type AgentSessionState } from './use-cases/answer-question.js';
 import type {
@@ -15,6 +16,7 @@ import type {
   LoggerPort,
   OutboundResult,
   RepoInspectorPort,
+  RoomEventHandlers,
   RoomGatewayPort,
   RosterEntry,
 } from './ports/index.js';
@@ -22,6 +24,8 @@ import type {
 export interface WorkspaceAgentDeps {
   tag?: string;
   room: RoomGatewayPort;
+  /** Compartido entre repositorios: la solicitud llega por todas las conexiones. */
+  pending?: PendingRequests;
   repo: RepoInspectorPort;
   cache: QuestionCache;
   answerQuestion: AnswerQuestionUseCase;
@@ -49,11 +53,27 @@ export class WorkspaceAgent {
   }
 
   start(): void {
-    this.deps.room.connect({ onQuestion: (question) => this.handle(question) });
+    this.deps.room.connect(this.handlers());
   }
 
-  createRoom(name: string): Promise<string> {
-    return this.deps.room.create(name, { onQuestion: (question) => this.handle(question) });
+  createRoom(name: string, policy?: RoomPolicy): Promise<string> {
+    return this.deps.room.create(name, this.handlers(), policy);
+  }
+
+  admit(id: string, remember?: boolean): void {
+    this.deps.room.admit(id, remember);
+  }
+
+  deny(id: string, reason?: string): void {
+    this.deps.room.deny(id, reason);
+  }
+
+  private handlers(): RoomEventHandlers {
+    return {
+      onQuestion: (question) => this.handle(question),
+      onJoinRequest: (request) => this.deps.pending?.add(request),
+      onJoinRequestGone: (id) => this.deps.pending?.remove(id),
+    };
   }
 
   closeRoom(reason?: string): void {
@@ -116,6 +136,7 @@ export interface AgentServiceDeps {
   makeWorkspace?: (workspace: { cwd: string; tag?: string }) => WorkspaceAgent;
   /** Deja el código nuevo escrito, para que el daemon reconecte con él. */
   onCodeRotated?: (code: string) => void;
+  pending?: PendingRequests;
 }
 
 export interface AgentIdentity {
@@ -181,13 +202,34 @@ export class AgentService {
     return code;
   }
 
-  async createRoom(name: string): Promise<string> {
+  async createRoom(name: string, policy?: RoomPolicy): Promise<string> {
     const [primary, ...rest] = this.deps.workspaces;
     if (!primary) throw new Error('no hay ningún repositorio configurado');
 
-    const code = await primary.createRoom(name);
+    const code = await primary.createRoom(name, policy);
     for (const workspace of rest) workspace.start();
     return code;
+  }
+
+  /** Quién está esperando en la puerta, sin repetidos. */
+  pending(): PendingRequest[] {
+    return this.deps.pending?.list() ?? [];
+  }
+
+  /**
+   * Aprobar y rechazar van por el repositorio principal, como cerrar o rotar:
+   * el hub solo se lo acepta al anfitrión, y el anfitrión es esa conexión.
+   */
+  admit(id: string, remember?: boolean): void {
+    const primary = this.deps.workspaces[0];
+    if (!primary) throw new Error('no hay ningún repositorio configurado');
+    primary.admit(id, remember);
+  }
+
+  deny(id: string, reason?: string): void {
+    const primary = this.deps.workspaces[0];
+    if (!primary) throw new Error('no hay ningún repositorio configurado');
+    primary.deny(id, reason);
   }
 
   addWorkspace(workspace: { cwd: string; tag?: string }): WorkspaceStatus {

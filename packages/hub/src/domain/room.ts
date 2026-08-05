@@ -1,5 +1,11 @@
-import type { Alias, Member, SourceRef, Target } from '@huddle/protocol';
+import type { Alias, Member, RoomPolicy, SourceRef, Target } from '@huddle/protocol';
 import { memberKey, toWireMember, type RoomMember } from './member.js';
+import {
+  Admission,
+  type AdmissionDecision,
+  type ApprovedEntry,
+  type WaitingGuest,
+} from './admission.js';
 import { consume, newBucket, type BucketPolicy } from './rate-limit.js';
 import { resolveAuto, resolveTargets } from './routing.js';
 
@@ -56,6 +62,13 @@ export class Room {
    * portátil para quedarse con su nombre. Muere con la sala.
    */
   private readonly keysByAlias = new Map<Alias, string>();
+
+  /**
+   * Quién puede entrar. Los que esperan NO son miembros: no están en
+   * `membersByKey`, así que `roster`, `resolveTargets`, `promoteOldest`,
+   * `isEmpty` y `staleMembers` los ignoran sin tener que saber que existen.
+   */
+  readonly admission = new Admission();
   private readonly pendingById = new Map<string, PendingAsk>();
   private readonly entries: TranscriptEntry[] = [];
   private readonly askPolicy: BucketPolicy;
@@ -151,6 +164,54 @@ export class Room {
   /** Los que ocupan ese alias sin haberlo firmado. */
   unsignedChannelsOf(alias: Alias): string[] {
     return this.members.filter((m) => m.alias === alias && !m.pubkey).map((m) => m.channelId);
+  }
+
+  get policy(): RoomPolicy {
+    return this.admission.isApproved ? 'approved' : 'open';
+  }
+
+  get ownerKey(): string | undefined {
+    return this.admission.ownerPublicKey;
+  }
+
+  restorePolicy(policy: RoomPolicy): void {
+    this.admission.restorePolicy(policy);
+  }
+
+  restoreOwnerKey(key: string): void {
+    this.admission.restoreOwnerKey(key);
+  }
+
+  restoreApproved(entries: ApprovedEntry[]): void {
+    this.admission.restoreApproved(entries);
+  }
+
+  approvedSnapshot(): ApprovedEntry[] {
+    return this.admission.approvedSnapshot();
+  }
+
+  decideAdmission(key: string | undefined, alias: Alias): AdmissionDecision {
+    return this.admission.decide(key, alias);
+  }
+
+  addWaiting(guest: WaitingGuest): void {
+    this.admission.addWaiting(guest);
+  }
+
+  removeWaiting(channelId: string): WaitingGuest | undefined {
+    return this.admission.removeWaiting(channelId);
+  }
+
+  waitingBy(requestId: string): WaitingGuest | undefined {
+    return this.admission.waitingBy(requestId);
+  }
+
+  isWaiting(channelId: string): boolean {
+    return this.admission.isWaiting(channelId);
+  }
+
+  waitingList(): WaitingGuest[] {
+    return this.admission.waitingList();
   }
 
   private oldestMember(excluding?: Alias): Alias | undefined {

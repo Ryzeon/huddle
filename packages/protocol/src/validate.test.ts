@@ -61,6 +61,51 @@ describe('validación de frontera', () => {
     assert.equal(validateProof(undefined), undefined);
   });
 
+  test('una sala con aprobación sin firma se rechaza, no se degrada', () => {
+    assert.throws(
+      () =>
+        validateClientMessage({
+          t: 'create',
+          v: PROTOCOL_VERSION,
+          name: 'Equipo',
+          alias: '@ana',
+          quotaRemaining: null,
+          policy: 'approved',
+        }),
+      ValidationError,
+      'degradar a abierta en silencio dejaría una sala que parece cerrada y no lo está',
+    );
+  });
+
+  test('una sala con aprobación y firma pasa', () => {
+    const message = validateClientMessage({
+      t: 'create',
+      v: PROTOCOL_VERSION,
+      name: 'Equipo',
+      alias: '@ana',
+      quotaRemaining: null,
+      policy: 'approved',
+      proof: { pubkey: 'a'.repeat(43), sig: 'b'.repeat(86), nonce: 'reto' },
+    });
+    assert.equal(message.t === 'create' ? message.policy : undefined, 'approved');
+  });
+
+  test('una política desconocida se lee como abierta', () => {
+    const message = validateClientMessage({
+      t: 'create',
+      v: PROTOCOL_VERSION,
+      name: 'Equipo',
+      alias: '@ana',
+      quotaRemaining: null,
+      policy: 'lo-que-sea',
+    });
+    assert.equal(message.t === 'create' ? message.policy : undefined, undefined);
+  });
+
+  test('admitir exige el id de la solicitud', () => {
+    assert.throws(() => validateClientMessage({ t: 'admit' }), ValidationError);
+  });
+
   test('un motivo de error desconocido cae en agent_failed', () => {
     const message = validateClientMessage({ t: 'error', id: 'x', reason: 'inventado' });
     assert.equal(message.t === 'error' ? message.reason : undefined, 'agent_failed');

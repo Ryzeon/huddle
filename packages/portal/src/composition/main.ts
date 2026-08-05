@@ -11,6 +11,7 @@ import {
 import { ChatView } from '../adapters/inbound/chat-view.js';
 import { HeaderView } from '../adapters/inbound/header-view.js';
 import { RoomsView, normalizeAlias } from '../adapters/inbound/rooms-view.js';
+import { ApprovalsView } from '../adapters/inbound/approvals-view.js';
 import { TableView } from '../adapters/inbound/table-view.js';
 import { applyTheme, readTheme, toggleTheme, type Theme } from '../adapters/inbound/theme.js';
 import { need } from '../adapters/inbound/dom.js';
@@ -53,8 +54,12 @@ function buildFeed(params: URLSearchParams, signer: PortalIdentity | null): Setu
   const create = params.get('crear');
   if (!room && !create) return { feed: new IdleFeed(), demo: null, hub, alias };
 
+  // Una sala con aprobación exige firmar: sin Ed25519 en el navegador nace
+  // abierta, y el hub rechazaría el `create` si dijéramos lo contrario.
+  const policy = params.get('politica') === 'aprobada' && signer ? 'approved' : undefined;
+
   const identity: FeedIdentity = create
-    ? { mode: 'create', room: '', roomName: create, alias, viewer: true }
+    ? { mode: 'create', room: '', roomName: create, alias, viewer: true, policy }
     : { mode: 'join', room: room ?? '', alias, viewer: true };
 
   return {
@@ -146,6 +151,14 @@ export async function bootstrap(): Promise<void> {
     { hub, alias },
   );
 
+  const puerta = document.querySelector<HTMLElement>('[data-puerta]');
+  const approvals = puerta
+    ? new ApprovalsView(puerta, {
+        onAdmit: (id) => store.admit(id),
+        onDeny: (id) => store.deny(id),
+      })
+    : null;
+
   const empty = need<HTMLElement>('[data-vacio]');
   const replay = need<HTMLButtonElement>('[data-repetir]');
   replay.hidden = demo === null;
@@ -213,6 +226,7 @@ export async function bootstrap(): Promise<void> {
     table.render(state);
     chat.render(state);
     roomsView.render(state);
+    approvals?.render(state);
     empty.hidden = state.room !== null;
     if (salir) salir.hidden = state.room === null;
     // Solo al anfitrión, y comparando por alias: tu etiqueta puede llevar tag.

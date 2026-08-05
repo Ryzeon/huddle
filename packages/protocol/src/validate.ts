@@ -8,7 +8,9 @@
  */
 
 import type {
+  AdmitGuestMessage,
   CloseRoomMessage,
+  DenyGuestMessage,
   AskMessage,
   CreateRoomMessage,
   KickMessage,
@@ -194,6 +196,31 @@ export function validateClientMessage(msg: { t: string } & Obj): ClientMessage {
       if (card) out.card = card;
       const proof = validateProof(msg.proof);
       if (proof) out.proof = proof;
+
+      const policy = oneOf(msg, 'policy', ['open', 'approved'] as const, 'open');
+      // Sin firma, aprobar un alias no aprueba nada: quien vuelve podría ser
+      // cualquiera. Degradar a `open` en silencio sería el peor fallo posible,
+      // porque la sala parecería cerrada y no lo estaría.
+      if (policy === 'approved' && !proof) {
+        throw new ValidationError(
+          'policy',
+          'una sala con aprobación exige firmar el alias; este cliente no puede firmar',
+        );
+      }
+      if (policy === 'approved') out.policy = policy;
+      return out;
+    }
+
+    case 'admit': {
+      const out: AdmitGuestMessage = { t: 'admit', id: str(msg, 'id', 64) };
+      if (msg.remember === false) out.remember = false;
+      return out;
+    }
+
+    case 'deny': {
+      const out: DenyGuestMessage = { t: 'deny', id: str(msg, 'id', 64) };
+      const reason = optionalStr(msg, 'reason', 200);
+      if (reason) out.reason = reason;
       return out;
     }
 
