@@ -205,7 +205,9 @@ export class NodeLayer {
 
       if (armado) {
         clearTimeout(volver);
-        this.onKick?.(seat.label);
+        // Se manda el alias, no la etiqueta: expulsar echa a la persona con
+        // todos sus repos, y `KickMessage` no admite los dos puntos del tag.
+        this.onKick?.(seat.alias);
         return;
       }
 
