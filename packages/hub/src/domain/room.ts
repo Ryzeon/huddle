@@ -39,7 +39,7 @@ export type AskOutcome =
 const TRANSCRIPT_LIMIT = 500;
 
 /** Tope de alias firmados por sala: el vínculo no caduca, la memoria sí importa. */
-const MAX_KEYS = 200;
+export const MAX_KEYS = 200;
 
 const KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
@@ -141,11 +141,17 @@ export class Room {
     return this.keysByAlias.get(alias);
   }
 
-  /** Nunca sobrescribe: un alias ya firmado no cambia de dueño. */
-  bindKey(alias: Alias, pubkey: string): void {
-    if (this.keysByAlias.has(alias)) return;
-    if (this.keysByAlias.size >= MAX_KEYS) return;
+  /**
+   * Ata el alias a la clave y dice si quedó atado. Nunca sobrescribe: un alias
+   * ya firmado no cambia de dueño. Devolver `false` en vez de callarse es lo
+   * que impide dar la insignia por un vínculo que no se escribió.
+   */
+  bindKey(alias: Alias, pubkey: string): boolean {
+    const bound = this.keysByAlias.get(alias);
+    if (bound) return bound === pubkey;
+    if (this.keysByAlias.size >= MAX_KEYS) return false;
     this.keysByAlias.set(alias, pubkey);
+    return true;
   }
 
   keySnapshot(): Record<string, string> {

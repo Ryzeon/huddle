@@ -67,7 +67,7 @@ export class CreateRoomHandler {
     );
 
     const room = registry.createRoom(name, this.deps.generateCode, clock.now());
-    if (offered) room.bindKey(alias, offered);
+    const verified = offered !== undefined && room.bindKey(alias, offered);
 
     // `validate` ya garantiza que no hay `approved` sin prueba; esto es la
     // segunda cerradura, por si algún día se entra por otra puerta.
@@ -82,8 +82,8 @@ export class CreateRoomHandler {
         alias,
         tag: message.tag,
         card: message.card,
-        pubkey: offered,
-        verified: offered !== undefined,
+        pubkey: verified ? offered : undefined,
+        verified,
         lastSeen: clock.now(),
         quotaRemaining: message.quotaRemaining,
       },
@@ -99,7 +99,7 @@ export class CreateRoomHandler {
       you: alias,
       host: alias,
       members: room.roster(),
-      verified: offered !== undefined,
+      verified,
     });
     notifier.broadcast(room, { t: 'host_changed', host: alias, reason: 'created' });
 
